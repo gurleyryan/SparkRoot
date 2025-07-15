@@ -154,9 +154,12 @@ class SupabaseRestClient:
                     "full_name": full_name,
                     "updated_at": datetime.utcnow().isoformat()
                 }
+                # Add Prefer header to get inserted row back
+                headers = self.service_headers.copy()
+                headers["Prefer"] = "return=representation"
                 response = await client.post(
                     f"{self.base_url}/rest/v1/profiles",
-                    headers=self.service_headers,
+                    headers=headers,
                     json=profile_data,
                     timeout=10.0
                 )
