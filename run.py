@@ -36,10 +36,25 @@ def main():
                 print(f"  📁 {item}")
         return 1
     
+    # Check if main.py exists
+    main_py_path = Path("main.py")
+    if not main_py_path.exists():
+        print("❌ main.py not found in backend directory!")
+        print("Backend contents:")
+        for item in Path(".").iterdir():
+            print(f"  📄 {item}")
+        return 1
+    
     # Now try to import and run
     try:
         import uvicorn
-        from main import app
+        import importlib.util
+        
+        # Load main.py as a module
+        spec = importlib.util.spec_from_file_location("main", "main.py")
+        main_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(main_module)
+        app = main_module.app
         
         # Get port from environment
         port = int(os.environ.get("PORT", 8000))
