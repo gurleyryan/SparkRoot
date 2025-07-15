@@ -81,32 +81,21 @@ class SupabaseRestClient:
                     "password": password,
                     "email_confirm": True  # Bypass email confirmation
                 }
-                
                 response = await client.post(
                     f"{self.base_url}/auth/v1/admin/users",
                     headers=self.service_headers,
                     json=user_data,
-                    timeout=10.0  # Add timeout
+                    timeout=10.0
                 )
-                
                 if response.status_code in [200, 201]:
                     return response.json()
                 else:
-                    print(f"Auth user creation failed: {response.status_code} - {response.text}")
-                    return None
-            except httpx.ConnectError as e:
-                print(f"Connection error (DNS/Network issue): {e}")
-                # For development/testing, return a mock user
-                print("⚠️ Using fallback user creation for development")
-                return {
-                    "id": str(uuid.uuid4()),
-                    "email": email,
-                    "created_at": datetime.utcnow().isoformat(),
-                    "email_confirmed_at": datetime.utcnow().isoformat()
-                }
+                    error_msg = f"Auth user creation failed: {response.status_code} - {response.text}"
+                    print(error_msg)
+                    raise Exception(error_msg)
             except Exception as e:
                 print(f"Error creating auth user: {e}")
-                return None
+                raise
 
     async def get_auth_user_by_email(self, email: str) -> Optional[dict]:
         """Get user from auth.users by email using admin API"""
@@ -116,29 +105,21 @@ class SupabaseRestClient:
                     f"{self.base_url}/auth/v1/admin/users",
                     headers=self.service_headers,
                     params={"email": email},
-                    timeout=10.0  # Add timeout
+                    timeout=10.0
                 )
-                
                 if response.status_code == 200:
                     users = response.json().get("users", [])
                     if users:
-                        return users[0]  # Return first matching user
-                return None
-            except httpx.ConnectError as e:
-                print(f"Connection error (DNS/Network issue): {e}")
-                # For development/testing, return a mock user if email looks valid
-                if email and "@" in email:
-                    print("⚠️ Using fallback user lookup for development")
-                    return {
-                        "id": str(uuid.uuid4()),
-                        "email": email,
-                        "created_at": datetime.utcnow().isoformat(),
-                        "email_confirmed_at": datetime.utcnow().isoformat()
-                    }
-                return None
+                        return users[0]
+                    else:
+                        return None
+                else:
+                    error_msg = f"Auth user lookup failed: {response.status_code} - {response.text}"
+                    print(error_msg)
+                    raise Exception(error_msg)
             except Exception as e:
                 print(f"Error getting auth user: {e}")
-                return None
+                raise
 
     async def verify_password_with_signin(self, email: str, password: str) -> Optional[dict]:
         """Verify password using sign in endpoint"""
@@ -148,35 +129,21 @@ class SupabaseRestClient:
                     "email": email,
                     "password": password
                 }
-                
                 response = await client.post(
                     f"{self.base_url}/auth/v1/token?grant_type=password",
                     headers=self.anon_headers,
                     json=sign_in_data,
-                    timeout=10.0  # Add timeout
+                    timeout=10.0
                 )
-                
                 if response.status_code == 200:
                     return response.json()
-                return None
-            except httpx.ConnectError as e:
-                print(f"Connection error (DNS/Network issue): {e}")
-                # For development/testing, return a mock success if credentials look valid
-                if email and password and "@" in email:
-                    print("⚠️ Using fallback authentication for development")
-                    return {
-                        "user": {
-                            "id": str(uuid.uuid4()),
-                            "email": email,
-                            "created_at": datetime.utcnow().isoformat()
-                        },
-                        "access_token": "mock_token",
-                        "token_type": "bearer"
-                    }
-                return None
+                else:
+                    error_msg = f"Password verification failed: {response.status_code} - {response.text}"
+                    print(error_msg)
+                    raise Exception(error_msg)
             except Exception as e:
                 print(f"Error verifying password: {e}")
-                return None
+                raise
 
     async def create_profile(self, user_id: str, full_name: str = None) -> Optional[dict]:
         """Create user profile in profiles table"""
@@ -187,33 +154,22 @@ class SupabaseRestClient:
                     "full_name": full_name,
                     "updated_at": datetime.utcnow().isoformat()
                 }
-                
                 response = await client.post(
                     f"{self.base_url}/rest/v1/profiles",
                     headers=self.service_headers,
                     json=profile_data,
-                    timeout=10.0  # Add timeout
+                    timeout=10.0
                 )
-                
                 if response.status_code in [200, 201]:
                     result = response.json()
                     return result[0] if isinstance(result, list) else result
                 else:
-                    print(f"Profile creation failed: {response.status_code} - {response.text}")
-                    return None
-            except httpx.ConnectError as e:
-                print(f"Connection error (DNS/Network issue): {e}")
-                # For development/testing, return a mock profile
-                print("⚠️ Using fallback profile creation for development")
-                return {
-                    "user_id": user_id,
-                    "full_name": full_name,
-                    "created_at": datetime.utcnow().isoformat(),
-                    "updated_at": datetime.utcnow().isoformat()
-                }
+                    error_msg = f"Profile creation failed: {response.status_code} - {response.text}"
+                    print(error_msg)
+                    raise Exception(error_msg)
             except Exception as e:
                 print(f"Error creating profile: {e}")
-                return None
+                raise
 
     async def get_profile_by_user_id(self, user_id: str) -> Optional[dict]:
         """Get profile by user_id"""
@@ -222,27 +178,21 @@ class SupabaseRestClient:
                 response = await client.get(
                     f"{self.base_url}/rest/v1/profiles?user_id=eq.{user_id}",
                     headers=self.service_headers,
-                    timeout=10.0  # Add timeout
+                    timeout=10.0
                 )
-                
                 if response.status_code == 200:
                     profiles = response.json()
                     if profiles:
                         return profiles[0]
-                return None
-            except httpx.ConnectError as e:
-                print(f"Connection error (DNS/Network issue): {e}")
-                # For development/testing, return a mock profile
-                print("⚠️ Using fallback profile lookup for development")
-                return {
-                    "user_id": user_id,
-                    "full_name": "Test User",
-                    "created_at": datetime.utcnow().isoformat(),
-                    "updated_at": datetime.utcnow().isoformat()
-                }
+                    else:
+                        return None
+                else:
+                    error_msg = f"Profile lookup failed: {response.status_code} - {response.text}"
+                    print(error_msg)
+                    raise Exception(error_msg)
             except Exception as e:
                 print(f"Error getting profile: {e}")
-                return None
+                raise
 
 # Initialize the client
 supabase_client = SupabaseRestClient()
