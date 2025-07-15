@@ -164,8 +164,16 @@ class SupabaseRestClient:
                     result = response.json()
                     return result[0] if isinstance(result, list) else result
                 else:
+                    # Print full response for debugging
+                    print("Profile creation failed:")
+                    print(f"Status: {response.status_code}")
+                    print(f"Headers: {response.headers}")
+                    print(f"Response text: {response.text}")
+                    try:
+                        print(f"Response JSON: {response.json()}")
+                    except Exception:
+                        pass
                     error_msg = f"Profile creation failed: {response.status_code} - {response.text}"
-                    print(error_msg)
                     raise Exception(error_msg)
             except Exception as e:
                 print(f"Error creating profile: {e}")
