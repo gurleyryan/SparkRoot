@@ -12,6 +12,7 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
+    fullName: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -33,12 +34,13 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
 
       let response, data;
       if (isLogin) {
-        // Sign in
+        // Allow sign in with email or username
+        const identifier = formData.email || formData.username;
         response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: formData.email || `${formData.username}@example.com`,
+            email: identifier,
             password: formData.password
           })
         });
@@ -50,7 +52,8 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
           body: JSON.stringify({
             email: formData.email,
             password: formData.password,
-            full_name: formData.username
+            username: formData.username,
+            full_name: formData.fullName
           })
         });
       }
@@ -71,7 +74,7 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
       const userData: User = {
         id: data.id || data.user?.id || '',
         email: data.email || data.user?.email || formData.email,
-        full_name: data.full_name || data.user?.full_name || formData.username,
+        full_name: data.full_name || data.user?.full_name || formData.fullName || formData.username,
         avatar_url: data.avatar_url || undefined,
         created_at: data.created_at || new Date().toISOString()
       };
@@ -106,56 +109,90 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-
-          {/* Always show email field for login/signup consistency */}
-          <div>
-            <label className="block text-gray-300 mb-2 font-mtg-body">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-300 mb-2 font-mtg-body">Username</label>
-            <input
-              type="text"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-300 mb-2 font-mtg-body">Password</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
-              required
-            />
-          </div>
-
-          {!isLogin && (
-            <div>
-              <label className="block text-gray-300 mb-2 font-mtg-body">Confirm Password</label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
-                required
-              />
-            </div>
+          {/* Sign In: Only email/username and password. Sign Up: All fields. */}
+          {isLogin ? (
+            <>
+              <div>
+                <label className="block text-gray-300 mb-2 font-mtg-body">Email or Username</label>
+                <input
+                  type="text"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-300 mb-2 font-mtg-body">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  required
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-gray-300 mb-2 font-mtg-body">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-300 mb-2 font-mtg-body">Username</label>
+                <input
+                  type="text"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-300 mb-2 font-mtg-body">Full Name</label>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-300 mb-2 font-mtg-body">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-300 mb-2 font-mtg-body">Confirm Password</label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  required
+                />
+              </div>
+            </>
           )}
 
           {error && (
