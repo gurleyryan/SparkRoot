@@ -25,24 +25,59 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
     setError('');
 
     try {
-      // For now, simulate successful auth
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        const userData: User = {
-          id: 'dummy-id-' + Date.now(),
-          email: formData.email || `${formData.username}@example.com`,
-          full_name: formData.username,
-          avatar_url: undefined,
-          created_at: new Date().toISOString()
-        };
-        
-        const token = 'dummy-token-' + Date.now();
-        localStorage.setItem('auth_token', token);
-        onAuth(userData);
+      if (!isLogin && formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match.');
         setIsLoading(false);
-      }, 1000);
+        return;
+      }
 
-    } catch {
+      let response, data;
+      if (isLogin) {
+        // Sign in
+        response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email || `${formData.username}@example.com`,
+            password: formData.password
+          })
+        });
+      } else {
+        // Sign up
+        response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            full_name: formData.username
+          })
+        });
+      }
+
+      data = await response.json();
+      if (!response.ok) {
+        setError(data.detail || data.error || 'Authentication failed.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Save token if present
+      if (data.access_token) {
+        localStorage.setItem('auth_token', data.access_token);
+      }
+
+      // Use user data from response if available
+      const userData: User = {
+        id: data.id || data.user?.id || '',
+        email: data.email || data.user?.email || formData.email,
+        full_name: data.full_name || data.user?.full_name || formData.username,
+        avatar_url: data.avatar_url || undefined,
+        created_at: data.created_at || new Date().toISOString()
+      };
+      onAuth(userData);
+      setIsLoading(false);
+    } catch (err: any) {
       setError('Authentication failed. Please try again.');
       setIsLoading(false);
     }
@@ -71,6 +106,20 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Always show email field for login/signup consistency */}
+          <div>
+            <label className="block text-gray-300 mb-2 font-mtg-body">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+              required
+            />
+          </div>
+
           <div>
             <label className="block text-gray-300 mb-2 font-mtg-body">Username</label>
             <input
@@ -82,20 +131,6 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
               required
             />
           </div>
-
-          {!isLogin && (
-            <div>
-              <label className="block text-gray-300 mb-2 font-mtg-body">Email</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
-                required
-              />
-            </div>
-          )}
 
           <div>
             <label className="block text-gray-300 mb-2 font-mtg-body">Password</label>
@@ -147,11 +182,13 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
           </button>
         </div>
 
+        {/*
         <div className="mt-4 text-center">
           <p className="text-gray-400 text-sm font-mtg-body">
             Demo mode - Authentication simulated locally
           </p>
         </div>
+        */}
       </div>
     </div>
   );
