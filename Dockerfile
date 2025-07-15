@@ -13,7 +13,7 @@ COPY . .
 RUN mkdir -p data
 
 # Download initial data
-RUN python download_data.py
+RUN python data/download_scryfall_data.py
 
 # Expose port
 EXPOSE 8000
