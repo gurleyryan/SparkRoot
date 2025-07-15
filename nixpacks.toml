@@ -8,12 +8,15 @@ nixPkgs = ["python3", "gcc", "bash"]
 dependsOn = ["setup"]
 cmds = [
     "pip install --upgrade pip",
-    "pip install -r backend/requirements.txt"
+    "pip install -r backend/requirements.txt",
+    "pip install requests"
 ]
 
 [phases.build]
 dependsOn = ["install"]
-cmds = []
+cmds = [
+    "python download_data.py"
+]
 
 [start]
 cmd = "python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
