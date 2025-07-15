@@ -2,12 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Copy entire project structure
+COPY . .
+
 # Copy requirements and install dependencies
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
-
-# Copy entire project structure
-COPY . .
 
 # Create data directory if it doesn't exist
 RUN mkdir -p data
