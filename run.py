@@ -21,12 +21,11 @@ def main():
         print(f"✅ Found backend directory at: {backend_path.absolute()}")
         print(f"Backend contents: {list(backend_path.iterdir())}")
         
-        # Add backend to Python path
+        # Add backend to Python path but keep working directory as root
         sys.path.insert(0, str(backend_path.absolute()))
         
-        # Change to backend directory
-        os.chdir(backend_path)
-        print(f"Changed to: {os.getcwd()}")
+        # DON'T change directory - keep at root so relative paths work
+        print(f"Staying in root directory: {os.getcwd()}")
         
     else:
         print("❌ Backend directory not found!")
@@ -36,25 +35,21 @@ def main():
                 print(f"  📁 {item}")
         return 1
     
-    # Check if main.py exists
-    main_py_path = Path("main.py")
+    # Check if main.py exists in backend directory
+    main_py_path = backend_path / "main.py"
     if not main_py_path.exists():
         print("❌ main.py not found in backend directory!")
         print("Backend contents:")
-        for item in Path(".").iterdir():
+        for item in backend_path.iterdir():
             print(f"  📄 {item}")
         return 1
     
     # Now try to import and run
     try:
         import uvicorn
-        import importlib.util
         
-        # Load main.py as a module
-        spec = importlib.util.spec_from_file_location("main", "main.py")
-        main_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(main_module)
-        app = main_module.app
+        # Import the main module from backend
+        from backend.main import app
         
         # Get port from environment
         port = int(os.environ.get("PORT", 8000))

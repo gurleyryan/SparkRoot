@@ -106,10 +106,10 @@ def get_user_from_token(credentials: HTTPAuthorizationCredentials = Depends(secu
 
 class UserManager:
     @staticmethod
-    def create_user(user_data: UserCreate):
+    async def create_user(user_data: UserCreate):
         # Check if user already exists
-        existing_user = db.execute_query_one(
-            "SELECT id FROM users WHERE email = %s", 
+        existing_user = await db.execute_query_one(
+            "SELECT id FROM users WHERE email = ?", 
             (user_data.email,)
         )
         if existing_user:
@@ -120,18 +120,34 @@ class UserManager:
         
         # Create user
         password_hash = get_password_hash(user_data.password)
-        user_id = db.execute_query_one('''
-            INSERT INTO users (email, password_hash, first_name, last_name, display_name)
-            VALUES (%s, %s, %s, %s, %s) RETURNING id
-        ''', (user_data.email, password_hash, user_data.first_name, 
-              user_data.last_name, user_data.display_name))
+        
+        if db.is_sqlite:
+            # SQLite INSERT with RETURNING is different
+            cursor = await db.sqlite_conn.execute('''
+                INSERT INTO users (email, password_hash, first_name, last_name, display_name)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (user_data.email, password_hash, user_data.first_name, 
+                  user_data.last_name, user_data.display_name))
+            user_id = cursor.lastrowid
+            await db.sqlite_conn.commit()
+        else:
+            user_id_result = await db.execute_query_one('''
+                INSERT INTO users (email, password_hash, first_name, last_name, display_name)
+                VALUES (%s, %s, %s, %s, %s) RETURNING id
+            ''', (user_data.email, password_hash, user_data.first_name, 
+                  user_data.last_name, user_data.display_name))
+            user_id = user_id_result['id'] if user_id_result else None
         
         if user_id:
-            user_id = user_id['id']
             # Create default settings
-            db.execute_query('''
-                INSERT INTO user_settings (user_id) VALUES (%s)
-            ''', (user_id,))
+            if db.is_sqlite:
+                await db.execute_query('''
+                    INSERT INTO user_settings (user_id) VALUES (?)
+                ''', (user_id,))
+            else:
+                await db.execute_query('''
+                    INSERT INTO user_settings (user_id) VALUES (%s)
+                ''', (user_id,))
             
             return user_id
         else:
@@ -141,11 +157,17 @@ class UserManager:
             )
     
     @staticmethod
-    def authenticate_user(email: str, password: str):
-        user = db.execute_query_one(
-            "SELECT * FROM users WHERE email = %s", 
-            (email,)
-        )
+    async def authenticate_user(email: str, password: str):
+        if db.is_sqlite:
+            user = await db.execute_query_one(
+                "SELECT * FROM users WHERE email = ?", 
+                (email,)
+            )
+        else:
+            user = await db.execute_query_one(
+                "SELECT * FROM users WHERE email = %s", 
+                (email,)
+            )
         
         if not user or not verify_password(password, user['password_hash']):
             return False

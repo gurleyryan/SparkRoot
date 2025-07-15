@@ -29,6 +29,9 @@ from auth_supabase import (
 # Import pricing modules
 from pricing import PriceManager, enrich_collection_with_prices, calculate_collection_value
 
+# Import database
+from supabase_db import db
+
 def convert_numpy_types(collection):
     """Convert numpy types to native Python types for JSON serialization"""
     for card in collection:
@@ -49,6 +52,16 @@ def convert_numpy_types(collection):
     return collection
 
 app = FastAPI(title="MTG Deck Optimizer API", version="1.0.0")
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database connection pool on startup"""
+    await db.init_pool()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close database connection pool on shutdown"""
+    await db.close_pool()
 
 # Cache Scryfall data to avoid reloading the large file
 _scryfall_cache = None
@@ -92,7 +105,7 @@ async def health_check():
 async def register_user(user_data: UserCreate):
     """Register a new user"""
     try:
-        user_id = UserManager.create_user(user_data)
+        user_id = await UserManager.create_user(user_data)
         return JSONResponse(
             status_code=201,
             content={
@@ -112,7 +125,7 @@ async def register_user(user_data: UserCreate):
 @app.post("/api/auth/login", response_model=Token)
 async def login_user(user_credentials: UserLogin):
     """Authenticate user and return access token"""
-    user = UserManager.authenticate_user(user_credentials.email, user_credentials.password)
+    user = await UserManager.authenticate_user(user_credentials.email, user_credentials.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -2,18 +2,21 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy backend requirements
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy requirements and install dependencies
+COPY backend/requirements.txt ./backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# Copy backend code
-COPY backend/ .
+# Copy entire project structure
+COPY . .
 
-# Copy data files
-COPY data/ ./data/
+# Create data directory if it doesn't exist
+RUN mkdir -p data
+
+# Download initial data
+RUN python download_data.py
 
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application using the run.py script
+CMD ["python", "run.py"]
