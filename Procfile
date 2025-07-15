@@ -1,1 +1,1 @@
-web: python run.py
+web: python data/download_scryfall_data.py && python run.py
