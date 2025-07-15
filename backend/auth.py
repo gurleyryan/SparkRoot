@@ -2,16 +2,16 @@
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import os
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr
-import sqlite3
-import hashlib
 import secrets
+
+# Import Supabase database connection
+from supabase_db import db
 
 # Security configuration
 SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))

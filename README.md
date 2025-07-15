@@ -313,24 +313,47 @@ This application is fully optimized and ready for production deployment:
 
 ### **Deployment Options**
 
-#### **Option 1: Vercel + Railway (Recommended)**
+#### **Option 1: Supabase + Railway + Vercel (Recommended)**
+
+**Complete modern stack with PostgreSQL:**
+
+1. **Database (Supabase)**:
+   - Create Supabase project
+   - Run `supabase_setup.sql` in SQL Editor
+   - Get your project credentials
+
+2. **Backend (Railway)**:
+   - Deploy backend with Supabase environment variables
+   - PostgreSQL database with full SQL features
+   - Auto-scaling and monitoring
+
+3. **Frontend (Vercel)**:
+   - Deploy frontend with API URL configuration
+   - Automatic HTTPS and global CDN
+   - Zero-config deployment
+
+📚 **[Complete Supabase Setup Guide](SUPABASE_DEPLOYMENT.md)**
+
+#### **Option 2: Railway SQLite (Quick Start)**
 
 **Frontend (Vercel):**
 1. Push code to GitHub repository
 2. Connect repository to Vercel
-3. Configure environment variables:
+3. Set root directory to `/frontend`
+4. Configure environment variables:
    ```
-   NEXT_PUBLIC_API_URL=https://your-backend-url.com
+   NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app
    ```
-4. Deploy automatically on every push
+5. Deploy automatically on every push
 
 **Backend (Railway):**
 1. Connect GitHub repository to Railway
-2. Add PostgreSQL database addon
-3. Configure environment variables
-4. Deploy with automatic container builds
+2. Set root directory to `/backend`
+3. Use existing SQLite database (simple setup)
+4. Configure environment variables
+5. Deploy with automatic container builds
 
-#### **Option 2: Full Docker Deployment**
+#### **Option 3: Full Docker Deployment**
 ```bash
 # Build and run with Docker Compose
 docker-compose up --build

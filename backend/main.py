@@ -14,10 +14,11 @@ from deckgen import find_valid_commanders, generate_commander_deck
 from deck_analysis import analyze_deck_quality
 from deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield, get_deck_statistics
 
-# Import authentication modules
-from auth import (
+# Import authentication modules (Supabase version)
+from auth_supabase import (
     UserCreate, UserResponse, UserLogin, Token, CollectionSave, UserSettings,
-    UserManager, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+    UserManager, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
+    PriceCache
 )
 
 # Import pricing modules
@@ -76,6 +77,10 @@ class DeckAnalysisRequest(BaseModel):
 @app.get("/")
 async def root():
     return {"message": "MTG Deck Optimizer API is running!"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "MTG Deck Optimizer API"}
 
 # Authentication endpoints
 @app.post("/api/auth/register", response_model=UserResponse)
