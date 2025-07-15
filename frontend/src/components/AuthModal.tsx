@@ -41,7 +41,7 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: identifier,
+            identifier,
             password: formData.password
           })
         });
@@ -75,7 +75,8 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
       const userData: User = {
         id: data.id || data.user?.id || '',
         email: data.email || data.user?.email || formData.email,
-        full_name: data.full_name || data.user?.full_name || formData.fullName || formData.username,
+        username: data.username || formData.username,
+        full_name: data.full_name || data.user?.full_name || formData.fullName || data.username || formData.username,
         avatar_url: data.avatar_url || undefined,
         created_at: data.created_at || new Date().toISOString()
       };

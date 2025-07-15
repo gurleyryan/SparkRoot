@@ -36,7 +36,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
                 <div className="text-gray-300 font-mtg-body">
-                  Welcome, {user?.full_name || 'User'}
+                  Welcome, {user?.full_name || user?.username || 'User'}
                 </div>
                 <button
                   onClick={onLogout}

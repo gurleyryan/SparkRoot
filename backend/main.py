@@ -128,21 +128,26 @@ async def register_user(user_data: dict = Body(...)):
         print(f"Registration error: {e}")
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
-@app.post("/api/auth/login", response_model=Token)
-async def login_user(user_credentials: UserLogin):
-    """Authenticate user and return access token"""
-    user = await UserManager.authenticate_user(user_credentials.email, user_credentials.password)
+from fastapi import Body
+
+@app.post("/api/auth/login")
+async def login_user(payload: dict = Body(...)):
+    """Authenticate user and return access token and user info"""
+    identifier = payload.get("identifier") or payload.get("email") or payload.get("username")
+    password = payload.get("password")
+    if not identifier or not password:
+        raise HTTPException(status_code=422, detail="Missing identifier or password")
+    user = await UserManager.authenticate_user(identifier, password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect email/username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # Extract email from the user dict structure
-    user_email = user.get("email") or user_credentials.email
+    user_email = user.get("email") or identifier
     user_id = user.get("id")
-    
+    username = user.get("username")
+    full_name = user.get("full_name")
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={
@@ -151,7 +156,15 @@ async def login_user(user_credentials: UserLogin):
         },
         expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "id": user_id,
+        "email": user_email,
+        "username": username,
+        "full_name": full_name,
+        "created_at": user.get("created_at")
+    }
 
 @app.get("/api/auth/me", response_model=UserResponse)
 async def get_current_user_info(current_user = Depends(get_user_from_token)):

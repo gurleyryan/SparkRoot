@@ -323,6 +323,7 @@ class UserManager:
             return {
                 "id": user_id,
                 "email": user["email"],
+                "username": profile.get("username") if profile else None,
                 "full_name": profile.get("full_name") if profile else None,
                 "created_at": user.get("created_at"),
                 "auth_result": auth_result
