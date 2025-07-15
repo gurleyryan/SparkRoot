@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ApiClient } from '@/lib/api';
+import { ApiClient } from '../../lib/api';
 import { useAuthStore } from '@/store/authStore';
 
 export default function ApiTestPage() {
