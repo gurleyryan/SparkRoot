@@ -62,5 +62,9 @@ collection.csv
 
 # Generated files
 decks/
-*.txt
-*.json
+*.log
+*.tmp
+
+# Exclude specific files but keep requirements.txt
+!requirements.txt
+!*/requirements.txt
