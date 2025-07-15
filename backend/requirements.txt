@@ -16,6 +16,7 @@ python-multipart==0.0.20
 pandas==2.2.3
 pydantic==2.10.4
 httpx==0.28.1  # For API calls
+requests  # For Scryfall data download
 
 # Validation & Serialization
 pydantic-settings==2.7.0
