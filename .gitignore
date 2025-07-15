@@ -65,6 +65,11 @@ decks/
 *.log
 *.tmp
 
+# Large data files (keep out of git)
+data/scryfall_all_cards.json
+data/*.json
+data/samples/*.csv
+
 # Exclude specific files but keep requirements.txt
 !requirements.txt
 !*/requirements.txt
