@@ -33,10 +33,11 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
       }
 
       let response, data;
+      const API_BASE = 'https://mtg.up.railway.app/api/auth';
       if (isLogin) {
         // Allow sign in with email or username
         const identifier = formData.email || formData.username;
-        response = await fetch('/api/auth/login', {
+        response = await fetch(`${API_BASE}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -46,7 +47,7 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
         });
       } else {
         // Sign up
-        response = await fetch('/api/auth/register', {
+        response = await fetch(`${API_BASE}/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
