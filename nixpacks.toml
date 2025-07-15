@@ -1,10 +1,18 @@
+[variables]
+NIXPACKS_PYTHON_VERSION = "3.11"
+
 [phases.setup]
-nixPkgs = ["python3", "gcc"]
+nixPkgs = ["python3", "gcc", "bash"]
 
 [phases.install]
-cmds = ["pip install -r backend/requirements.txt"]
+dependsOn = ["setup"]
+cmds = [
+    "pip install --upgrade pip",
+    "pip install -r backend/requirements.txt"
+]
 
 [phases.build]
+dependsOn = ["install"]
 cmds = []
 
 [start]
