@@ -10,10 +10,11 @@ from pathlib import Path
 
 def main():
     # Print debug info
-    print("🔍 Debug Info:")
+    print("🔍 Debug Info (run.py main() called):")
     print(f"Current working directory: {os.getcwd()}")
     print(f"Python path: {sys.path}")
     print(f"Contents of current directory: {os.listdir('.')}")
+    print(f"Environment variables: {os.environ}")
     
     # Check for backend directory
     backend_path = Path("backend")
@@ -46,29 +47,30 @@ def main():
     
     # Now try to import and run
     try:
+        print("[DEBUG] Importing uvicorn...")
         import uvicorn
-        
-        # Import the main module from backend
+        print("[DEBUG] Importing backend.main.app...")
         from backend.main import app
-        
+        print("[DEBUG] Successfully imported app from backend.main")
         # Get port from environment
         port = int(os.environ.get("PORT", 8000))
-        
         print(f"🚀 Starting FastAPI on port {port}")
-        
         # Start the server
         uvicorn.run(
             app,
-            host="0.0.0.0", 
+            host="0.0.0.0",
             port=port,
             log_level="info"
         )
-        
     except ImportError as e:
         print(f"❌ Import error: {e}")
+        import traceback
+        traceback.print_exc()
         return 1
     except Exception as e:
         print(f"❌ Error starting server: {e}")
+        import traceback
+        traceback.print_exc()
         return 1
 
 if __name__ == "__main__":
