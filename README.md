@@ -137,7 +137,6 @@ MTG-Deck-Optimizer/
 - **CORS**: Configured for frontend integration
 - **Core Algorithms**: Python-powered deck generation and analysis
 - **Complex Tasks**: Advanced deck optimization using Python algorithms
-```
 
 ### 3. Use Your Collection
 - Upload your collection CSV via the web interface
