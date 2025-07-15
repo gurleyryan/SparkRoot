@@ -101,14 +101,17 @@ async def health_check():
     return {"status": "healthy", "service": "MTG Deck Optimizer API"}
 
 # Authentication endpoints
+from fastapi import Body
+
 @app.post("/api/auth/register", response_model=UserResponse)
-async def register_user(user_data: UserCreate):
+async def register_user(user_data: dict = Body(...)):
     """Register a new user"""
     try:
         user_response = await UserManager.create_user(
-            email=user_data.email,
-            password=user_data.password,
-            full_name=user_data.full_name
+            email=user_data["email"],
+            password=user_data["password"],
+            username=user_data["username"],
+            full_name=user_data.get("full_name")
         )
         if user_response:
             return UserResponse(

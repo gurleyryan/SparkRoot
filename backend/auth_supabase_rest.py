@@ -59,6 +59,30 @@ class CollectionSave(BaseModel):
 
 # Simple REST API client for Supabase
 class SupabaseRestClient:
+    async def get_auth_user_by_username(self, username: str) -> Optional[dict]:
+        """Get user from auth.users by display_name (username) using admin API"""
+        async with httpx.AsyncClient() as client:
+            try:
+                # Query auth.users by display_name
+                response = await client.get(
+                    f"{self.base_url}/auth/v1/admin/users",
+                    headers=self.service_headers,
+                    params={"display_name": username},
+                    timeout=10.0
+                )
+                if response.status_code == 200:
+                    users = response.json().get("users", [])
+                    if users:
+                        return users[0]
+                    else:
+                        return None
+                else:
+                    error_msg = f"Auth user lookup by username failed: {response.status_code} - {response.text}"
+                    print(error_msg)
+                    return None
+            except Exception as e:
+                print(f"Error getting auth user by username: {e}")
+                return None
     def __init__(self):
         self.base_url = SUPABASE_URL
         self.anon_headers = {
@@ -72,14 +96,15 @@ class SupabaseRestClient:
             "Content-Type": "application/json"
         }
 
-    async def create_user_in_auth(self, email: str, password: str) -> Optional[dict]:
-        """Create user directly in auth.users table using admin API"""
+    async def create_user_in_auth(self, email: str, password: str, username: str) -> Optional[dict]:
+        """Create user directly in auth.users table using admin API, with display_name as username"""
         async with httpx.AsyncClient() as client:
             try:
                 user_data = {
                     "email": email,
                     "password": password,
-                    "email_confirm": True  # Bypass email confirmation
+                    "email_confirm": True,  # Bypass email confirmation
+                    "display_name": username
                 }
                 response = await client.post(
                     f"{self.base_url}/auth/v1/admin/users",
@@ -232,20 +257,17 @@ class UserManager:
         return encoded_jwt
 
     @staticmethod
-    async def create_user(email: str, password: str, full_name: str = None) -> Optional[dict]:
-        """Create a new user with auth.users + profile"""
+    async def create_user(email: str, password: str, username: str, full_name: str = None) -> Optional[dict]:
+        """Create a new user with auth.users (with display_name=username) + profile"""
         try:
-            print(f"🔐 Creating user: {email}")
-            
-            # Step 1: Create user in auth.users
-            auth_user = await supabase_client.create_user_in_auth(email, password)
+            print(f"🔐 Creating user: {email} (username: {username})")
+            # Step 1: Create user in auth.users with display_name
+            auth_user = await supabase_client.create_user_in_auth(email, password, username)
             if not auth_user:
                 print("❌ Failed to create auth user")
                 return None
-            
             user_id = auth_user["id"]
             print(f"✅ Auth user created with ID: {user_id}")
-            
             # Step 2: Create profile
             profile = await supabase_client.create_profile(user_id, full_name)
             if not profile:
@@ -253,42 +275,45 @@ class UserManager:
                 # Still return success since auth user exists
             else:
                 print("✅ Profile created")
-            
             return {
                 "id": user_id,
                 "email": email,
                 "full_name": full_name,
                 "created_at": auth_user.get("created_at")
             }
-            
         except Exception as e:
             print(f"❌ Error creating user: {e}")
             return None
 
     @staticmethod
-    async def authenticate_user(email: str, password: str) -> Optional[dict]:
-        """Authenticate user using Supabase REST API only"""
+    async def authenticate_user(email_or_username: str, password: str) -> Optional[dict]:
+        """Authenticate user using Supabase REST API by email or username"""
         try:
-            print(f"🔐 Authenticating user: {email}")
-            
+            print(f"🔐 Authenticating user: {email_or_username}")
+            # Try email first
+            user_email = None
+            if "@" in email_or_username:
+                user_email = email_or_username
+            else:
+                # Try to look up by username in profiles
+                user_obj = await supabase_client.get_auth_user_by_username(email_or_username)
+                if user_obj and user_obj.get("email"):
+                    user_email = user_obj["email"]
+                else:
+                    print("❌ Username not found")
+                    return None
             # Try to sign in to verify password
-            auth_result = await supabase_client.verify_password_with_signin(email, password)
+            auth_result = await supabase_client.verify_password_with_signin(user_email, password)
             if not auth_result:
                 print("❌ Authentication failed")
                 return None
-            
-            # Get user from auth result
             user = auth_result.get("user")
             if not user:
                 print("❌ No user in auth result")
                 return None
-                
             user_id = user["id"]
             print(f"✅ Authentication successful for user: {user_id}")
-            
-            # Get profile
             profile = await supabase_client.get_profile_by_user_id(user_id)
-            
             return {
                 "id": user_id,
                 "email": user["email"],
@@ -296,7 +321,6 @@ class UserManager:
                 "created_at": user.get("created_at"),
                 "auth_result": auth_result
             }
-            
         except Exception as e:
             print(f"❌ Authentication error: {e}")
             return None
