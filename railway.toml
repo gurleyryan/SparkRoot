@@ -2,10 +2,11 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "python run.py"
-healthcheckPath = "/health"
+startCommand = "python main.py"
+healthcheckPath = "/docs"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 
 [env]
 NIXPACKS_PYTHON_VERSION = "3.11"
+PORT = "8000"

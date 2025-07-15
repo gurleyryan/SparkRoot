@@ -20,4 +20,9 @@ cmds = [
 ]
 
 [start]
-cmd = "python run.py"
+cmd = "python main.py"
+
+# Alternative start configurations in case the above doesn't work
+[phases.start]
+dependsOn = ["build"]
+cmd = "python main.py"
