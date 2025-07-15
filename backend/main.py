@@ -7,6 +7,11 @@ import io
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from datetime import timedelta
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import your existing modules
 from utils import enrich_collection_with_scryfall, load_scryfall_cards
