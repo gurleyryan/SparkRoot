@@ -72,3 +72,13 @@ data/samples/*.csv
 # Exclude specific files but keep requirements.txt
 !requirements.txt
 !*/requirements.txt
+
+.venv/
+node_modules/
+.next/
+__pycache__/
+*.pyc
+*.log
+.env
+*.sqlite3
+sample-collection.csv
