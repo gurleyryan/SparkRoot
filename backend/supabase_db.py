@@ -1,63 +1,80 @@
 import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import asyncpg
 from urllib.parse import urlparse
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import json
+import asyncio
+
+import os
+import asyncpg
+from urllib.parse import urlparse
+from typing import Optional, Dict, Any, List
+import json
+import asyncio
 
 class SupabaseDB:
     def __init__(self):
         self.database_url = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
         if not self.database_url:
             raise ValueError("DATABASE_URL or SUPABASE_DB_URL environment variable is required")
+        self.pool = None
     
-    def get_connection(self):
-        """Get database connection"""
-        return psycopg2.connect(
-            self.database_url,
-            cursor_factory=RealDictCursor
-        )
+    async def get_connection(self):
+        """Get database connection from pool"""
+        if not self.pool:
+            await self.init_pool()
+        return await self.pool.acquire()
     
-    def execute_query(self, query: str, params: tuple = None, fetch: bool = False):
+    async def init_pool(self):
+        """Initialize connection pool"""
+        self.pool = await asyncpg.create_pool(self.database_url)
+    
+    async def close_pool(self):
+        """Close connection pool"""
+        if self.pool:
+            await self.pool.close()
+    
+    async def execute_query(self, query: str, params: tuple = None, fetch: bool = False):
         """Execute a query with proper error handling"""
-        conn = None
+        connection = None
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            cursor.execute(query, params)
+            connection = await self.get_connection()
             
             if fetch:
-                result = cursor.fetchall()
-                conn.commit()
-                return result
+                if params:
+                    result = await connection.fetch(query, *params)
+                else:
+                    result = await connection.fetch(query)
+                return [dict(row) for row in result]
             else:
-                conn.commit()
-                return cursor.rowcount
+                if params:
+                    result = await connection.execute(query, *params)
+                else:
+                    result = await connection.execute(query)
+                return result
         except Exception as e:
-            if conn:
-                conn.rollback()
             raise e
         finally:
-            if conn:
-                conn.close()
+            if connection:
+                await self.pool.release(connection)
     
-    def execute_query_one(self, query: str, params: tuple = None):
+    async def execute_query_one(self, query: str, params: tuple = None):
         """Execute query and return single result"""
-        conn = None
+        connection = None
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            result = cursor.fetchone()
-            conn.commit()
-            return result
+            connection = await self.get_connection()
+            
+            if params:
+                result = await connection.fetchrow(query, *params)
+            else:
+                result = await connection.fetchrow(query)
+            
+            return dict(result) if result else None
         except Exception as e:
-            if conn:
-                conn.rollback()
             raise e
         finally:
-            if conn:
-                conn.close()
+            if connection:
+                await self.pool.release(connection)
 
 # Global instance
 db = SupabaseDB()
