@@ -14,23 +14,22 @@ import os
 load_dotenv()
 
 # Import your existing modules
-from utils import enrich_collection_with_scryfall, load_scryfall_cards
-from deckgen import find_valid_commanders, generate_commander_deck
-from deck_analysis import analyze_deck_quality
-from deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield, get_deck_statistics
+from backend.utils import enrich_collection_with_scryfall, load_scryfall_cards
+from backend.deckgen import find_valid_commanders, generate_commander_deck
+from backend.deck_analysis import analyze_deck_quality
+from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield, get_deck_statistics
 
-# Import authentication modules (Supabase version)
-from auth_supabase import (
+# Import authentication modules (Supabase REST API version)
+from backend.auth_supabase_rest import (
     UserCreate, UserResponse, UserLogin, Token, CollectionSave, UserSettings,
-    UserManager, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
-    PriceCache
+    UserManager, get_current_user, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 
 # Import pricing modules
-from pricing import PriceManager, enrich_collection_with_prices, calculate_collection_value
+from backend.pricing import PriceManager, enrich_collection_with_prices, calculate_collection_value
 
-# Import database
-from supabase_db import db
+# Database connection (using Supabase REST API via auth_supabase.py)
+# from supabase_db import db  # Commented out - using REST API instead
 
 def convert_numpy_types(collection):
     """Convert numpy types to native Python types for JSON serialization"""
@@ -53,15 +52,16 @@ def convert_numpy_types(collection):
 
 app = FastAPI(title="MTG Deck Optimizer API", version="1.0.0")
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database connection pool on startup"""
-    await db.init_pool()
+# Database startup/shutdown events commented out - using Supabase REST API instead
+# @app.on_event("startup")
+# async def startup_event():
+#     """Initialize database connection pool on startup"""
+#     await db.init_pool()
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Close database connection pool on shutdown"""
-    await db.close_pool()
+# @app.on_event("shutdown")
+# async def shutdown_event():
+#     """Close database connection pool on shutdown"""
+#     await db.close_pool()
 
 # Cache Scryfall data to avoid reloading the large file
 _scryfall_cache = None
@@ -105,22 +105,25 @@ async def health_check():
 async def register_user(user_data: UserCreate):
     """Register a new user"""
     try:
-        user_id = await UserManager.create_user(user_data)
-        return JSONResponse(
-            status_code=201,
-            content={
-                "success": True,
-                "message": "User created successfully",
-                "user_id": user_id
-            }
+        user_response = await UserManager.create_user(
+            email=user_data.email,
+            password=user_data.password,
+            full_name=user_data.full_name
         )
+        if user_response:
+            return UserResponse(
+                id=user_response["id"],
+                email=user_response["email"],
+                full_name=user_response.get("full_name"),
+                created_at=user_response.get("created_at")
+            )
+        else:
+            raise HTTPException(status_code=500, detail="User creation failed")
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
-        )
+        print(f"Registration error: {e}")
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 @app.post("/api/auth/login", response_model=Token)
 async def login_user(user_credentials: UserLogin):
@@ -132,32 +135,37 @@ async def login_user(user_credentials: UserLogin):
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Extract email from the user dict structure
+    user_email = user.get("email") or user_credentials.email
+    user_id = user.get("id")
+    
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user[1]},  # user[1] is email
+        data={
+            "sub": user_email,
+            "user_id": user_id
+        },
         expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/api/auth/me", response_model=UserResponse)
-async def get_current_user(current_user = Depends(get_user_from_token)):
+async def get_current_user_info(current_user = Depends(get_user_from_token)):
     """Get current user information"""
-    return {
-        "id": current_user[0],
-        "email": current_user[1],
-        "first_name": current_user[3],
-        "last_name": current_user[4],
-        "display_name": current_user[5],
-        "is_active": current_user[6],
-        "created_at": current_user[7],
-        "profile_public": current_user[8] if len(current_user) > 8 else False
-    }
+    return UserResponse(
+        id=current_user["id"],
+        email=current_user["email"],
+        full_name=current_user.get("full_name"),
+        created_at=current_user.get("created_at")
+    )
 
 # Collection management endpoints
 @app.get("/api/collections")
 async def get_user_collections(current_user = Depends(get_user_from_token)):
     """Get all collections for the current user"""
-    collections = UserManager.get_user_collections(current_user[0])
+    user_id = current_user["id"]
+    collections = UserManager.get_user_collections(user_id)
     return {"success": True, "collections": collections}
 
 @app.post("/api/collections")
@@ -166,14 +174,16 @@ async def save_collection(
     current_user = Depends(get_user_from_token)
 ):
     """Save a collection for the current user"""
-    collection_id = UserManager.save_collection(current_user[0], collection_data)
+    user_id = current_user["id"]
+    collection_id = UserManager.save_collection(user_id, collection_data)
     return {"success": True, "collection_id": collection_id}
 
 # Settings endpoints
 @app.get("/api/settings")
 async def get_user_settings(current_user = Depends(get_user_from_token)):
     """Get user settings"""
-    settings = UserManager.get_user_settings(current_user[0])
+    user_id = current_user["id"]
+    settings = UserManager.get_user_settings(user_id)
     return {"success": True, "settings": settings}
 
 @app.put("/api/settings")
@@ -182,7 +192,8 @@ async def update_user_settings(
     current_user = Depends(get_user_from_token)
 ):
     """Update user settings"""
-    UserManager.update_user_settings(current_user[0], settings)
+    user_id = current_user["id"]
+    UserManager.update_user_settings(user_id, settings)
     return {"success": True, "message": "Settings updated successfully"}
 
 # Pricing endpoints
@@ -299,7 +310,7 @@ async def parse_collection_public(file: UploadFile = File(...)):
         
         # Save the uploaded collection to user-data directory with a generic name
         import os
-        user_data_dir = "../user-data"
+        user_data_dir = "data/user-data"
         os.makedirs(user_data_dir, exist_ok=True)
         
         # Use a timestamp-based filename to avoid conflicts
@@ -367,7 +378,8 @@ async def parse_collection_authenticated(
                 collection_data=result["collection"],
                 is_public=False
             )
-            collection_id = UserManager.save_collection(current_user[0], collection_data)
+            user_id = current_user["id"]
+            collection_id = UserManager.save_collection(user_id, collection_data)
             result["auto_saved"] = True
             result["collection_id"] = collection_id
         except Exception as e:
@@ -450,16 +462,22 @@ async def load_sample_collection():
         import glob
         
         # Look for any CSV files in user-data directory first, then fall back to sample
-        user_data_dir = "../user-data"
+        user_data_dir = "data/user-data"
         sample_files = []
+        
+        print(f"Looking for collections in: {user_data_dir}")
+        print(f"Directory exists: {os.path.exists(user_data_dir)}")
         
         # Find all CSV files in user-data directory
         if os.path.exists(user_data_dir):
             csv_files = glob.glob(os.path.join(user_data_dir, "*.csv"))
+            print(f"Found CSV files: {csv_files}")
             sample_files.extend(csv_files)
         
         # Add sample collection as fallback
-        sample_files.append("../sample-collection.csv")
+        sample_files.append("sample-collection.csv")
+        
+        print(f"All sample files to try: {sample_files}")
         
         collection_df = None
         used_path = None

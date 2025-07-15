@@ -22,7 +22,7 @@ def download_scryfall_bulk():
     print("Saved full card database to data/")
 
 def load_scryfall_cards():
-    with open("../data/scryfall_all_cards.json", "r", encoding="utf-8") as f:
+    with open("data/scryfall_all_cards.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 def normalize_csv_format(df):

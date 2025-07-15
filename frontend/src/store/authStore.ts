@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { User, AuthResponse } from '@/types';
+import type { User } from '@/types';
+import { ApiClient } from '@/lib/api';
 
 interface AuthState {
   user: User | null;
@@ -10,8 +11,8 @@ interface AuthState {
   error: string | null;
   
   // Actions
-  login: (credentials: { username: string; password: string }) => Promise<void>;
-  register: (data: { username: string; email: string; password: string }) => Promise<void>;
+  login: (credentials: { email: string; password: string }) => Promise<void>;
+  register: (data: { email: string; password: string; full_name?: string }) => Promise<void>;
   logout: () => void;
   clearError: () => void;
   checkAuth: () => Promise<void>;
@@ -30,62 +31,48 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          // TODO: Replace with actual API call
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(credentials),
-          });
+          const apiClient = new ApiClient();
+          const data = await apiClient.login(credentials) as { access_token: string; token_type: string };
           
-          if (!response.ok) {
-            throw new Error('Login failed');
-          }
-          
-          const data: AuthResponse = await response.json();
+          // Get user profile with the new token
+          const profileClient = new ApiClient(data.access_token);
+          const userProfile = await profileClient.getProfile() as User;
           
           set({
-            user: data.user,
+            user: userProfile,
             token: data.access_token,
             isAuthenticated: true,
             isLoading: false,
-            error: null,
           });
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Login failed';
           set({
-            error: error instanceof Error ? error.message : 'Login failed',
+            error: errorMessage,
             isLoading: false,
+            isAuthenticated: false,
+            user: null,
+            token: null,
           });
           throw error;
         }
       },
 
-      register: async (data) => {
+      register: async (userData) => {
         set({ isLoading: true, error: null });
         
         try {
-          // TODO: Replace with actual API call
-          const response = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-          });
+          const apiClient = new ApiClient();
+          const data = await apiClient.register(userData) as User;
           
-          if (!response.ok) {
-            throw new Error('Registration failed');
-          }
-          
-          const result: AuthResponse = await response.json();
-          
-          set({
-            user: result.user,
-            token: result.access_token,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
+          // After successful registration, automatically log in
+          await get().login({ 
+            email: userData.email, 
+            password: userData.password 
           });
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Registration failed';
           set({
-            error: error instanceof Error ? error.message : 'Registration failed',
+            error: errorMessage,
             isLoading: false,
           });
           throw error;
@@ -111,20 +98,27 @@ export const useAuthStore = create<AuthState>()(
         if (!token) {
           return;
         }
-        
+
+        set({ isLoading: true });
+
         try {
-          const response = await fetch('/api/auth/me', {
-            headers: { Authorization: `Bearer ${token}` },
+          const apiClient = new ApiClient(token);
+          const userProfile = await apiClient.getProfile() as User;
+          
+          set({
+            user: userProfile,
+            isAuthenticated: true,
+            isLoading: false,
           });
-          
-          if (!response.ok) {
-            throw new Error('Token validation failed');
-          }
-          
-          const user: User = await response.json();
-          set({ user, isAuthenticated: true });
-        } catch {
-          get().logout();
+        } catch (error) {
+          // Token is invalid, clear auth state
+          set({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: 'Session expired. Please log in again.',
+          });
         }
       },
     }),
