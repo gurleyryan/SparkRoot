@@ -5,8 +5,7 @@ WORKDIR /app
 # Copy entire project structure
 COPY . .
 
-# Copy requirements and install dependencies
-COPY backend/requirements.txt ./backend/requirements.txt
+# Install dependencies
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Create data directory if it doesn't exist
