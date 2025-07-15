@@ -1,5 +1,66 @@
-collection.csv
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
 .venv/
-data/
+venv/
+ENV/
+env/
+
+# User data (uploaded collections, etc.)
+user-data/
+*.csv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Backend
+backend/.env
+backend/*.log
+
+# Data files (optional - comment out if you want to commit your collection)
+collection.csv
+*.csv
+
+# Generated files
+decks/
+*.txt
+*.json

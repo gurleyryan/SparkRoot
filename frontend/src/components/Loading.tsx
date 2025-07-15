@@ -1,0 +1,220 @@
+import React from 'react';
+
+interface LoadingSpinnerProps {
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  color?: 'blue' | 'white' | 'gray';
+  className?: string;
+}
+
+export function LoadingSpinner({ 
+  size = 'md', 
+  color = 'blue', 
+  className = '' 
+}: LoadingSpinnerProps) {
+  const sizeClasses = {
+    sm: 'w-4 h-4',
+    md: 'w-6 h-6',
+    lg: 'w-8 h-8',
+    xl: 'w-12 h-12',
+  };
+
+  const colorClasses = {
+    blue: 'text-mtg-blue',
+    white: 'text-white',
+    gray: 'text-gray-400',
+  };
+
+  return (
+    <div
+      className={`animate-spin ${sizeClasses[size]} ${colorClasses[color]} ${className}`}
+      role="status"
+      aria-label="Loading"
+    >
+      <svg
+        className="w-full h-full"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        />
+      </svg>
+    </div>
+  );
+}
+
+interface LoadingSkeletonProps {
+  className?: string;
+  variant?: 'card' | 'text' | 'circle' | 'rectangular';
+  lines?: number;
+}
+
+export function LoadingSkeleton({ 
+  className = '', 
+  variant = 'rectangular',
+  lines = 1 
+}: LoadingSkeletonProps) {
+  const baseClasses = 'animate-pulse bg-gray-700 rounded';
+  
+  const variants = {
+    card: 'h-48 rounded-xl',
+    text: 'h-4 rounded',
+    circle: 'rounded-full',
+    rectangular: 'h-6 rounded',
+  };
+
+  if (variant === 'text' && lines > 1) {
+    return (
+      <div className={`space-y-2 ${className}`}>
+        {Array.from({ length: lines }).map((_, index) => (
+          <div
+            key={index}
+            className={`${baseClasses} ${variants.text} ${
+              index === lines - 1 ? 'w-3/4' : 'w-full'
+            }`}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${baseClasses} ${variants[variant]} ${className}`} />
+  );
+}
+
+interface LoadingCardProps {
+  className?: string;
+}
+
+export function LoadingCard({ className = '' }: LoadingCardProps) {
+  return (
+    <div className={`bg-gray-800 rounded-xl p-6 border border-gray-700 ${className}`}>
+      <div className="animate-pulse">
+        <div className="bg-gray-700 h-40 rounded-lg mb-4" />
+        <div className="space-y-3">
+          <div className="bg-gray-700 h-4 rounded w-3/4" />
+          <div className="bg-gray-700 h-3 rounded w-1/2" />
+          <div className="flex space-x-2">
+            <div className="bg-gray-700 h-6 w-6 rounded-full" />
+            <div className="bg-gray-700 h-6 w-6 rounded-full" />
+            <div className="bg-gray-700 h-6 w-6 rounded-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface LoadingOverlayProps {
+  isLoading: boolean;
+  children: React.ReactNode;
+  className?: string;
+  message?: string;
+}
+
+export function LoadingOverlay({ 
+  isLoading, 
+  children, 
+  className = '',
+  message = 'Loading...' 
+}: LoadingOverlayProps) {
+  return (
+    <div className={`relative ${className}`}>
+      {children}
+      {isLoading && (
+        <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
+          <div className="bg-gray-800 rounded-lg p-6 shadow-xl border border-gray-700">
+            <div className="flex items-center space-x-4">
+              <LoadingSpinner size="lg" />
+              <div className="text-white font-mtg-body">{message}</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  isLoading: boolean;
+  children: React.ReactNode;
+  loadingText?: string;
+  className?: string;
+}
+
+export function LoadingButton({ 
+  isLoading, 
+  children, 
+  loadingText = 'Loading...', 
+  className = '',
+  disabled,
+  ...props 
+}: LoadingButtonProps) {
+  return (
+    <button
+      {...props}
+      disabled={disabled || isLoading}
+      className={`relative ${className} ${
+        isLoading ? 'cursor-not-allowed' : ''
+      }`}
+    >
+      <span className={isLoading ? 'opacity-0' : 'opacity-100'}>
+        {children}
+      </span>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <LoadingSpinner size="sm" color="white" className="mr-2" />
+          {loadingText}
+        </div>
+      )}
+    </button>
+  );
+}
+
+interface LoadingPageProps {
+  message?: string;
+  description?: string;
+}
+
+export function LoadingPage({ 
+  message = 'Loading your collection...', 
+  description = 'Please wait while we fetch your data.' 
+}: LoadingPageProps) {
+  return (
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="text-center">
+        <div className="mb-8">
+          <LoadingSpinner size="xl" />
+        </div>
+        <h2 className="text-2xl font-mtg text-white mb-4">{message}</h2>
+        <p className="text-gray-400 font-mtg-body">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+interface LoadingGridProps {
+  count?: number;
+  className?: string;
+}
+
+export function LoadingGrid({ count = 6, className = '' }: LoadingGridProps) {
+  return (
+    <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${className}`}>
+      {Array.from({ length: count }).map((_, index) => (
+        <LoadingCard key={index} />
+      ))}
+    </div>
+  );
+}
