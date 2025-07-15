@@ -60,25 +60,32 @@ class CollectionSave(BaseModel):
 # Simple REST API client for Supabase
 class SupabaseRestClient:
     async def get_auth_user_by_username(self, username: str) -> Optional[dict]:
-        """Get user from auth.users by display_name (username) using admin API"""
+        """Get user from auth.users by looking up username in profiles table"""
         async with httpx.AsyncClient() as client:
             try:
-                # Query auth.users by display_name
+                # Look up user_id in profiles by username
                 response = await client.get(
-                    f"{self.base_url}/auth/v1/admin/users",
+                    f"{self.base_url}/rest/v1/profiles?username=eq.{username}",
                     headers=self.service_headers,
-                    params={"display_name": username},
                     timeout=10.0
                 )
                 if response.status_code == 200:
-                    users = response.json().get("users", [])
-                    if users:
-                        return users[0]
+                    profiles = response.json()
+                    if profiles:
+                        user_id = profiles[0]["user_id"]
+                        # Now get auth user by user_id
+                        user_resp = await client.get(
+                            f"{self.base_url}/auth/v1/admin/users/{user_id}",
+                            headers=self.service_headers,
+                            timeout=10.0
+                        )
+                        if user_resp.status_code == 200:
+                            return user_resp.json()
+                        else:
+                            return None
                     else:
                         return None
                 else:
-                    error_msg = f"Auth user lookup by username failed: {response.status_code} - {response.text}"
-                    print(error_msg)
                     return None
             except Exception as e:
                 print(f"Error getting auth user by username: {e}")
@@ -170,16 +177,16 @@ class SupabaseRestClient:
                 print(f"Error verifying password: {e}")
                 raise
 
-    async def create_profile(self, user_id: str, full_name: str = None) -> Optional[dict]:
-        """Create user profile in profiles table"""
+    async def create_profile(self, user_id: str, full_name: str = None, username: str = None) -> Optional[dict]:
+        """Create user profile in profiles table, including username"""
         async with httpx.AsyncClient() as client:
             try:
                 profile_data = {
                     "user_id": user_id,
                     "full_name": full_name,
+                    "username": username,
                     "updated_at": datetime.utcnow().isoformat()
                 }
-                # Add Prefer header to get inserted row back
                 headers = self.service_headers.copy()
                 headers["Prefer"] = "return=representation"
                 response = await client.post(
@@ -192,7 +199,6 @@ class SupabaseRestClient:
                     result = response.json()
                     return result[0] if isinstance(result, list) else result
                 else:
-                    # Print full response for debugging
                     print("Profile creation failed:")
                     print(f"Status: {response.status_code}")
                     print(f"Headers: {response.headers}")
@@ -258,18 +264,18 @@ class UserManager:
 
     @staticmethod
     async def create_user(email: str, password: str, username: str, full_name: str = None) -> Optional[dict]:
-        """Create a new user with auth.users (with display_name=username) + profile"""
+        """Create a new user with auth.users + profile (with username in profiles)"""
         try:
             print(f"🔐 Creating user: {email} (username: {username})")
-            # Step 1: Create user in auth.users with display_name
+            # Step 1: Create user in auth.users
             auth_user = await supabase_client.create_user_in_auth(email, password, username)
             if not auth_user:
                 print("❌ Failed to create auth user")
                 return None
             user_id = auth_user["id"]
             print(f"✅ Auth user created with ID: {user_id}")
-            # Step 2: Create profile
-            profile = await supabase_client.create_profile(user_id, full_name)
+            # Step 2: Create profile with username
+            profile = await supabase_client.create_profile(user_id, full_name, username)
             if not profile:
                 print("⚠️ Auth user created but profile creation failed")
                 # Still return success since auth user exists
