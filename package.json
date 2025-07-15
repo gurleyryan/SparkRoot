@@ -1,0 +1,33 @@
+{
+  "name": "mtg-collection-optimizer",
+  "version": "1.0.0",
+  "description": "A comprehensive MTG collection management and deck optimization platform",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd frontend && npm run start",
+    "backend": "cd backend && python -m uvicorn main:app --reload",
+    "install-frontend": "cd frontend && npm install",
+    "install-backend": "cd backend && pip install -r requirements.txt",
+    "setup": "npm run install-frontend && npm run install-backend"
+  },
+  "keywords": [
+    "magic-the-gathering",
+    "mtg",
+    "collection-management",
+    "deck-builder",
+    "commander",
+    "pricing",
+    "cards"
+  ],
+  "author": "Ryan Gurley",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gurleyryan/MTG-Deck-Optimizer.git"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
