@@ -30,10 +30,10 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
       setTimeout(() => {
         const userData: User = {
           id: 'dummy-id-' + Date.now(),
-          username: formData.username,
           email: formData.email || `${formData.username}@example.com`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          full_name: formData.username,
+          avatar_url: undefined,
+          created_at: new Date().toISOString()
         };
         
         const token = 'dummy-token-' + Date.now();
@@ -56,8 +56,8 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-xl p-8 max-w-md w-full border border-gray-700">
+    <div className="modal-backdrop fixed inset-0 z-40 flex items-center justify-center">
+      <div className="sleeve-morphism p-8 rounded-xl shadow-xl max-w-md w-full z-50">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-mtg text-mtg-white">
             {isLogin ? 'Sign In' : 'Create Account'}

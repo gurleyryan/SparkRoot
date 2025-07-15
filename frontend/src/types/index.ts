@@ -30,10 +30,11 @@ export interface MTGCard {
 // User & Authentication Types
 export interface User {
   id: string;
-  username: string;
   email: string;
-  created_at: string;
-  updated_at: string;
+  full_name?: string;
+  avatar_url?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AuthResponse {
@@ -43,14 +44,14 @@ export interface AuthResponse {
 }
 
 export interface LoginCredentials {
-  username: string;
+  email: string;  // Changed from 'username' to 'email'
   password: string;
 }
 
 export interface RegisterData {
-  username: string;
   email: string;
   password: string;
+  full_name: string;  // Changed from 'username' to 'full_name'
   confirmPassword: string;
 }
 

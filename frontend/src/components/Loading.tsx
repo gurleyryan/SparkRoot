@@ -99,7 +99,7 @@ interface LoadingCardProps {
 
 export function LoadingCard({ className = '' }: LoadingCardProps) {
   return (
-    <div className={`bg-gray-800 rounded-xl p-6 border border-gray-700 ${className}`}>
+    <div className={`sleeve-morphism p-6 border border-gray-700 ${className}`}>
       <div className="animate-pulse">
         <div className="bg-gray-700 h-40 rounded-lg mb-4" />
         <div className="space-y-3">
@@ -218,3 +218,5 @@ export function LoadingGrid({ count = 6, className = '' }: LoadingGridProps) {
     </div>
   );
 }
+
+<LoadingSpinner color="blue" className="mx-auto" />

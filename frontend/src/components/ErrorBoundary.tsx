@@ -59,7 +59,7 @@ function DefaultErrorFallback({ error, errorInfo }: ErrorBoundaryState) {
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-xl p-8 max-w-md w-full border border-gray-700">
+      <div className="sleeve-morphism p-8 rounded-xl shadow-xl max-w-md w-full z-50">
         <div className="text-center">
           <div className="w-16 h-16 bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">⚠️</span>

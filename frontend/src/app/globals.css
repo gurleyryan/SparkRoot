@@ -29,12 +29,18 @@
 /* Base styles */
 html {
   background-color: #111827; /* gray-900 equivalent */
-  color: #ffffff;
+  color: #000000;
   font-family: var(--font-family-mtg-body);
 }
 
 body {
-  background-color: #111827;
+  background-color: #000000;
+  /* Remove the missing SVG and use a gradient for texture */
+  background-image:
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.01) 0 2px, transparent 2px 8px),
+    linear-gradient(120deg, #150b00 0%, #1a1a1a 100%);
+  background-repeat: repeat;
+  background-size: 600px 600px, cover;
   color: #ffffff;
   min-height: 100vh;
   font-family: var(--font-family-mtg-body);
@@ -149,4 +155,69 @@ h1, h2, h3, h4, h5, h6 {
 
 .text-rarity-mythic {
   color: var(--color-rarity-mythic);
+}
+
+/* Sleeve morphism effect for card containers */
+/* Enhanced sleeve morphism effect */
+.sleeve-morphism {
+  background: linear-gradient(135deg, rgba(31,41,55,0.92) 60%, rgba(15,23,43,0.85) 100%);
+  border-radius: 1rem;
+  border: 2px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37), inset 0 1px 8px 0 rgba(255,255,255,0.04);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.sleeve-morphism::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: url('/playmat-texture.svg'), repeating-linear-gradient(135deg, rgba(255,255,255,0.01) 0 2px, transparent 2px 8px);
+  opacity: 0.12;
+  z-index: 0;
+}
+
+.sleeve-morphism > * {
+  position: relative;
+  z-index: 1;
+}
+
+.sleeve-morphism:hover {
+  box-shadow: 0 12px 40px 0 rgba(0,0,0,0.45);
+  border-color: var(--color-mtg-blue);
+}
+
+/* MTG color identity borders */
+.border-mtg-white { border-color: var(--color-mtg-white) !important; }
+.border-mtg-blue { border-color: var(--color-mtg-blue) !important; }
+.border-mtg-black { border-color: var(--color-mtg-black) !important; }
+.border-mtg-red { border-color: var(--color-mtg-red) !important; }
+.border-mtg-green { border-color: var(--color-mtg-green) !important; }
+
+/* Color-themed badge */
+.mtg-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(2px);
+  margin-right: 0.5rem;
+}
+.mtg-badge-white { color: var(--color-mtg-white); border: 1px solid var(--color-mtg-white);}
+.mtg-badge-blue { color: var(--color-mtg-blue); border: 1px solid var(--color-mtg-blue);}
+.mtg-badge-black { color: var(--color-mtg-black); border: 1px solid var(--color-mtg-black);}
+.mtg-badge-red { color: var(--color-mtg-red); border: 1px solid var(--color-mtg-red);}
+.mtg-badge-green { color: var(--color-mtg-green); border: 1px solid var(--color-mtg-green);}
+
+/* Modal backdrop */
+.modal-backdrop {
+  background: rgba(15, 15, 15, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }

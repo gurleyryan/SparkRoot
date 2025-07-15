@@ -108,7 +108,7 @@ export default function CollectionGrid({ collection }: CollectionGridProps) {
 
       {/* Collection Grid */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredCollection.map((card, index) => {
             const cardName = getCardProperty(card, 'name', 'Unknown Card');
             const cardType = getCardProperty(card, 'type_line', 'Unknown Type');

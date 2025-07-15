@@ -15,7 +15,7 @@ export default function ApiTestPage() {
   const [registerForm, setRegisterForm] = useState({ 
     email: '', 
     password: '', 
-    full_name: '' 
+    full_name: ''  // This matches the User interface
   });
 
   useEffect(() => {
@@ -24,10 +24,13 @@ export default function ApiTestPage() {
 
   const testApiConnection = async () => {
     try {
+      console.log('Testing API connection to:', process.env.NEXT_PUBLIC_API_URL);
       const apiClient = new ApiClient();
-      const healthCheck = await apiClient.healthCheck();
-      setApiStatus(`✅ API Connected: ${healthCheck.status}`);
+      const healthCheck = await apiClient.healthCheck() as { status: string; service: string };
+      console.log('Health check response:', healthCheck);
+      setApiStatus(`✅ API Connected: ${healthCheck.status} - ${healthCheck.service}`);
     } catch (error) {
+      console.error('API connection error:', error);
       setApiStatus(`❌ API Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -58,7 +61,7 @@ export default function ApiTestPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await register(registerForm);
+      await register(registerForm);  // This should now work correctly
       setRegisterForm({ email: '', password: '', full_name: '' });
     } catch (error) {
       console.error('Registration failed:', error);
@@ -67,11 +70,24 @@ export default function ApiTestPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
+      <div className="sleeve-morphism rounded-xl p-8 mb-8 border border-gray-700">
+        <h1 className="text-6xl font-mtg font-bold text-mtg-white mb-4 drop-shadow-lg">
+          MTG Collection Optimizer
+        </h1>
+        <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8 font-mtg-body">
+          Manage your Magic: The Gathering collection with advanced filtering, 
+          real-time pricing, and powerful deck building tools
+        </p>
+      </div>
+      
       <h1 className="text-3xl font-bold">MTG Deck Optimizer - API Test</h1>
       
       {/* API Status */}
-      <div className="bg-gray-100 p-4 rounded-lg">
+      <div className="bg-black p-4 rounded-lg">
         <h2 className="text-xl font-semibold mb-2">API Status</h2>
+        <p className="text-sm text-gray-600 mb-2">
+          API URL: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}
+        </p>
         <p>{apiStatus}</p>
         <button 
           onClick={testApiConnection}
@@ -82,7 +98,7 @@ export default function ApiTestPage() {
       </div>
 
       {/* Authentication Section */}
-      <div className="bg-gray-100 p-4 rounded-lg">
+      <div className="bg-black p-4 rounded-lg">
         <h2 className="text-xl font-semibold mb-4">Authentication</h2>
         
         {error && (
@@ -170,7 +186,7 @@ export default function ApiTestPage() {
       </div>
 
       {/* Sample Collection Test */}
-      <div className="bg-gray-100 p-4 rounded-lg">
+      <div className="bg-black p-4 rounded-lg">
         <h2 className="text-xl font-semibold mb-4">Sample Collection</h2>
         <button 
           onClick={loadSampleCollection}
@@ -192,7 +208,7 @@ export default function ApiTestPage() {
                 <h4 className="font-semibold">First 5 Cards:</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mt-2">
                   {sampleCollection.collection.slice(0, 5).map((card: any, index: number) => (
-                    <div key={index} className="bg-white p-3 rounded border">
+                    <div key={index} className="bg-black p-3 rounded border">
                       <p className="font-semibold">{card.name}</p>
                       <p className="text-sm text-gray-600">Set: {card.set_name || card.Set}</p>
                       <p className="text-sm text-gray-600">Qty: {card.Quantity || 1}</p>

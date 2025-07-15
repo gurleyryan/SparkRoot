@@ -11,14 +11,11 @@ interface NavigationProps {
 
 export default function Navigation({ isAuthenticated, user, onLogin, onLogout }: NavigationProps) {
   return (
-    <nav className="bg-gray-900 border-b border-gray-700 sticky top-0 z-50">
+    <nav className="sleeve-morphism border-b-2 border-mtg-blue shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex items-center space-x-4">
-            <div className="text-2xl font-mtg text-mtg-white">
-              ⚔️ MTG Optimizer
-            </div>
+          <div className="text-2xl font-mtg text-mtg-white drop-shadow-lg tracking-wide">
+            ⚔️ MTG Optimizer
           </div>
 
           {/* Navigation Links */}
@@ -39,7 +36,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
                 <div className="text-gray-300 font-mtg-body">
-                  Welcome, {user?.username || 'User'}
+                  Welcome, {user?.full_name || 'User'}
                 </div>
                 <button
                   onClick={onLogout}

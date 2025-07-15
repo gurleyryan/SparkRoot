@@ -32,7 +32,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
-      <body className="bg-gray-900 text-white antialiased font-mtg-body">
+      <body className="bg-mtg-black text-white antialiased font-mtg-body min-h-screen"
+        style={{
+          background: 'linear-gradient(120deg, #150b00 0%, #1a1a1a 100%)',
+          backgroundImage: "url('/playmat-texture.svg')",
+          backgroundRepeat: 'repeat',
+          backgroundSize: '600px 600px'
+        }}
+      >
         {children}
       </body>
     </html>

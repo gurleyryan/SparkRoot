@@ -54,7 +54,7 @@ export default function Home() {
       
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
-        <div className="text-center mb-12">
+        <div className="sleeve-morphism rounded-xl p-8 mb-12 border border-mtg-blue shadow-xl text-center">
           <h1 className="text-6xl font-mtg font-bold text-mtg-white mb-4 drop-shadow-lg">
             MTG Collection Optimizer
           </h1>
@@ -62,27 +62,20 @@ export default function Home() {
             Manage your Magic: The Gathering collection with advanced filtering, 
             real-time pricing, and powerful deck building tools
           </p>
-          
           {!isAuthenticated && (
-            <div className="bg-gray-800 rounded-lg p-6 max-w-md mx-auto border border-gray-700">
-              <h3 className="text-lg font-mtg text-mtg-white mb-3">Get Started</h3>
-              <p className="text-gray-400 mb-4 text-sm">
-                Create an account to save your collection and access advanced features
-              </p>
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="w-full bg-mtg-blue hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-              >
-                Create Account / Sign In
-              </button>
-            </div>
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="bg-mtg-blue hover:bg-blue-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors shadow"
+            >
+              Create Account / Sign In
+            </button>
           )}
         </div>
 
         {/* Main Content */}
         {!isAuthenticated ? (
           <div className="text-center py-12">
-            <div className="bg-gray-800 rounded-xl p-8 max-w-2xl mx-auto border border-gray-700">
+            <div className="bg-gblack rounded-xl p-8 max-w-2xl mx-auto border border-gray-700">
               <h2 className="text-2xl font-mtg text-mtg-white mb-4">Welcome to MTG Collection Optimizer</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="text-center">
@@ -120,7 +113,7 @@ export default function Home() {
         ) : (
           <div>
             {/* Collection Stats */}
-            <div className="bg-gray-800 rounded-xl p-6 mb-8 border border-gray-700">
+            <div className="bg-black sleeve-morphism rounded-xl p-6 mb-8 border border-gray-700">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-mtg text-rarity-mythic">Collection Overview</h2>
                 <button
@@ -131,19 +124,19 @@ export default function Home() {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="text-center bg-gray-900 rounded-lg p-4">
+                <div className="text-center sleeve-morphism border-mtg-mythic rounded-lg p-4">
                   <div className="text-3xl font-bold text-rarity-mythic">{collectionStats?.total_cards}</div>
                   <div className="text-gray-400 font-mtg-body">Total Cards</div>
                 </div>
-                <div className="text-center bg-gray-900 rounded-lg p-4">
+                <div className="text-center sleeve-morphism border-mtg-rare rounded-lg p-4">
                   <div className="text-3xl font-bold text-rarity-rare">{collectionStats?.unique_cards}</div>
                   <div className="text-gray-400 font-mtg-body">Unique Cards</div>
                 </div>
-                <div className="text-center bg-gray-900 rounded-lg p-4">
+                <div className="text-center sleeve-morphism border-mtg-white rounded-lg p-4">
                   <div className="text-3xl font-bold text-mtg-white">{collection.length}</div>
                   <div className="text-gray-400 font-mtg-body">Cards Loaded</div>
                 </div>
-                <div className="text-center bg-gray-900 rounded-lg p-4">
+                <div className="text-center sleeve-morphism border-mtg-green rounded-lg p-4">
                   <div className="text-3xl font-bold text-mtg-green">$0.00</div>
                   <div className="text-gray-400 font-mtg-body">Est. Value</div>
                 </div>
