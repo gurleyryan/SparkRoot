@@ -22,8 +22,20 @@ def download_scryfall_bulk():
     print("Saved full card database to data/")
 
 def load_scryfall_cards():
-    with open("data/scryfall_all_cards.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+    import os, psutil
+    scryfall_path = "data/scryfall_all_cards.json"
+    if not os.path.exists(scryfall_path):
+        raise FileNotFoundError(f"Scryfall file not found: {scryfall_path}")
+    file_size = os.path.getsize(scryfall_path)
+    print(f"[Scryfall] File size: {file_size/1024/1024:.2f} MB")
+    process = psutil.Process(os.getpid())
+    mem_before = process.memory_info().rss / 1024 / 1024
+    print(f"[Scryfall] Memory usage before loading: {mem_before:.2f} MB")
+    with open(scryfall_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    mem_after = process.memory_info().rss / 1024 / 1024
+    print(f"[Scryfall] Memory usage after loading: {mem_after:.2f} MB (delta: {mem_after-mem_before:.2f} MB)")
+    return data
 
 def normalize_csv_format(df):
     """Normalize different CSV formats (ManaBox, Moxfield, etc.) to a standard format"""

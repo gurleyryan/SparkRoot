@@ -387,9 +387,9 @@ async def get_collection_value_public(request: PricingRequest):
 async def parse_collection_public(file: UploadFile = File(...)):
     """Parse uploaded CSV collection file and enrich with Scryfall data (public)"""
     try:
+        import psutil
         # Read the uploaded file
         contents = await file.read()
-        
         # Try to parse as CSV with different encodings
         try:
             df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
@@ -398,37 +398,35 @@ async def parse_collection_public(file: UploadFile = File(...)):
                 df = pd.read_csv(io.StringIO(contents.decode('latin-1')))
             except UnicodeDecodeError:
                 df = pd.read_csv(io.StringIO(contents.decode('cp1252')))
-        
         print(f"Uploaded file: {file.filename}")
         print(f"Detected columns: {list(df.columns)}")
         print(f"Number of rows: {len(df)}")
-        
         # Save the uploaded collection to user-data directory with a generic name
         import os
         user_data_dir = "data/user-data"
         os.makedirs(user_data_dir, exist_ok=True)
-        
         # Use a timestamp-based filename to avoid conflicts
         import datetime
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         saved_filename = f"uploaded_collection_{timestamp}.csv"
         saved_path = f"{user_data_dir}/{saved_filename}"
-        
         df.to_csv(saved_path, index=False)
         print(f"Saved collection to: {saved_path}")
-        
         # Load Scryfall data
+        process = psutil.Process(os.getpid())
+        mem_before = process.memory_info().rss / 1024 / 1024
+        print(f"[Enrich] Memory usage before Scryfall enrichment: {mem_before:.2f} MB")
         scryfall_data = get_scryfall_data()
-        
+        mem_after_scryfall = process.memory_info().rss / 1024 / 1024
+        print(f"[Enrich] Memory usage after Scryfall load: {mem_after_scryfall:.2f} MB (delta: {mem_after_scryfall-mem_before:.2f} MB)")
         # Enrich with Scryfall data using your existing logic
         enriched_df = enrich_collection_with_scryfall(df, scryfall_data)
-        
+        mem_after_enrich = process.memory_info().rss / 1024 / 1024
+        print(f"[Enrich] Memory usage after enrichment: {mem_after_enrich:.2f} MB (delta: {mem_after_enrich-mem_after_scryfall:.2f} MB)")
         # Convert to list of dictionaries
         collection = enriched_df.to_dict('records')
-        
         # Convert numpy types to native Python types for JSON serialization
         collection = convert_numpy_types(collection)
-        
         # Basic stats (convert numpy types to native Python types)
         stats = {
             "total_cards": int(len(collection)),  # This now includes individual card instances
@@ -438,13 +436,11 @@ async def parse_collection_public(file: UploadFile = File(...)):
             "saved_as": saved_filename,
             "detected_columns": list(df.columns)
         }
-        
         return {
             "success": True,
             "collection": collection,
             "stats": stats
         }
-        
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
