@@ -94,102 +94,72 @@ class PriceCache:
         conn.commit()
         conn.close()
 
-class TCGPlayerAPI:
-    """TCGPlayer API integration"""
-    
-    def __init__(self, public_key: str = None, private_key: str = None):
-        self.public_key = public_key or os.getenv('TCGPLAYER_PUBLIC_KEY')
-        self.private_key = private_key or os.getenv('TCGPLAYER_PRIVATE_KEY')
-        self.access_token = None
-        self.base_url = "https://api.tcgplayer.com"
-    
-    async def get_access_token(self):
-        """Get TCGPlayer access token"""
-        if not self.public_key or not self.private_key:
+class TCGCSVAPI:
+    """tcgcsv.com API integration (public TCGplayer cache)"""
+    BASE_URL = "https://tcgcsv.com/tcgplayer"
+
+    @staticmethod
+    def get_category_id(game: str = "mtg") -> int:
+        # Only MTG supported for now
+        return 1
+
+    @staticmethod
+    def get_group_id_for_set(set_name: str) -> int:
+        # This should be cached or indexed for production use
+        category_id = TCGCSVAPI.get_category_id()
+        url = f"{TCGCSVAPI.BASE_URL}/{category_id}/groups"
+        resp = requests.get(url)
+        if resp.status_code != 200:
             return None
-        
-        url = f"{self.base_url}/token"
-        data = {
-            'grant_type': 'client_credentials',
-            'client_id': self.public_key,
-            'client_secret': self.private_key
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=data) as response:
-                if response.status == 200:
-                    token_data = await response.json()
-                    self.access_token = token_data.get('access_token')
-                    return self.access_token
+        groups = resp.json().get('results', [])
+        for group in groups:
+            if group['name'].lower() == set_name.lower():
+                return group['groupId']
         return None
-    
-    async def get_card_price(self, card_name: str, set_name: str = None) -> Optional[PriceData]:
-        """Get card price from TCGPlayer"""
-        if not self.access_token:
-            await self.get_access_token()
-        
-        if not self.access_token:
-            return None
-        
-        try:
-            # Search for the card
-            search_url = f"{self.base_url}/catalog/products"
-            headers = {'Authorization': f'Bearer {self.access_token}'}
-            params = {
-                'categoryId': 1,  # Magic: The Gathering
-                'productName': card_name,
-                'limit': 10
-            }
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(search_url, headers=headers, params=params) as response:
-                    if response.status != 200:
-                        return None
-                    
-                    search_data = await response.json()
-                    products = search_data.get('results', [])
-                    
-                    if not products:
-                        return None
-                    
-                    # Find the best match (prefer exact name match)
-                    best_product = None
-                    for product in products:
-                        if product['name'].lower() == card_name.lower():
-                            best_product = product
-                            break
-                    
-                    if not best_product:
-                        best_product = products[0]  # Use first result
-                    
-                    # Get pricing for the product
-                    product_id = best_product['productId']
-                    price_url = f"{self.base_url}/pricing/product/{product_id}"
-                    
-                    async with session.get(price_url, headers=headers) as price_response:
-                        if price_response.status != 200:
-                            return None
-                        
-                        price_data = await price_response.json()
-                        results = price_data.get('results', [])
-                        
-                        if not results:
-                            return None
-                        
-                        # Get market pricing (Near Mint condition)
-                        market_data = next((r for r in results if r.get('subTypeName') == 'Normal'), results[0])
-                        
-                        return PriceData(
-                            source='tcgplayer',
-                            market_price=market_data.get('marketPrice'),
-                            low_price=market_data.get('lowPrice'),
-                            high_price=market_data.get('highPrice'),
-                            currency='USD'
-                        )
-        
-        except Exception as e:
-            print(f"TCGPlayer API error for {card_name}: {e}")
-            return None
+
+    @staticmethod
+    def get_product_and_price(card_name: str, set_name: str = None) -> Optional[PriceData]:
+        category_id = TCGCSVAPI.get_category_id()
+        group_id = None
+        if set_name:
+            group_id = TCGCSVAPI.get_group_id_for_set(set_name)
+        if not group_id:
+            # fallback: try all groups
+            url = f"{TCGCSVAPI.BASE_URL}/{category_id}/groups"
+            resp = requests.get(url)
+            if resp.status_code != 200:
+                return None
+            groups = resp.json().get('results', [])
+        else:
+            groups = [{"groupId": group_id}]
+
+        for group in groups:
+            gid = group['groupId']
+            # Get products for this group
+            prod_url = f"{TCGCSVAPI.BASE_URL}/{category_id}/{gid}/products"
+            prod_resp = requests.get(prod_url)
+            if prod_resp.status_code != 200:
+                continue
+            products = prod_resp.json().get('results', [])
+            for product in products:
+                if product['name'].lower() == card_name.lower():
+                    product_id = product['productId']
+                    # Get price for this product
+                    price_url = f"{TCGCSVAPI.BASE_URL}/{category_id}/{gid}/prices"
+                    price_resp = requests.get(price_url)
+                    if price_resp.status_code != 200:
+                        continue
+                    prices = price_resp.json().get('results', [])
+                    for price in prices:
+                        if price['productId'] == product_id:
+                            return PriceData(
+                                source='tcgcsv',
+                                market_price=price.get('midPrice'),
+                                low_price=price.get('lowPrice'),
+                                high_price=price.get('highPrice'),
+                                currency='USD'
+                            )
+        return None
 
 class ScryfallPriceAPI:
     """Use Scryfall's pricing data as a fallback"""
@@ -233,7 +203,7 @@ class PriceManager:
     
     def __init__(self):
         self.cache = PriceCache()
-        self.tcgplayer = TCGPlayerAPI()
+        self.tcgplayer = TCGCSVAPI()
         self.scryfall = ScryfallPriceAPI()
         self.source_priority = ['tcgplayer', 'scryfall']
     
@@ -248,7 +218,8 @@ class PriceManager:
         # Try preferred source first
         price_data = None
         if preferred_source == 'tcgplayer':
-            price_data = await self.tcgplayer.get_card_price(card_name, set_code)
+            # Use tcgcsv.com as the TCGPlayer proxy
+            price_data = TCGCSVAPI.get_product_and_price(card_name, set_code)
         elif preferred_source == 'scryfall':
             price_data = await self.scryfall.get_card_price(card_name, set_code)
         
