@@ -24,6 +24,7 @@ export default function ApiTestPage() {
   
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [registerForm, setRegisterForm] = useState({ 
+    username: '',
     email: '', 
     password: '', 
     full_name: ''  // This matches the User interface
@@ -77,7 +78,7 @@ export default function ApiTestPage() {
     e.preventDefault();
     try {
       await register(registerForm);  // This should now work correctly
-      setRegisterForm({ email: '', password: '', full_name: '' });
+      setRegisterForm({ username: '', email: '', password: '', full_name: '' });
     } catch (error) {
       console.error('Registration failed:', error);
     }
@@ -169,6 +170,14 @@ export default function ApiTestPage() {
             {/* Register Form */}
             <form onSubmit={handleRegister} className="space-y-3">
               <h3 className="font-semibold">Register</h3>
+              <input
+                type="text"
+                placeholder="Username"
+                value={registerForm.username}
+                onChange={(e) => setRegisterForm(prev => ({...prev, username: e.target.value}))}
+                className="w-full p-2 border rounded"
+                required
+              />
               <input
                 type="email"
                 placeholder="Email"
