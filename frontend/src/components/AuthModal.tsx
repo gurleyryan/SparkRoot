@@ -1,14 +1,12 @@
-import React from 'react';
-
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { useAuthStore } from '@/store/authStore';
 import type { User } from '@/types';
 
 interface AuthModalProps {
   onClose: () => void;
-  onAuth: (userData: User) => void;
 }
 
-export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
+export default function AuthModal({ onClose }: AuthModalProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
@@ -19,71 +17,35 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const login = useAuthStore((s) => s.login);
+  const register = useAuthStore((s) => s.register);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-
     try {
       if (!isLogin && formData.password !== formData.confirmPassword) {
         setError('Passwords do not match.');
         setIsLoading(false);
         return;
       }
-
-      let response, data;
-      const API_BASE = 'https://mtg.up.railway.app/api/auth';
       if (isLogin) {
-        // Allow sign in with email or username
-        const identifier = formData.email || formData.username;
-        response = await fetch(`${API_BASE}/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            identifier,
-            password: formData.password
-          })
+        await login({
+          email: formData.email || formData.username,
+          password: formData.password,
         });
       } else {
-        // Sign up
-        response = await fetch(`${API_BASE}/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-            username: formData.username,
-            full_name: formData.fullName
-          })
+        await register({
+          email: formData.email,
+          password: formData.password,
+          full_name: formData.fullName,
         });
       }
-
-      data = await response.json();
-      if (!response.ok) {
-        setError(data.detail || data.error || 'Authentication failed.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Save token if present
-      if (data.access_token) {
-        localStorage.setItem('auth_token', data.access_token);
-      }
-
-      // Use user data from response if available
-      const userData: User = {
-        id: data.id || data.user?.id || '',
-        email: data.email || data.user?.email || formData.email,
-        username: data.username || formData.username,
-        full_name: data.full_name || data.user?.full_name || formData.fullName || data.username || formData.username,
-        avatar_url: data.avatar_url || undefined,
-        created_at: data.created_at || new Date().toISOString()
-      };
-      onAuth(userData);
       setIsLoading(false);
-    } catch {
-      setError('Authentication failed. Please try again.');
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || 'Authentication failed. Please try again.');
       setIsLoading(false);
     }
   };
@@ -109,7 +71,6 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
             ×
           </button>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Sign In: Only email/username and password. Sign Up: All fields. */}
           {isLogin ? (

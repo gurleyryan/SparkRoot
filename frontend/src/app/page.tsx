@@ -2,41 +2,21 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import CollectionUpload from '@/components/CollectionUpload';
 import CollectionGrid from '@/components/CollectionGrid';
 import AuthModal from '@/components/AuthModal';
 import Navigation from '@/components/Navigation';
 import DeckBuilder from '@/components/DeckBuilder';
-import type { User } from '@/types';
 import { useCollectionStore } from '@/store/collectionStore';
+import { useAuthStore } from '@/store/authStore';
 
 export default function Home() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const { collections } = useCollectionStore();
-
-  useEffect(() => {
-    // Check for existing authentication
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      setIsAuthenticated(true);
-      // TODO: Validate token and get user info
-    }
-  }, []);
-
-  const handleAuth = (userData: User) => {
-    setUser(userData);
-    setIsAuthenticated(true);
-    setShowAuthModal(false);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    setIsAuthenticated(false);
-    setUser(null);
-  };
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const logout = useAuthStore((s) => s.logout);
 
   return (
     <div className="min-h-screen bg-mtg-black">
@@ -44,14 +24,14 @@ export default function Home() {
         isAuthenticated={isAuthenticated}
         user={user}
         onLogin={() => setShowAuthModal(true)}
-        onLogout={handleLogout}
+        onLogout={logout}
       />
       
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <div className="sleeve-morphism rounded-xl p-8 mb-12 border border-mtg-blue shadow-xl text-center">
           <h1 className="text-6xl font-mtg font-bold text-mtg-white mb-4 drop-shadow-lg">
-            MTG Collection Optimizer
+            MTG Deck Optimizer
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8 font-mtg-body">
             Manage your Magic: The Gathering collection with advanced filtering, 
@@ -71,7 +51,7 @@ export default function Home() {
         {!isAuthenticated ? (
           <div className="text-center py-12">
             <div className="bg-gblack rounded-xl p-8 max-w-2xl mx-auto border border-gray-700">
-              <h2 className="text-2xl font-mtg text-mtg-white mb-4">Welcome to MTG Collection Optimizer</h2>
+              <h2 className="text-2xl font-mtg text-mtg-white mb-4">Welcome to MTG Deck Optimizer</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-mtg-blue rounded-full flex items-center justify-center mx-auto mb-3">
@@ -123,7 +103,6 @@ export default function Home() {
       {showAuthModal && (
         <AuthModal
           onClose={() => setShowAuthModal(false)}
-          onAuth={handleAuth}
         />
       )}
     </div>
