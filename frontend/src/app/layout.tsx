@@ -1,5 +1,6 @@
 import React from 'react';
 import AuthHydrator from '../components/AuthHydrator';
+import PlaymatHydrator from '../components/PlaymatHydrator';
 import type { Metadata } from "next";
 import { Cinzel, Source_Sans_3, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
@@ -34,16 +35,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
-      <body className="bg-mtg-black text-white antialiased font-mtg-body min-h-screen"
-        style={{
-          background: 'linear-gradient(120deg, #150b00 0%, #1a1a1a 100%)',
-          backgroundImage: "url('/playmat-texture.svg')",
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      >
+      <body className="bg-mtg-black text-white antialiased font-mtg-body min-h-screen">
         <AuthHydrator />
+        <PlaymatHydrator />
         {children}
       </body>
     </html>
