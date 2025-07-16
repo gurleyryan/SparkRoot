@@ -18,6 +18,7 @@ pydantic==2.10.4
 httpx==0.28.1  # For API calls
 requests  # For Scryfall data download
 aiohttp  # For async HTTP requests in pricing
+supabase==2.16.0  # For Supabase REST API access
 
 # Validation & Serialization
 pydantic-settings==2.7.0
@@ -30,7 +31,6 @@ aiofiles==24.1.0
 # Rate Limiting & Security
 slowapi==0.1.9
 python-dotenv==1.0.1
-
 
 # Monitoring & Logging
 structlog==24.4.0

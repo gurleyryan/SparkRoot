@@ -4,7 +4,6 @@ Supabase Setup Script for MTG Deck Optimizer
 Helps configure the environment for Supabase deployment
 """
 
-import os
 import sys
 import subprocess
 from pathlib import Path
