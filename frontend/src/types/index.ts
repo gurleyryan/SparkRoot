@@ -168,16 +168,17 @@ export interface CSVUploadResult {
 
 // Settings Types
 export interface UserSettings {
-  theme: 'dark' | 'light';
-  default_format: string;
-  currency: 'usd' | 'eur';
-  card_display: 'grid' | 'list';
-  auto_save: boolean;
-  notifications: {
-    price_alerts: boolean;
-    deck_updates: boolean;
-    collection_changes: boolean;
+  theme?: 'dark' | 'light';
+  default_format?: string;
+  currency?: 'usd' | 'eur';
+  card_display?: 'grid' | 'list';
+  auto_save?: boolean;
+  notifications?: {
+    price_alerts?: boolean;
+    deck_updates?: boolean;
+    collection_changes?: boolean;
   };
+  playmat_texture?: string; // e.g. "playmat-texture-1.svg"
 }
 
 // Utility Types

@@ -28,13 +28,13 @@
 
 /* Base styles */
 html {
-  background-color: #111827; /* gray-900 equivalent */
-  color: #000000;
+  background-color: var(--color-mtg-black); /* gray-900 equivalent */
+  color: var(--color-mtg-black);
   font-family: var(--font-family-mtg-body);
 }
 
 body {
-  background-color: #000000;
+  background-color: var(--color-mtg-black);
   /* Remove the missing SVG and use a gradient for texture */
   background-image:
     repeating-linear-gradient(135deg, rgba(255,255,255,0.01) 0 2px, transparent 2px 8px),

@@ -1,0 +1,42 @@
+<svg width="600" height="400" viewBox="0 0 600 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="600" height="400" fill="#150b00"/>
+  <ellipse cx="300" cy="200" rx="260" ry="120" fill="#0e68ab" fill-opacity="0.08"/>
+  <ellipse cx="300" cy="200" rx="200" ry="90" fill="#00733e" fill-opacity="0.07"/>
+  <svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bgGradient" cx="50%" cy="50%" r="80%" fx="50%" fy="50%">
+        <stop offset="0%" stop-color="#0e68ab" stop-opacity="0.7"/>
+        <stop offset="60%" stop-color="#150b00" stop-opacity="0.95"/>
+        <stop offset="100%" stop-color="#000" stop-opacity="1"/>
+      </radialGradient>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="12" result="coloredBlur"/>
+        <feMerge>
+          <feMergeNode in="coloredBlur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
+    <rect width="1200" height="800" fill="url(#bgGradient)"/>
+    <!-- Arcane circles -->
+    <g filter="url(#glow)">
+      <circle cx="600" cy="400" r="320" stroke="#ffd700" stroke-width="3" opacity="0.13" fill="none"/>
+      <circle cx="600" cy="400" r="220" stroke="#0e68ab" stroke-width="2" opacity="0.10" fill="none"/>
+      <circle cx="600" cy="400" r="120" stroke="#00733e" stroke-width="2" opacity="0.09" fill="none"/>
+      <circle cx="600" cy="400" r="60" stroke="#d3202a" stroke-width="2" opacity="0.08" fill="none"/>
+    </g>
+    <!-- Mana symbols (abstract) -->
+    <g opacity="0.10">
+      <ellipse cx="900" cy="200" rx="30" ry="30" fill="#ffd700"/>
+      <ellipse cx="300" cy="600" rx="30" ry="30" fill="#0e68ab"/>
+      <ellipse cx="1000" cy="700" rx="20" ry="20" fill="#00733e"/>
+      <ellipse cx="200" cy="200" rx="20" ry="20" fill="#d3202a"/>
+      <ellipse cx="600" cy="100" rx="25" ry="25" fill="#fffbd5"/>
+    </g>
+    <!-- Swirling lines -->
+    <path d="M200,700 Q600,400 1000,700" stroke="#ffd700" stroke-width="2" opacity="0.08" fill="none"/>
+    <path d="M300,100 Q600,400 900,100" stroke="#0e68ab" stroke-width="2" opacity="0.07" fill="none"/>
+    <!-- Vignette -->
+    <ellipse cx="600" cy="400" rx="580" ry="380" fill="#000" opacity="0.08"/>
+  </svg>
+</svg>

@@ -13,6 +13,7 @@ interface SampleCollection {
 }
 import { ApiClient } from '../../lib/api';
 import { useAuthStore } from '@/store/authStore';
+import PlaymatSelector from '@/components/PlaymatSelector';
 
 export default function ApiTestPage() {
   const [apiStatus, setApiStatus] = useState<string>('Testing...');
@@ -126,6 +127,9 @@ export default function ApiTestPage() {
             <p className="text-green-600 font-semibold">✅ Authenticated as: {user?.email}</p>
             <p>User ID: {user?.id}</p>
             <p>Full Name: {user?.full_name || 'Not provided'}</p>
+           <div className="my-6">
+             <PlaymatSelector />
+           </div>
             <button 
               onClick={logout}
               className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"

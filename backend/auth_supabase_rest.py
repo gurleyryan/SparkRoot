@@ -387,9 +387,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 # Simple UserSettings model for compatibility
 class UserSettings(BaseModel):
-    display_name: Optional[str] = None
-    pricing_preference: Optional[str] = "market"
-    deck_format: Optional[str] = "commander"
+    price_source: Optional[str] = "tcgplayer"
+    currency: Optional[str] = "USD"
+    reference_price: Optional[str] = "market"
+    profile_public: Optional[bool] = False
+    notifications_enabled: Optional[bool] = True
+    playmat_texture: Optional[str] = None
+    theme: Optional[str] = "dark"
+    default_format: Optional[str] = "commander"
+    card_display: Optional[str] = "grid"
+    auto_save: Optional[bool] = True
+    notifications: Optional[dict] = None
 
 # Collection management functions (placeholder implementations)
 def get_user_collections(user_id: str) -> List[dict]:
@@ -510,19 +518,47 @@ def delete_collection(user_id: str, collection_id: str) -> bool:
     return asyncio.run(delete())
 
 def get_user_settings(user_id: str) -> dict:
-    """Get user settings (placeholder implementation)"""
-    print(f"⚙️ Getting settings for user: {user_id}")
-    return {
-        "display_name": "User",
-        "pricing_preference": "market",
-        "deck_format": "commander"
+    import httpx
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Content-Type": "application/json"
     }
+    async def fetch():
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/user_settings?id=eq.{user_id}",
+                headers=headers
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data[0] if data else None
+            else:
+                print(f"Error fetching user settings: {resp.text}")
+                return None
+    return asyncio.run(fetch())
 
 def update_user_settings(user_id: str, settings: UserSettings) -> bool:
-    """Update user settings (placeholder implementation)"""
-    print(f"🔧 Updating settings for user: {user_id}")
-    print(f"   Settings: {settings.dict()}")
-    return True
+    import httpx
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    async def patch():
+        async with httpx.AsyncClient() as client:
+            resp = await client.patch(
+                f"{SUPABASE_URL}/rest/v1/user_settings?id=eq.{user_id}",
+                headers=headers,
+                json=settings.dict(exclude_unset=True)
+            )
+            return resp.status_code in [200, 204]
+    return asyncio.run(patch())
 
 # Add methods to UserManager
 UserManager.get_user_collections = staticmethod(get_user_collections)

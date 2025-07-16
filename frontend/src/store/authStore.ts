@@ -3,13 +3,15 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User } from '@/types';
 import { ApiClient } from '../lib/api';
 
+import type { UserSettings } from '@/types';
 interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  
+  playmat_texture: string | null;
+  userSettings: UserSettings | null;
   // Actions
   login: (credentials: { email: string; password: string }) => Promise<void>;
   register: (data: { email: string; password: string; full_name?: string }) => Promise<void>;
@@ -17,6 +19,7 @@ interface AuthState {
   clearError: () => void;
   checkAuth: () => Promise<void>;
   rehydrateUser: () => Promise<void>;
+  setPlaymatTexture: (texture: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -27,6 +30,8 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      playmat_texture: null,
+      userSettings: null,
 
       login: async (credentials) => {
         set({ isLoading: true, error: null });
@@ -37,16 +42,44 @@ export const useAuthStore = create<AuthState>()(
           if (!access_token) {
             throw new Error('No access_token in login response');
           }
-          // Get user profile with the new token
+          // Get user profile and settings with the new token
           const profileClient = new ApiClient(access_token);
           const userProfile = await profileClient.getProfile() as User;
+          // Fetch user settings
+          let userSettings: UserSettings | null = null;
+          try {
+            const settingsResp = await profileClient.getSettings() as { success: boolean; settings?: UserSettings };
+            if (settingsResp && settingsResp.success && settingsResp.settings) {
+              userSettings = settingsResp.settings;
+            }
+          } catch {}
+          // Randomize playmat if not set
+          let playmat_texture = userSettings?.playmat_texture || null;
+          if (!playmat_texture) {
+            let mats: string[] = [];
+            try {
+              const resp = await fetch('/api/playmats');
+              const data = await resp.json();
+              if (data.success && Array.isArray(data.files)) {
+                mats = data.files;
+              }
+            } catch {}
+            if (mats.length > 0) {
+              playmat_texture = mats[Math.floor(Math.random() * mats.length)];
+              // Persist to backend
+              try {
+                await profileClient.updateSettings({ ...userSettings, playmat_texture });
+              } catch {}
+            }
+          }
           set({
             user: userProfile,
             token: access_token,
             isAuthenticated: true,
             isLoading: false,
+            playmat_texture,
+            userSettings,
           });
-          // Remove any legacy 'auth_token' from localStorage
           if (typeof window !== 'undefined') {
             localStorage.removeItem('auth_token');
           }
@@ -57,8 +90,36 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             user: null,
             token: null,
+            playmat_texture: null,
+            userSettings: null,
           });
           throw new Error('Login failed');
+        }
+      },
+      setPlaymatTexture: async (texture) => {
+        const { token, userSettings } = get();
+        set({ playmat_texture: texture });
+        if (token) {
+          const apiClient = new ApiClient(token);
+          try {
+            await apiClient.updateSettings({ ...userSettings, playmat_texture: texture });
+            set({ 
+              userSettings: { 
+                ...userSettings, 
+                playmat_texture: texture, 
+                theme: userSettings?.theme ?? "light", // Ensure theme is always defined
+                default_format: userSettings?.default_format ?? "standard", // Provide defaults if needed
+                currency: userSettings?.currency ?? "usd",
+                card_display: userSettings?.card_display ?? "grid",
+                auto_save: userSettings?.auto_save ?? false,
+                notifications: {
+                  price_alerts: userSettings?.notifications?.price_alerts ?? false,
+                  deck_updates: userSettings?.notifications?.deck_updates ?? false,
+                  collection_changes: userSettings?.notifications?.collection_changes ?? false,
+                }
+              } 
+            });
+          } catch {}
         }
       },
 
@@ -148,6 +209,8 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
+        playmat_texture: state.playmat_texture,
+        userSettings: state.userSettings,
       }),
       migrate: (persistedState: any, version: number) => {
         // Remove any legacy 'auth_token' from localStorage on hydration
