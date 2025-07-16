@@ -392,15 +392,120 @@ class UserSettings(BaseModel):
 # Collection management functions (placeholder implementations)
 def get_user_collections(user_id: str) -> List[dict]:
     """Get all collections for a user (placeholder implementation)"""
-    print(f"📦 Getting collections for user: {user_id}")
-    return []
+    import httpx
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Content-Type": "application/json"
+    }
+    async def fetch():
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/collections?user_id=eq.{user_id}",
+                headers=headers
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                print(f"Error fetching collections: {resp.text}")
+                return []
+    return asyncio.run(fetch())
 
 def save_collection(user_id: str, collection_data: CollectionSave) -> str:
     """Save a collection for a user (placeholder implementation)"""
-    collection_id = str(uuid.uuid4())
-    print(f"💾 Saving collection '{collection_data.name}' for user: {user_id}")
-    print(f"📦 Generated collection ID: {collection_id}")
-    return collection_id
+    import httpx
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    payload = {
+        "user_id": user_id,
+        "name": collection_data.name,
+        "description": collection_data.description,
+        "collection_data": collection_data.collection_data,
+        "is_public": collection_data.is_public
+    }
+    async def post():
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{SUPABASE_URL}/rest/v1/collections",
+                headers=headers,
+                json=payload
+            )
+            if resp.status_code in [200, 201]:
+                result = resp.json()
+                return result[0]["id"] if isinstance(result, list) and result else None
+            else:
+                print(f"Error saving collection: {resp.text}")
+                return None
+    return asyncio.run(post())
+
+def get_collection_by_id(user_id: str, collection_id: str) -> dict:
+    import httpx
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Content-Type": "application/json"
+    }
+    async def fetch():
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/collections?id=eq.{collection_id}&user_id=eq.{user_id}",
+                headers=headers
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data[0] if data else None
+            else:
+                print(f"Error fetching collection: {resp.text}")
+                return None
+    return asyncio.run(fetch())
+
+def update_collection(user_id: str, collection_id: str, data: dict) -> bool:
+    import httpx
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    async def patch():
+        async with httpx.AsyncClient() as client:
+            resp = await client.patch(
+                f"{SUPABASE_URL}/rest/v1/collections?id=eq.{collection_id}&user_id=eq.{user_id}",
+                headers=headers,
+                json=data
+            )
+            return resp.status_code in [200, 204]
+    return asyncio.run(patch())
+
+def delete_collection(user_id: str, collection_id: str) -> bool:
+    import httpx
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json"
+    }
+    async def delete():
+        async with httpx.AsyncClient() as client:
+            resp = await client.delete(
+                f"{SUPABASE_URL}/rest/v1/collections?id=eq.{collection_id}&user_id=eq.{user_id}",
+                headers=headers
+            )
+            return resp.status_code in [200, 204]
+    return asyncio.run(delete())
 
 def get_user_settings(user_id: str) -> dict:
     """Get user settings (placeholder implementation)"""

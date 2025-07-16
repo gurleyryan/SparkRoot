@@ -5,14 +5,14 @@ import CollectionUpload from '@/components/CollectionUpload';
 import CollectionGrid from '@/components/CollectionGrid';
 import AuthModal from '@/components/AuthModal';
 import Navigation from '@/components/Navigation';
-import type { MTGCard, User, CollectionStats } from '@/types';
+import type { User } from '@/types';
+import { useCollectionStore } from '@/store/collectionStore';
 
 export default function Home() {
-  const [collection, setCollection] = useState<MTGCard[]>([]);
-  const [collectionStats, setCollectionStats] = useState<CollectionStats | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const { collections } = useCollectionStore();
 
   useEffect(() => {
     // Check for existing authentication
@@ -22,12 +22,6 @@ export default function Home() {
       // TODO: Validate token and get user info
     }
   }, []);
-
-  const handleCollectionUploaded = (data: MTGCard[]) => {
-    setCollection(data);
-    // TODO: Calculate stats from data
-    // setCollectionStats(calculateStats(data));
-  };
 
   const handleAuth = (userData: User) => {
     setUser(userData);
@@ -39,8 +33,6 @@ export default function Home() {
     localStorage.removeItem('auth_token');
     setIsAuthenticated(false);
     setUser(null);
-    setCollection([]);
-    setCollectionStats(null);
   };
 
   return (
@@ -108,43 +100,12 @@ export default function Home() {
               </button>
             </div>
           </div>
-        ) : collection.length === 0 ? (
-          <CollectionUpload onCollectionUploaded={handleCollectionUploaded} />
+        ) : collections.length === 0 ? (
+          <CollectionUpload />
         ) : (
           <div>
-            {/* Collection Stats */}
-            <div className="bg-black sleeve-morphism rounded-xl p-6 mb-8 border border-gray-700">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-mtg text-rarity-mythic">Collection Overview</h2>
-                <button
-                  onClick={() => setCollection([])}
-                  className="bg-mtg-blue hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
-                >
-                  Upload New Collection
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="text-center sleeve-morphism border-mtg-mythic rounded-lg p-4">
-                  <div className="text-3xl font-bold text-rarity-mythic">{collectionStats?.total_cards}</div>
-                  <div className="text-gray-400 font-mtg-body">Total Cards</div>
-                </div>
-                <div className="text-center sleeve-morphism border-mtg-rare rounded-lg p-4">
-                  <div className="text-3xl font-bold text-rarity-rare">{collectionStats?.unique_cards}</div>
-                  <div className="text-gray-400 font-mtg-body">Unique Cards</div>
-                </div>
-                <div className="text-center sleeve-morphism border-mtg-white rounded-lg p-4">
-                  <div className="text-3xl font-bold text-mtg-white">{collection.length}</div>
-                  <div className="text-gray-400 font-mtg-body">Cards Loaded</div>
-                </div>
-                <div className="text-center sleeve-morphism border-mtg-green rounded-lg p-4">
-                  <div className="text-3xl font-bold text-mtg-green">$0.00</div>
-                  <div className="text-gray-400 font-mtg-body">Est. Value</div>
-                </div>
-              </div>
-            </div>
-
             {/* Collection Grid */}
-            <CollectionGrid collection={collection} />
+            <CollectionGrid />
           </div>
         )}
       </div>

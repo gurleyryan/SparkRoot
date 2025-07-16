@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { ApiClient } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
+import { useCollectionStore } from '@/store/collectionStore';
 import Image from 'next/image';
 import type { MTGCard } from '@/types';
 
 interface CollectionGridProps {
-  collection: MTGCard[];
+  // No props needed, will use store
 }
 
 // Helper function to get card properties (handles both API and CSV formats)
@@ -17,43 +20,98 @@ const getCardProperty = (card: MTGCard, property: keyof MTGCard, fallback?: stri
   return fallback || '';
 };
 
-export default function CollectionGrid({ collection }: CollectionGridProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState('All');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+const token = useAuthStore((s) => s.token);
+const {
+  collections,
+  activeCollection,
+  setCollections,
+  setActiveCollection,
+  updateCollection,
+  deleteCollection,
+  viewMode,
+  setViewMode,
+  searchQuery,
+  setSearchQuery,
+  filters,
+  setFilters,
+  cards,
+  setCards,
+  filteredCards,
+  applyFilters,
+} = useCollectionStore();
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
 
-  // Get unique card types for filter
-  const cardTypes = ['All', ...new Set(collection.map(card => 
-    getCardProperty(card, 'type_line').split(' ')[0] || 'Unknown'
-  ))];
-
-  // Filter collection
-  const filteredCollection = collection.filter(card => {
-    const cardName = getCardProperty(card, 'name');
-    const matchesSearch = cardName.toLowerCase().includes(searchTerm.toLowerCase());
-    const cardType = getCardProperty(card, 'type_line');
-    const matchesType = selectedType === 'All' || cardType.includes(selectedType);
-    return matchesSearch && matchesType;
-  });
-
-  // Get Scryfall image URL for a card
-  const getCardImageUrl = (card: MTGCard): string => {
-    // Use Scryfall image URL if available, otherwise use card name lookup
-    if (card.image_uris?.normal) {
-      return card.image_uris.normal;
+// Fetch collections on mount
+useEffect(() => {
+  async function fetchCollections() {
+    setLoading(true);
+    setError(null);
+    try {
+      const apiClient = new ApiClient(token || undefined);
+      const result = await apiClient.getCollections();
+      if (Array.isArray(result)) {
+        setCollections(result);
+        if (result.length > 0) setActiveCollection(result[0]);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch collections');
+    } finally {
+      setLoading(false);
     }
-    
-    // Fallback to name-based lookup
-    const cardName = getCardProperty(card, 'name');
-    const encodedName = encodeURIComponent(cardName);
-    return `https://api.scryfall.com/cards/named?exact=${encodedName}&format=image&version=normal`;
-  };
+  }
+  fetchCollections();
+}, [token, setCollections, setActiveCollection]);
 
+// Get unique card types for filter
+const cardTypes = ['All', ...new Set((activeCollection?.cards || []).map(card =>
+  getCardProperty(card, 'type_line').split(' ')[0] || 'Unknown'
+))];
+
+// Filter collection
+const filteredCollection = (activeCollection?.cards || []).filter(card => {
+  const cardName = getCardProperty(card, 'name');
+  const matchesSearch = cardName.toLowerCase().includes(searchQuery.toLowerCase());
+  const cardType = getCardProperty(card, 'type_line');
+  const matchesType = filters.types?.length ? filters.types.includes(cardType) : true;
+  return matchesSearch && matchesType;
+});
+
+// Get Scryfall image URL for a card
+const getCardImageUrl = (card: MTGCard): string => {
+  // Use Scryfall image URL if available, otherwise use card name lookup
+  if (card.image_uris?.normal) {
+    return card.image_uris.normal;
+  }
+
+  // Fallback to name-based lookup
+  const cardName = getCardProperty(card, 'name');
+  const encodedName = encodeURIComponent(cardName);
+  return `https://api.scryfall.com/cards/named?exact=${encodedName}&format=image&version=normal`;
+};
+
+const CollectionGrid: React.FC<CollectionGridProps> = () => {
   return (
     <div className="space-y-6">
-      {/* Controls */}
+      {/* Collection Selector & Controls */}
       <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          {/* Collection Selector */}
+          <div className="flex-1 max-w-md">
+            <select
+              value={activeCollection?.id || ''}
+              onChange={e => {
+                const selected = collections.find(c => c.id === e.target.value);
+                if (selected) setActiveCollection(selected);
+              }}
+              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:border-amber-400 focus:outline-none mb-2"
+            >
+              {collections.map(col => (
+                <option key={col.id} value={col.id}>{col.name}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Search */}
           <div className="flex-1 max-w-md">
             <div className="relative">
@@ -63,47 +121,71 @@ export default function CollectionGrid({ collection }: CollectionGridProps) {
               <input
                 type="text"
                 placeholder="Search cards..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-amber-400 focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="flex gap-4 items-center">
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:border-amber-400 focus:outline-none"
+          {/* View Mode Toggle */}
+          <div className="flex bg-slate-700 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-2 text-sm ${viewMode === 'grid' ? 'bg-amber-600 text-white' : 'text-slate-300 hover:text-white'}`}
             >
-              {cardTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-
-            {/* View Mode Toggle */}
-            <div className="flex bg-slate-700 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-2 text-sm ${viewMode === 'grid' ? 'bg-amber-600 text-white' : 'text-slate-300 hover:text-white'}`}
-              >
-                Grid
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-2 text-sm ${viewMode === 'list' ? 'bg-amber-600 text-white' : 'text-slate-300 hover:text-white'}`}
-              >
-                List
-              </button>
-            </div>
+              Grid
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 text-sm ${viewMode === 'list' ? 'bg-amber-600 text-white' : 'text-slate-300 hover:text-white'}`}
+            >
+              List
+            </button>
           </div>
         </div>
 
+        {/* Edit/Delete Buttons */}
+        {activeCollection && (
+          <div className="flex gap-2 mt-4">
+            <button
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+              onClick={async () => {
+                // Example: Edit collection name
+                const newName = prompt('Edit collection name:', activeCollection.name);
+                if (newName && newName !== activeCollection.name) {
+                  try {
+                    const apiClient = new ApiClient(token || undefined);
+                    await apiClient.saveCollection({ ...activeCollection, name: newName });
+                    updateCollection(activeCollection.id, { name: newName });
+                  } catch (err: any) {
+                    setError(err.message || 'Failed to update collection');
+                  }
+                }
+              }}
+            >Edit</button>
+            <button
+              className="px-4 py-2 bg-red-600 text-white rounded-lg"
+              onClick={async () => {
+                if (window.confirm('Delete this collection?')) {
+                  try {
+                    const apiClient = new ApiClient(token || undefined);
+                    await apiClient.deleteCollectionById(activeCollection.id); // <-- FIXED
+                    deleteCollection(activeCollection.id);
+                  } catch (err: any) {
+                    setError(err.message || 'Failed to delete collection');
+                  }
+                }
+              }}
+            >Delete</button>
+          </div>
+        )}
+
         {/* Results Count */}
         <div className="mt-4 text-slate-400">
-          Showing {filteredCollection.length} of {collection.length} cards
+          Showing {filteredCollection.length} of {(activeCollection?.cards || []).length} cards
         </div>
+        {error && <div className="text-red-500 mt-2">{error}</div>}
       </div>
 
       {/* Collection Grid */}
@@ -113,7 +195,7 @@ export default function CollectionGrid({ collection }: CollectionGridProps) {
             const cardName = getCardProperty(card, 'name', 'Unknown Card');
             const cardType = getCardProperty(card, 'type_line', 'Unknown Type');
             const manaCost = getCardProperty(card, 'mana_cost');
-            
+
             return (
               <div
                 key={`${cardName}-${index}`}
@@ -131,10 +213,10 @@ export default function CollectionGrid({ collection }: CollectionGridProps) {
                       e.currentTarget.src = '/api/placeholder/250/350';
                     }}
                   />
-                  
+
                   {/* Sleeve Effect Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-slate-900/20 pointer-events-none" />
-                  
+
                   {/* Hover Overlay */}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                     <div className="text-center p-4">
@@ -158,7 +240,7 @@ export default function CollectionGrid({ collection }: CollectionGridProps) {
             const cardType = getCardProperty(card, 'type_line', 'Unknown Type');
             const manaCost = getCardProperty(card, 'mana_cost');
             const cmc = card.cmc || 0;
-            
+
             return (
               <div
                 key={`${cardName}-${index}`}
@@ -193,4 +275,6 @@ export default function CollectionGrid({ collection }: CollectionGridProps) {
       )}
     </div>
   );
-}
+};
+
+export default CollectionGrid;

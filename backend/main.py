@@ -22,7 +22,8 @@ from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_
 # Import authentication modules (Supabase REST API version)
 from backend.auth_supabase_rest import (
     UserCreate, UserResponse, UserLogin, Token, CollectionSave, UserSettings,
-    UserManager, get_current_user, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+    UserManager, get_current_user, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
+    get_collection_by_id, update_collection, delete_collection
 )
 
 # Import pricing modules
@@ -177,12 +178,46 @@ async def get_current_user_info(current_user = Depends(get_user_from_token)):
     )
 
 # Collection management endpoints
+
 @app.get("/api/collections")
 async def get_user_collections(current_user = Depends(get_user_from_token)):
     """Get all collections for the current user"""
     user_id = current_user["id"]
     collections = UserManager.get_user_collections(user_id)
     return {"success": True, "collections": collections}
+
+@app.get("/api/collections/{collection_id}")
+async def get_collection(collection_id: str, current_user = Depends(get_user_from_token)):
+    """Get a specific collection for the current user"""
+    user_id = current_user["id"]
+    collection = get_collection_by_id(user_id, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found or not owned by user")
+    return {"success": True, "collection": collection}
+
+@app.put("/api/collections/{collection_id}")
+async def update_collection_endpoint(collection_id: str, data: dict, current_user = Depends(get_user_from_token)):
+    """Update a collection for the current user"""
+    user_id = current_user["id"]
+    collection = get_collection_by_id(user_id, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found or not owned by user")
+    success = update_collection(user_id, collection_id, data)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update collection")
+    return {"success": True, "message": "Collection updated"}
+
+@app.delete("/api/collections/{collection_id}")
+async def delete_collection_endpoint(collection_id: str, current_user = Depends(get_user_from_token)):
+    """Delete a collection for the current user"""
+    user_id = current_user["id"]
+    collection = get_collection_by_id(user_id, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found or not owned by user")
+    success = delete_collection(user_id, collection_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete collection")
+    return {"success": True, "message": "Collection deleted"}
 
 @app.post("/api/collections")
 async def save_collection(

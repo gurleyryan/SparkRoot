@@ -137,6 +137,13 @@ export class ApiClient {
     return this.request(API_CONFIG.endpoints.collections);
   }
 
+  async deleteCollectionById(collectionId: string) {
+    // Assumes API_CONFIG.endpoints.collections is something like '/api/collections'
+    return this.request(`${API_CONFIG.endpoints.collections}/${collectionId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async saveCollection(collectionData: any) {
     return this.request(API_CONFIG.endpoints.collections, {
       method: 'POST',

@@ -3,44 +3,62 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import type { MTGCard } from '@/types';
+import { ApiClient } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
+import { useCollectionStore } from '@/store/collectionStore';
 
 interface CollectionUploadProps {
-  onCollectionUploaded: (data: MTGCard[]) => void;
+  onCollectionUploaded?: (data: MTGCard[]) => void;
 }
 
 export default function CollectionUpload({ onCollectionUploaded }: CollectionUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const token = useAuthStore((state) => state.token);
+  const addCollection = useCollectionStore((state) => state.addCollection);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0) return;
-
-    const file = acceptedFiles[0];
     setIsUploading(true);
     setError(null);
-
+    const file = acceptedFiles[0];
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('http://localhost:8000/api/parse-collection', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        onCollectionUploaded(result);
+      const apiClient = new ApiClient(token || undefined);
+      // Parse the collection file
+      const parsed = await apiClient.parseCollection(file);
+      // Type guard for expected response
+      if (parsed && typeof parsed === 'object' && 'success' in parsed && parsed.success && 'collection' in parsed) {
+        const collectionObj = (parsed as any).collection;
+        // Save the collection to backend
+        const saveResult = await apiClient.saveCollection({
+          description: collectionObj.description || '',
+          collection_data: collectionObj.cards || collectionObj,
+          is_public: false,
+        });
+        if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
+           addCollection({
+            id: String((saveResult as { id: string }).id),
+            user_id: '', // Optionally fetch user_id from authStore
+            name: collectionObj.name || 'My Collection',
+            description: collectionObj.description || '',
+            cards: collectionObj.cards || collectionObj,
+            created_at: '',
+            updated_at: '',
+          });
+        }
+        if (typeof onCollectionUploaded === 'function') {
+          onCollectionUploaded(collectionObj.cards || collectionObj);
+        }
+      } else if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+        setError((parsed as any).error || 'Failed to parse collection');
       } else {
-        setError(result.error || 'Failed to parse collection');
+        setError('Failed to parse collection');
       }
-    } catch {
+    } catch (err) {
       setError('Failed to upload collection. Make sure the backend is running.');
     } finally {
       setIsUploading(false);
     }
-  }, [onCollectionUploaded]);
+  }, [token, addCollection, onCollectionUploaded]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -95,15 +113,37 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
             onClick={async (e) => {
               e.stopPropagation();
               setIsUploading(true);
+              setError(null);
               try {
-                // Load your actual collection with Scryfall enrichment via backend
-                const response = await fetch('http://localhost:8000/api/load-sample-collection');
-                const result = await response.json();
-
-                if (result.success) {
-                  onCollectionUploaded(result);
+                const apiClient = new ApiClient(token || undefined);
+                const result = await apiClient.loadSampleCollection();
+                if (result && typeof result === 'object' && 'success' in result && result.success && 'collection' in result) {
+                  const collectionObj = (result as any).collection;
+                  // Save the sample collection to backend
+                  const saveResult = await apiClient.saveCollection({
+                    name: collectionObj.name || 'Sample Collection',
+                    description: collectionObj.description || '',
+                    collection_data: collectionObj.cards || collectionObj,
+                    is_public: false,
+                  });
+                  if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
+                    addCollection({
+                      id: String(saveResult.id),
+                      user_id: '',
+                      name: collectionObj.name || 'Sample Collection',
+                      description: collectionObj.description || '',
+                      cards: collectionObj.cards || collectionObj,
+                      created_at: '',
+                      updated_at: '',
+                    });
+                  }
+                  if (typeof onCollectionUploaded === 'function') {
+                    onCollectionUploaded(collectionObj.cards || collectionObj);
+                  }
+                } else if (result && typeof result === 'object' && 'error' in result) {
+                  setError((result as any).error || 'Failed to load collection');
                 } else {
-                  setError(result.error || 'Failed to load collection');
+                  setError('Failed to load collection');
                 }
               } catch {
                 setError('Failed to load collection. Make sure the backend is running.');
@@ -142,3 +182,4 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     </div>
   );
 }
+
