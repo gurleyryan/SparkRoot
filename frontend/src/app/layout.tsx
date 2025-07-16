@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
+import React from 'react';
+import AuthHydrator from '../components/AuthHydrator';
 import type { Metadata } from "next";
 import { Cinzel, Source_Sans_3, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
@@ -32,10 +32,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const rehydrateUser = useAuthStore((s) => s.rehydrateUser);
-  useEffect(() => {
-    rehydrateUser && rehydrateUser();
-  }, [rehydrateUser]);
   return (
     <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
       <body className="bg-mtg-black text-white antialiased font-mtg-body min-h-screen"
@@ -46,6 +42,7 @@ export default function RootLayout({
           backgroundSize: '600px 600px'
         }}
       >
+        <AuthHydrator />
         {children}
       </body>
     </html>
