@@ -1,9 +1,10 @@
 import "@testing-library/jest-dom";
 import "@testing-library/jest-dom/extend-expect";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { act } from "react-dom/test-utils";
+import { act } from "@testing-library/react";
 import AccountPage from "../app/account/page";
 import { useAuthStore } from "../store/authStore";
+import { jest } from '@jest/globals';
 
 jest.mock("../store/authStore", () => ({
   useAuthStore: jest.fn(),
@@ -213,5 +214,3 @@ describe("AccountPage", () => {
 
   // Add more tests for API error handling
 });
-
-
