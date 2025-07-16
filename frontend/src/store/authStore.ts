@@ -16,6 +16,7 @@ interface AuthState {
   logout: () => void;
   clearError: () => void;
   checkAuth: () => Promise<void>;
+  rehydrateUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -123,6 +124,19 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: 'Session expired. Please log in again.',
           });
+        }
+      },
+      rehydrateUser: async () => {
+        const { token, user } = get();
+        if (token && !user) {
+          set({ isLoading: true });
+          try {
+            const apiClient = new ApiClient(token);
+            const userProfile = await apiClient.getProfile() as User;
+            set({ user: userProfile, isAuthenticated: true, isLoading: false });
+          } catch {
+            set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+          }
         }
       },
     }),
