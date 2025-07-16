@@ -201,7 +201,7 @@ Add this script to your Railway deployment or download the file manually.
 - **Environment Management**: Standardized `.env`, `.env.example` for frontend and backend
 
 ### **Other Improvements**
-- **Documentation**: API_DOCS.md and README.md updated for error monitoring, logging, and security
+- **Documentation**: README.md updated for error monitoring, logging, and security
 - **Module Aliases**: Jest/Babel config for frontend tests and alias resolution
 - **Supabase Audit**: Verified secure integration and removed unused DB code
 
@@ -219,8 +219,6 @@ Add this script to your Railway deployment or download the file manually.
 ## 📡 **API Documentation & Error Monitoring**
 
 The FastAPI backend provides a comprehensive REST API with automatic OpenAPI documentation at `http://localhost:8000/docs`.
-
-See `API_DOCS.md` for full endpoint details, authentication flows, and error monitoring setup.
 
 ## 📡 **API Reference & Security Checklist**
 
