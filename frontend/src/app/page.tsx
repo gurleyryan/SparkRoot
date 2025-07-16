@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect } from 'react';
 import CollectionUpload from '@/components/CollectionUpload';
 import CollectionGrid from '@/components/CollectionGrid';
