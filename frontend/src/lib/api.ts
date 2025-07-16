@@ -111,6 +111,7 @@ export class ApiClient {
 
   // Authentication methods
   async register(userData: {
+    username: string;
     email: string;
     password: string;
     full_name?: string;

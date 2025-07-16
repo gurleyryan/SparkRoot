@@ -268,6 +268,8 @@ async def register_user(user_data: dict = Body(...)):
     """Register a new user"""
     try:
         logger.info("Registering new user", email=user_data.get('email'), username=user_data.get('username'))
+        if not user_data.get("username") or not isinstance(user_data.get("username"), str) or not user_data["username"].strip():
+            raise HTTPException(status_code=400, detail="Username is required and must be a non-empty string.")
         user_response = await UserManager.create_user(
             email=user_data["email"],
             password=user_data["password"],
