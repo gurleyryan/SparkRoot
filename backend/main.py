@@ -1,3 +1,4 @@
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -52,6 +53,44 @@ def convert_numpy_types(collection):
     return collection
 
 app = FastAPI(title="MTG Deck Optimizer API", version="1.0.0")
+
+# Deck export endpoints (moved after app definition)
+class DeckExportRequest(BaseModel):
+    deck_data: dict
+    as_file: bool = False
+
+@app.post("/api/export-deck/txt")
+async def export_deck_txt(request: DeckExportRequest):
+    """Export deck to MTGO/Arena TXT format (file or text)."""
+    try:
+        deck_text, filepath = export_deck_to_txt(request.deck_data)
+        if request.as_file:
+            return FileResponse(filepath, filename=filepath.split(os.sep)[-1], media_type="text/plain")
+        return PlainTextResponse(deck_text)
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+@app.post("/api/export-deck/json")
+async def export_deck_json(request: DeckExportRequest):
+    """Export deck to JSON format (file or text)."""
+    try:
+        filepath = export_deck_to_json(request.deck_data)
+        if request.as_file:
+            return FileResponse(filepath, filename=filepath.split(os.sep)[-1], media_type="application/json")
+        with open(filepath, "r", encoding="utf-8") as f:
+            json_text = f.read()
+        return PlainTextResponse(json_text, media_type="application/json")
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+@app.post("/api/export-deck/moxfield")
+async def export_deck_moxfield(request: DeckExportRequest):
+    """Export deck to MoxField import format (text only)."""
+    try:
+        moxfield_text = export_deck_to_moxfield(request.deck_data)
+        return PlainTextResponse(moxfield_text)
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
 
 # Database startup/shutdown events commented out - using Supabase REST API instead
 # @app.on_event("startup")
