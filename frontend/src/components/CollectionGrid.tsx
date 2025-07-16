@@ -19,7 +19,7 @@ const getCardProperty = (card: MTGCard, property: keyof MTGCard, fallback?: stri
 };
 
 const CollectionGrid: React.FC<CollectionGridProps> = () => {
-  const token = useAuthStore((s) => s.token);
+  // Removed: token (secure session via cookie)
   const {
     collections,
     activeCollection,
@@ -42,7 +42,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
       // setLoading(true); // removed as unused
       setError(null);
       try {
-        const apiClient = new ApiClient(token || undefined);
+        const apiClient = new ApiClient();
         const result = await apiClient.getCollections();
         if (Array.isArray(result)) {
           setCollections(result);
@@ -59,7 +59,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
       }
     }
     fetchCollections();
-  }, [token, setCollections, setActiveCollection]);
+  }, [setCollections, setActiveCollection]);
 
   // Get unique card types for filter - unused
   // removed cardTypes as unused
@@ -150,7 +150,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                 const newName = prompt('Edit collection name:', activeCollection.name);
                 if (newName && newName !== activeCollection.name) {
                   try {
-                    const apiClient = new ApiClient(token || undefined);
+                    const apiClient = new ApiClient();
                     await apiClient.saveCollection({ ...activeCollection, name: newName });
                     updateCollection(activeCollection.id, { name: newName });
                   } catch (err: unknown) {
@@ -168,7 +168,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
               onClick={async () => {
                 if (window.confirm('Delete this collection?')) {
                   try {
-                    const apiClient = new ApiClient(token || undefined);
+                    const apiClient = new ApiClient();
                     await apiClient.deleteCollectionById(activeCollection.id); // <-- FIXED
                     deleteCollection(activeCollection.id);
                   } catch (err: unknown) {

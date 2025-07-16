@@ -20,7 +20,7 @@ export default function ApiTestPage() {
   const [sampleCollection, setSampleCollection] = useState<SampleCollection | null>(null);
   const [loading, setLoading] = useState(false);
   
-  const { user, token, login, register, logout, isAuthenticated, error } = useAuthStore();
+  const { user, login, register, logout, isAuthenticated, error } = useAuthStore();
   
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [registerForm, setRegisterForm] = useState({ 
@@ -49,7 +49,7 @@ export default function ApiTestPage() {
   const loadSampleCollection = async () => {
     setLoading(true);
     try {
-      const apiClient = new ApiClient(token || undefined);
+      const apiClient = new ApiClient();
       const collection = await apiClient.loadSampleCollection();
       if (collection && typeof collection === 'object') {
         setSampleCollection(collection as SampleCollection);

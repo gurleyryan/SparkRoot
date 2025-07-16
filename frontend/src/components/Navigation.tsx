@@ -35,9 +35,13 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
           <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
-                <div className="text-gray-300 font-mtg-body">
-                  Welcome, {user?.full_name || user?.username || 'User'}
-                </div>
+                <a
+                  href="/account"
+                  className="text-gray-300 font-mtg-body hover:text-mtg-blue transition-colors underline cursor-pointer"
+                  title="Account settings"
+                >
+                  Welcome, {user?.username || 'User'}
+                </a>
                 <button
                   onClick={onLogout}
                   className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors font-mtg-body"

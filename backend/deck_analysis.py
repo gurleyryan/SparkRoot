@@ -2,9 +2,8 @@
 Deck analysis and scoring system for MTG Deck Optimizer
 Evaluates deck quality, balance, and optimization potential
 """
-import math
 from collections import Counter
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any
 
 
 def analyze_deck_quality(deck_data: Dict[str, Any]) -> Dict[str, Any]:

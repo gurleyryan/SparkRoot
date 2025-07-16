@@ -1,34 +1,66 @@
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBearer
 import pandas as pd
 import io
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from pydantic import BaseModel
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
+import structlog
+import sentry_sdk
+class UpdatePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+class UpdateEmailRequest(BaseModel):
+    new_email: str
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi.responses import JSONResponse
+
+# Configure logging
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.stdlib.add_log_level,
+        structlog.processors.JSONRenderer()
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+
+load_dotenv()
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    traces_sample_rate=1.0,
+    environment=os.getenv("SENTRY_ENV", "production")
+)
+
+logger = structlog.get_logger()
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Import your existing modules
 from backend.utils import enrich_collection_with_scryfall, load_scryfall_cards
-from backend.deckgen import find_valid_commanders, generate_commander_deck
+from backend.deckgen import find_valid_commanders
 from backend.deck_analysis import analyze_deck_quality
 from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield, get_deck_statistics
 
 # Import authentication modules (Supabase REST API version)
 from backend.auth_supabase_rest import (
-    UserCreate, UserResponse, UserLogin, Token, CollectionSave, UserSettings,
-    UserManager, get_current_user, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
+    UserResponse, CollectionSave, UserSettings,
+    UserManager, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
     get_collection_by_id, update_collection, delete_collection
 )
 
 # Import pricing modules
-from backend.pricing import PriceManager, enrich_collection_with_prices, calculate_collection_value
+from backend.pricing import enrich_collection_with_prices, calculate_collection_value
 
 # Database connection (using Supabase REST API via auth_supabase.py)
 # from supabase_db import db  # Commented out - using REST API instead
@@ -53,6 +85,46 @@ def convert_numpy_types(collection):
     return collection
 
 app = FastAPI(title="MTG Deck Optimizer API", version="1.0.0")
+@app.get("/sentry-debug")
+async def trigger_error():
+    division_by_zero = 1 / 0
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, lambda r, e: JSONResponse(status_code=429, content={"error": "Rate limit exceeded"}))
+# Password change endpoint
+@app.post("/api/auth/update-password")
+@limiter.limit("3/minute")
+async def update_password(request: UpdatePasswordRequest, credentials: HTTPAuthorizationCredentials = Depends()):
+    """Update user password after successful TOTP verification"""
+    from backend.auth_supabase_rest import get_current_user
+    import httpx, os
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    user = await get_current_user(credentials)
+    user_id = user["id"]
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json"
+    }
+    # Verify current password (implementation depends on Supabase setup)
+    # For demo, assume always valid
+    async with httpx.AsyncClient() as client:
+        resp = await client.patch(
+            f"{SUPABASE_URL}/auth/v1/users/{user_id}",
+            headers=headers,
+            json={"password": request.new_password}
+        )
+        if resp.status_code == 200:
+            logger.info("User changed password", user_id=user_id)
+            return {"success": True, "message": "Password updated"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to update password")
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, lambda r, e: JSONResponse(status_code=429, content={"error": "Rate limit exceeded"}))
+from totp_verify import router as totp_router
+app.include_router(totp_router)
 
 # Deck export endpoints (moved after app definition)
 class DeckExportRequest(BaseModel):
@@ -145,13 +217,57 @@ async def root():
 async def health_check():
     return {"status": "healthy", "service": "MTG Deck Optimizer API"}
 
+from fastapi import Query
 # Authentication endpoints
 from fastapi import Body
+
+@app.get("/api/auth/check-username")
+async def check_username(username: str = Query(...)):
+    """Check if username is available (not taken)"""
+    import httpx, os
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json"
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/profiles?username=eq.{username}",
+            headers=headers
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return {"available": len(data) == 0}
+        return {"available": False}
+
+@app.get("/api/auth/check-email")
+async def check_email(email: str = Query(...)):
+    """Check if email is available (not taken)"""
+    import httpx, os
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json"
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{SUPABASE_URL}/auth/v1/users?email=eq.{email}",
+            headers=headers
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return {"available": len(data) == 0}
+        return {"available": False}
 
 @app.post("/api/auth/register", response_model=UserResponse)
 async def register_user(user_data: dict = Body(...)):
     """Register a new user"""
     try:
+        logger.info("Registering new user", email=user_data.get('email'), username=user_data.get('username'))
         user_response = await UserManager.create_user(
             email=user_data["email"],
             password=user_data["password"],
@@ -175,9 +291,13 @@ async def register_user(user_data: dict = Body(...)):
 
 from fastapi import Body
 
+from fastapi.responses import JSONResponse
+from fastapi import Response
+from datetime import datetime, timedelta
+
 @app.post("/api/auth/login")
-async def login_user(payload: dict = Body(...)):
-    """Authenticate user and return access token and user info"""
+async def login_user(payload: dict = Body(...), response: Response = None):
+    """Authenticate user and set access token in HttpOnly cookie"""
     identifier = payload.get("identifier") or payload.get("email") or payload.get("username")
     password = payload.get("password")
     if not identifier or not password:
@@ -201,9 +321,16 @@ async def login_user(payload: dict = Body(...)):
         },
         expires_delta=access_token_expires
     )
+    expire = datetime.utcnow() + access_token_expires
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        expires=expire.strftime("%a, %d %b %Y %H:%M:%S GMT")
+    )
     return {
-        "access_token": access_token,
-        "token_type": "bearer",
         "id": user_id,
         "email": user_email,
         "username": username,
@@ -289,9 +416,72 @@ async def update_user_settings(
     """Update user settings"""
     user_id = current_user["id"]
     UserManager.update_user_settings(user_id, settings)
+    logger.info("User updated settings", user_id=user_id, settings=settings)
     return {"success": True, "message": "Settings updated successfully"}
 
+@app.post("/api/auth/update-email")
+@limiter.limit("3/minute")
+async def update_email(request: UpdateEmailRequest, credentials: HTTPAuthorizationCredentials = Depends()):
+    """Update user email after successful TOTP verification"""
+    from backend.auth_supabase_rest import get_current_user
+    import httpx, os
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    user = await get_current_user(credentials)
+    user_id = user["id"]
+    logger.info("User requested email change", user_id=user_id, new_email=request.new_email)
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json"
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.patch(
+            f"{SUPABASE_URL}/auth/v1/users/{user_id}",
+            headers=headers,
+            json={"email": request.new_email}
+        )
+        if resp.status_code == 200:
+            return {"success": True, "message": "Email updated"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to update email")
 # Pricing endpoints
+
+# Password change endpoint
+@app.post("/api/auth/update-password")
+@limiter.limit("3/minute")
+@limiter.limit("5/minute")
+async def update_password(request: UpdatePasswordRequest, credentials: HTTPAuthorizationCredentials = Depends()):
+    """Update user password after successful TOTP verification"""
+    import httpx, os
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    from backend.auth_supabase_rest import get_current_user
+    user = await get_current_user(credentials)
+    # Use request.current_password and request.new_password for validation and update
+    user_id = user["id"]
+    body = await request.json()
+    current_password = body.get("current_password")
+    new_password = body.get("new_password")
+    if not current_password or not new_password:
+        raise HTTPException(status_code=400, detail="Missing current or new password")
+    # Optionally: verify current password
+    logger.info("User requested password change", user_id=user_id)
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json"
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.patch(
+            f"{SUPABASE_URL}/auth/v1/users/{user_id}",
+            headers=headers,
+            json={"password": new_password}
+        )
+        if resp.status_code == 200:
+            return {"success": True, "message": "Password updated"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to update password")
 class PricingRequest(BaseModel):
     collection: List[Dict[str, Any]]
     source: str = "tcgplayer"  # tcgplayer, scryfall

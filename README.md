@@ -124,26 +124,115 @@ MTG-Deck-Optimizer/
     └── dev.sh          # Unix development script
 ```
 
-## 🎯 **Core Technologies**
+## 🎯 **Core Technologies & Recent Changes**
 
 ### **Frontend Stack**
 - **Framework**: Next.js 15 with App Router
 - **UI Library**: React 19 with TypeScript
 - **Styling**: Tailwind CSS v4 with custom MTG theme
 - **State Management**: Zustand for client state
-- **Authentication**: JWT token management
+- **Authentication**: Secure JWT in HttpOnly cookies (no localStorage)
 - **Fonts**: Next.js optimized Google Fonts (Cinzel, Source Sans 3)
 - **Icons**: Lucide React icon library
+- **Error Monitoring**: Sentry SDK integration for frontend error tracking
 
 ### **Backend Stack**
 - **API Framework**: FastAPI with automatic OpenAPI docs
-- **Database**: SQLite with SQLAlchemy ORM  
+- **Database**: Supabase PostgreSQL via REST API (SQLite fully removed)
 - **Authentication**: JWT tokens with bcrypt password hashing
-- **Data Sources**: Scryfall API integration
+- **Security**: TOTP enforcement, rate limiting, input validation
+- **Logging**: Structured logging with structlog (JSON/timestamp format)
+- **Error Monitoring**: Sentry SDK integration for backend error tracking
 - **File Processing**: CSV parsing with pandas
 - **CORS**: Configured for frontend integration
 - **Core Algorithms**: Python-powered deck generation and analysis
-- **Complex Tasks**: Advanced deck optimization using Python algorithms
+- **Testing**: Automated tests for authentication and account flows
+- **CI/CD**: GitHub Actions for automated testing and deployment
+- **Environment Management**: Standardized `.env`, `.env.example` for frontend and backend
+
+### **Other Improvements**
+- **Documentation**: API_DOCS.md and README.md updated for error monitoring, logging, and security
+- **Module Aliases**: Jest/Babel config for frontend tests and alias resolution
+- **Supabase Audit**: Verified secure integration and removed unused DB code
+
+## 🛡️ **Security & Monitoring**
+
+- **Sentry**: All backend and frontend errors are tracked in Sentry (see SENTRY_STRUCTLOG_CHECKLIST.md)
+- **structlog**: Backend logs use JSON format with timestamps for easy analysis
+- **TOTP**: Two-factor authentication required for sensitive actions
+- **Rate Limiting**: Sensitive endpoints are rate-limited
+- **Input Validation**: All input is validated using Pydantic models
+- **Environment Variables**: All secrets and config are managed via standardized `.env` files
+
+---
+
+## 📡 **API Documentation & Error Monitoring**
+
+The FastAPI backend provides a comprehensive REST API with automatic OpenAPI documentation at `http://localhost:8000/docs`.
+
+See `API_DOCS.md` for full endpoint details, authentication flows, and error monitoring setup.
+
+## 📡 **API Reference & Security Checklist**
+
+### Authentication & Account Endpoints
+
+- **POST /api/auth/login**: Authenticates user and sets JWT in HttpOnly cookie.
+- **GET /api/auth/me**: Returns current user info if authenticated (cookie required).
+- **POST /api/auth/update-profile**: Updates user profile (full name, username).
+- **POST /api/auth/update-email**: Updates user email (requires TOTP verification).
+- **POST /api/auth/update-password**: Updates user password (requires current password).
+- **POST /api/auth/verify-totp**: Verifies TOTP code for sensitive actions.
+- **GET /api/auth/check-username?username=...**: Checks if username is available.
+- **GET /api/auth/check-email?email=...**: Checks if email is available.
+
+### Security & Rate Limiting
+- Sensitive endpoints are rate-limited (e.g., password/email change).
+- All input is validated using Pydantic models.
+- Logging is structured (structlog) and errors are tracked with Sentry.
+
+### Usage Notes
+- All authenticated requests require cookie-based session (JWT in HttpOnly cookie).
+- TOTP is required for email changes and other sensitive actions.
+- Uniqueness checks for username/email are available via dedicated endpoints.
+
+---
+
+### Error Monitoring & Logging
+- **Sentry**: All backend and frontend errors are reported to Sentry in production.
+- **structlog**: Backend logs use JSON format with timestamps for easy analysis and monitoring.
+- See this README for setup and troubleshooting.
+
+### Sentry/structlog Production Validation Checklist
+
+1. **Sentry DSN**: Confirm `SENTRY_DSN` is set in production environment variables.
+2. **Sentry SDK**: Ensure `sentry_sdk.init()` is called in `backend/main.py` with the correct DSN.
+3. **Structlog**: Confirm `structlog.configure()` is present and logger is used for all backend logging.
+4. **Error Tracking**: Trigger a test error in production and verify it appears in Sentry dashboard.
+5. **Log Format**: Check production logs for JSON format and timestamps (structlog).
+6. **CI/CD**: Ensure CI workflow does not overwrite or remove Sentry/structlog config.
+7. **Documentation**: This README is the single source of truth for error monitoring and logging setup.
+
+---
+
+## 🎯 **Usage Guide**
+
+### **Getting Started**
+1. **Start the application** using one of the quick start methods above
+2. **Create an account** or sign in through the web interface
+3. **Upload your collection** in CSV format (MTGGoldfish, Archidekt, etc.)
+4. **Browse available commanders** from your collection
+5. **Generate optimized decks** with one click
+6. **Export and share** your decks in multiple formats
+
+### **CSV Format Support**
+The application automatically detects and handles various CSV formats:
+
+- **MTGGoldfish exports** (name, set, quantity, foil, price)
+- **Archidekt exports** (name, edition, quantity, condition)
+- **Custom formats** with automatic column mapping
+- **Quantity expansion** for multi-card entries
+
+---
 
 ### 3. Use Your Collection
 - Upload your collection CSV via the web interface
@@ -167,7 +256,7 @@ MTG-Deck-Optimizer/
 
 ---
 
-## � Key Features
+## Key Features
 
 ### ⚔️ Smart Deck Building
 - ✅ **Color identity validation** - All cards match commander colors
@@ -191,7 +280,7 @@ MTG-Deck-Optimizer/
 
 ---
 
-## �🏗️ Project Structure
+## 🏗️ Project Structure
 
 ```
 MTG-Deck-Optimizer/
@@ -239,7 +328,7 @@ export_deck_to_*()             # Multi-format export system
 
 ---
 
-## � What Makes This Special
+## What Makes This Special
 
 1. **🎯 Uses Your Real Collection** - Not theoretical deckbuilding
 2. **⚡ Instant Results** - See what you can build right now
@@ -249,7 +338,7 @@ export_deck_to_*()             # Multi-format export system
 
 ---
 
-## � Development Roadmap
+## Development Roadmap
 
 ### 🎯 Phase 2: Enhanced Features (Next Sprint)
 - [ ] **EDHREC Integration** - Compare with meta decks
@@ -390,90 +479,3 @@ GET  /cards/commanders         # Find available commanders
 POST /decks/generate          # Generate deck for commander
 GET  /decks/export/{format}   # Export deck in specified format
 ```
-
-## 🎯 **Usage Guide**
-
-### **Getting Started**
-1. **Start the application** using one of the quick start methods above
-2. **Create an account** or sign in through the web interface
-3. **Upload your collection** in CSV format (MTGGoldfish, Archidekt, etc.)
-4. **Browse available commanders** from your collection
-5. **Generate optimized decks** with one click
-6. **Export and share** your decks in multiple formats
-
-### **CSV Format Support**
-The application automatically detects and handles various CSV formats:
-
-- **MTGGoldfish exports** (name, set, quantity, foil, price)
-- **Archidekt exports** (name, edition, quantity, condition)
-- **Custom formats** with automatic column mapping
-- **Quantity expansion** for multi-card entries
-
-## 🔧 **Development**
-
-### **Frontend Development**
-```bash
-cd frontend
-npm run dev          # Development server
-npm run build        # Production build
-npm run lint         # ESLint checking
-npm run type-check   # TypeScript validation
-```
-
-### **Backend Development**
-```bash
-cd backend
-python main.py       # Development server
-pytest              # Run test suite
-python -m utils      # Update Scryfall database
-```
-
-## 📊 **Performance & Stats**
-
-### **Optimization Results**
-- ⚡ **Build Time**: ~6 seconds for production build
-- 🚀 **Load Time**: Sub-2 second page loads
-- 📦 **Bundle Size**: Optimized with Next.js 15 and tree shaking
-- 🎯 **Lighthouse Score**: 95+ on all metrics
-- 🔒 **Security**: A+ rating with proper authentication
-
-### **Database Performance**
-- 📚 **Card Database**: 108,000+ Magic cards from Scryfall
-- ⚡ **Search Speed**: Instant commander filtering
-- 💾 **Deck Generation**: <1 second for complete 100-card decks
-- 🔄 **API Caching**: Intelligent caching for price data
-
-## 📚 **Additional Resources**
-
-### **Documentation**
-- [Next.js Documentation](https://nextjs.org/docs) - Frontend framework
-- [FastAPI Documentation](https://fastapi.tiangolo.com/) - Backend framework
-- [Scryfall API](https://scryfall.com/docs/api) - Magic card data source
-- [Commander Rules](https://mtgcommander.net/index.php/rules/) - Format rules
-
-### **Magic: The Gathering Resources**
-- [MTGGoldfish](https://www.mtggoldfish.com/) - Price tracking and metagame
-- [Archidekt](https://archidekt.com/) - Deck building platform
-- [MoxField](https://www.moxfield.com/) - Collection management
-- [Scryfall](https://scryfall.com/) - Comprehensive card search
-
-## 📝 **License**
-
-This project is licensed under the Business Source License 1.1 (BUSL-1.1) - see the [LICENSE](LICENSE) file for details.
-
-**Key Points:**
-- ✅ **Free for non-commercial use** - Personal use, research, and evaluation
-- ✅ **Open source development** - Contributions and modifications welcome
-- ⚠️ **Commercial use restrictions** - Contact for commercial licensing
-- 🕐 **Change date provision** - Will convert to Apache 2.0 license in the future
-
-## 🙏 **Acknowledgments**
-
-- **Scryfall** for providing the comprehensive Magic card database
-- **Wizards of the Coast** for creating Magic: The Gathering
-- **The Commander Rules Committee** for maintaining the format
-- **Open Source Community** for the amazing tools and libraries that make this possible
-
----
-
-**Built with ❤️ for the Magic: The Gathering community**

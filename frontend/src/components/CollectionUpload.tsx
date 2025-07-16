@@ -24,7 +24,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   const hasHydrated = useHasHydrated();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const token = useAuthStore((state) => state.token);
+  // Removed: token (secure session via cookie)
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -32,25 +32,19 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
 
   // Debug: log token and user info
   useEffect(() => {
-    console.debug('CollectionUpload: token', token);
     console.debug('CollectionUpload: user', user);
     console.debug('CollectionUpload: isAuthenticated', isAuthenticated);
     if (typeof window !== 'undefined') {
       console.debug('auth-storage in localStorage:', localStorage.getItem('auth-storage'));
     }
-  }, [token, user, isAuthenticated]);
+  }, [user, isAuthenticated]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsUploading(true);
     setError(null);
     const file = acceptedFiles[0];
 
-    // Check token validity before upload
-    if (!token) {
-      setError('You must be logged in to upload a collection. No token found.');
-      setIsUploading(false);
-      return;
-    }
+    // No token check needed; session is cookie-based
 
     // Optionally, check token validity with backend
     try {
@@ -67,7 +61,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     }
 
     try {
-      const apiClient = new ApiClient(token);
+      const apiClient = new ApiClient();
       // Parse the collection file
       const parsed = await apiClient.parseCollection(file);
       // ...existing code for handling parsed collection...
@@ -135,7 +129,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     } finally {
       setIsUploading(false);
     }
-  }, [token, addCollection, onCollectionUploaded, checkAuth]);
+  }, [addCollection, onCollectionUploaded, checkAuth]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -196,7 +190,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
               setIsUploading(true);
               setError(null);
               try {
-                const apiClient = new ApiClient(token || undefined);
+                const apiClient = new ApiClient();
                 const result = await apiClient.loadSampleCollection();
                 if (result && typeof result === 'object' && 'success' in result && result.success && 'collection' in result) {
                   const collectionObj = (result as { collection: unknown }).collection;

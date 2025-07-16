@@ -6,7 +6,7 @@ import { ApiClient } from '../lib/api';
 import type { UserSettings } from '@/types';
 interface AuthState {
   user: User | null;
-  token: string | null;
+  // Removed: token (now handled via HttpOnly cookie)
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -20,13 +20,17 @@ interface AuthState {
   checkAuth: () => Promise<void>;
   rehydrateUser: () => Promise<void>;
   setPlaymatTexture: (texture: string) => Promise<void>;
+  setUser: (user: User | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
+      setUser: (user) => {
+        set({ user, isAuthenticated: !!user });
+      },
       user: null,
-      token: null,
+      // Removed: token
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -38,12 +42,8 @@ export const useAuthStore = create<AuthState>()(
         try {
           const apiClient = new ApiClient();
           const loginResp = await apiClient.login(credentials);
-          const { access_token } = loginResp as { access_token: string; token_type: string };
-          if (!access_token) {
-            throw new Error('No access_token in login response');
-          }
-          // Get user profile and settings with the new token
-          const profileClient = new ApiClient(access_token);
+          // After login, backend sets HttpOnly cookie. Fetch user profile.
+          const profileClient = new ApiClient();
           const userProfile = await profileClient.getProfile() as User;
           // Fetch user settings
           let userSettings: UserSettings | null = null;
@@ -74,22 +74,18 @@ export const useAuthStore = create<AuthState>()(
           }
           set({
             user: userProfile,
-            token: access_token,
             isAuthenticated: true,
             isLoading: false,
             playmat_texture,
             userSettings,
           });
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('auth_token');
-          }
         } catch (e) {
           set({
             error: 'Login failed',
             isLoading: false,
             isAuthenticated: false,
             user: null,
-            token: null,
+            // Removed: token
             playmat_texture: null,
             userSettings: null,
           });
@@ -97,30 +93,28 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       setPlaymatTexture: async (texture) => {
-        const { token, userSettings } = get();
+        const { userSettings } = get();
         set({ playmat_texture: texture });
-        if (token) {
-          const apiClient = new ApiClient(token);
-          try {
-            await apiClient.updateSettings({ ...userSettings, playmat_texture: texture });
-            set({ 
-              userSettings: { 
-                ...userSettings, 
-                playmat_texture: texture, 
-                theme: userSettings?.theme ?? "light", // Ensure theme is always defined
-                default_format: userSettings?.default_format ?? "standard", // Provide defaults if needed
-                currency: userSettings?.currency ?? "usd",
-                card_display: userSettings?.card_display ?? "grid",
-                auto_save: userSettings?.auto_save ?? false,
-                notifications: {
-                  price_alerts: userSettings?.notifications?.price_alerts ?? false,
-                  deck_updates: userSettings?.notifications?.deck_updates ?? false,
-                  collection_changes: userSettings?.notifications?.collection_changes ?? false,
-                }
-              } 
-            });
-          } catch {}
-        }
+        const apiClient = new ApiClient();
+        try {
+          await apiClient.updateSettings({ ...userSettings, playmat_texture: texture });
+          set({ 
+            userSettings: { 
+              ...userSettings, 
+              playmat_texture: texture, 
+              theme: userSettings?.theme ?? "light", // Ensure theme is always defined
+              default_format: userSettings?.default_format ?? "standard", // Provide defaults if needed
+              currency: userSettings?.currency ?? "usd",
+              card_display: userSettings?.card_display ?? "grid",
+              auto_save: userSettings?.auto_save ?? false,
+              notifications: {
+                price_alerts: userSettings?.notifications?.price_alerts ?? false,
+                deck_updates: userSettings?.notifications?.deck_updates ?? false,
+                collection_changes: userSettings?.notifications?.collection_changes ?? false,
+              }
+            } 
+          });
+        } catch {}
       },
 
       register: async (userData) => {
@@ -145,14 +139,11 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         set({
           user: null,
-          token: null,
+          // Removed: token
           isAuthenticated: false,
           error: null,
         });
-        // Remove any legacy 'auth_token' from localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('auth_token');
-        }
+        // No localStorage cleanup needed
       },
 
       clearError: () => {
@@ -160,28 +151,18 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        const { token } = get();
-        
-        if (!token) {
-          return;
-        }
-
         set({ isLoading: true });
-
         try {
-          const apiClient = new ApiClient(token);
+          const apiClient = new ApiClient();
           const userProfile = await apiClient.getProfile() as User;
-          
           set({
             user: userProfile,
             isAuthenticated: true,
             isLoading: false,
           });
         } catch {
-          // Token is invalid, clear auth state
           set({
             user: null,
-            token: null,
             isAuthenticated: false,
             isLoading: false,
             error: 'Session expired. Please log in again.',
@@ -189,15 +170,15 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       rehydrateUser: async () => {
-        const { token, user } = get();
-        if (token && !user) {
+        const { user } = get();
+        if (!user) {
           set({ isLoading: true });
           try {
-            const apiClient = new ApiClient(token);
+            const apiClient = new ApiClient();
             const userProfile = await apiClient.getProfile() as User;
             set({ user: userProfile, isAuthenticated: true, isLoading: false });
           } catch {
-            set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+            set({ user: null, isAuthenticated: false, isLoading: false });
           }
         }
       },
@@ -207,16 +188,12 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state: AuthState) => ({
         user: state.user,
-        token: state.token,
         isAuthenticated: state.isAuthenticated,
         playmat_texture: state.playmat_texture,
         userSettings: state.userSettings,
       }),
       migrate: (persistedState: any, version: number) => {
-        // Remove any legacy 'auth_token' from localStorage on hydration
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('auth_token');
-        }
+        // No localStorage cleanup needed
         return persistedState;
       },
     }

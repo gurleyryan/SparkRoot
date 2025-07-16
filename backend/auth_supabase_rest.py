@@ -9,10 +9,8 @@ import os
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr
 import secrets
-import json
 import httpx
 import asyncio
-import uuid
 
 # Security configuration
 SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
@@ -279,9 +277,46 @@ class UserManager:
             profile = await supabase_client.create_profile(user_id, full_name, username)
             if not profile:
                 print("⚠️ Auth user created but profile creation failed")
-                # Still return success since auth user exists
             else:
                 print("✅ Profile created")
+
+            # Step 3: Create user_settings row with defaults
+            import httpx, random
+            SUPABASE_URL = os.getenv("SUPABASE_URL")
+            SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+            headers = {
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            }
+            # Randomize playmat_texture from available SVGs
+            playmat_options = ["playmat-texture.svg", "playmat-texture-2.svg", "playmat-texture-3.svg"]
+            playmat_texture = random.choice(playmat_options)
+            settings_payload = {
+                "id": user_id,
+                "price_source": "tcgplayer",
+                "currency": "USD",
+                "reference_price": "market",
+                "profile_public": False,
+                "notifications_enabled": True,
+                "playmat_texture": playmat_texture,
+                "theme": "dark",
+                "default_format": "commander",
+                "card_display": "grid",
+                "auto_save": True,
+                "notifications": {"price_alerts": True, "deck_updates": False, "collection_changes": True}
+            }
+            async def create_settings():
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(
+                        f"{SUPABASE_URL}/rest/v1/user_settings",
+                        headers=headers,
+                        json=settings_payload
+                    )
+                    if resp.status_code not in [200, 201]:
+                        print(f"Error creating user_settings: {resp.text}")
+            await create_settings()
             return {
                 "id": user_id,
                 "email": email,

@@ -38,8 +38,9 @@ export default function RootLayout({
         style={{
           background: 'linear-gradient(120deg, #150b00 0%, #1a1a1a 100%)',
           backgroundImage: "url('/playmat-texture.svg')",
-          backgroundRepeat: 'repeat',
-          backgroundSize: '600px 600px'
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
         }}
       >
         <AuthHydrator />

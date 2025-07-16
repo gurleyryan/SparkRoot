@@ -18,13 +18,13 @@ export default function DeckBuilder() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { activeCollection } = useCollectionStore();
-  const token = useAuthStore((s) => s.token);
+  // Removed: token (secure session via cookie)
 
   const handleGenerateDeck = async () => {
     setLoading(true);
     setError('');
     try {
-      const apiClient = new ApiClient(token || undefined);
+      const apiClient = new ApiClient();
       const result: unknown = await apiClient.generateDeck(
         activeCollection?.cards ? (activeCollection.cards as unknown as Record<string, unknown>[]) : [],
         commanderId,
