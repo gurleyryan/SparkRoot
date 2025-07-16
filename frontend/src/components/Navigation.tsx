@@ -11,7 +11,7 @@ interface NavigationProps {
 
 export default function Navigation({ isAuthenticated, user, onLogin, onLogout }: NavigationProps) {
   return (
-    <nav className="sleeve-morphism border-b-2 border-mtg-blue shadow-lg sticky top-0 z-50">
+    <nav className="bg-mtg-black sleeve-morphism border-b-2 border-mtg-blue shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <div className="text-2xl font-mtg text-mtg-white drop-shadow-lg tracking-wide">
