@@ -11,21 +11,52 @@ interface CollectionUploadProps {
   onCollectionUploaded?: (data: MTGCard[]) => void;
 }
 
+
 export default function CollectionUpload({ onCollectionUploaded }: CollectionUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const checkAuth = useAuthStore((state) => state.checkAuth);
   const addCollection = useCollectionStore((state) => state.addCollection);
+
+  // Debug: log token and user info
+  console.debug('CollectionUpload: token', token);
+  console.debug('CollectionUpload: user', user);
+  console.debug('CollectionUpload: isAuthenticated', isAuthenticated);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsUploading(true);
     setError(null);
     const file = acceptedFiles[0];
+
+    // Check token validity before upload
+    if (!token) {
+      setError('You must be logged in to upload a collection. No token found.');
+      setIsUploading(false);
+      return;
+    }
+
+    // Optionally, check token validity with backend
     try {
-      const apiClient = new ApiClient(token || undefined);
+      await checkAuth();
+      if (!useAuthStore.getState().isAuthenticated) {
+        setError('Session expired or invalid. Please log in again.');
+        setIsUploading(false);
+        return;
+      }
+    } catch (e) {
+      setError('Session expired or invalid. Please log in again.');
+      setIsUploading(false);
+      return;
+    }
+
+    try {
+      const apiClient = new ApiClient(token);
       // Parse the collection file
       const parsed = await apiClient.parseCollection(file);
-      // Type guard for expected response
+      // ...existing code for handling parsed collection...
       if (parsed && typeof parsed === 'object' && 'success' in parsed && parsed.success && 'collection' in parsed) {
         const collectionObj = (parsed as { collection: unknown }).collection;
         // Type guard for collectionObj
@@ -90,7 +121,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     } finally {
       setIsUploading(false);
     }
-  }, [token, addCollection, onCollectionUploaded]);
+  }, [token, addCollection, onCollectionUploaded, checkAuth]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

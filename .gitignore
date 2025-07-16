@@ -25,10 +25,6 @@ venv/
 ENV/
 env/
 
-# User data (uploaded collections, etc.)
-user-data/
-*.csv
-
 # IDEs
 .vscode/
 .idea/
@@ -55,10 +51,6 @@ frontend/yarn-error.log*
 backend/.env
 backend/*.log
 
-# Data files (optional - comment out if you want to commit your collection)
-collection.csv
-*.csv
-
 # Generated files
 decks/
 *.log
@@ -81,4 +73,3 @@ __pycache__/
 *.log
 .env
 *.sqlite3
-sample-collection.csv
