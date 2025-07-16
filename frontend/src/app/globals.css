@@ -160,7 +160,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Sleeve morphism effect for card containers */
 /* Enhanced sleeve morphism effect */
 .sleeve-morphism {
-  background: linear-gradient(135deg, rgba(31,41,55,0.92) 60%, rgba(15,23,43,0.85) 100%);
+  background: linear-gradient(135deg, var(--color-mtg-black) 60%, var(--color-rarity-common) 100%);
   border-radius: 1rem;
   border: 2px solid rgba(255,255,255,0.08);
   box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37), inset 0 1px 8px 0 rgba(255,255,255,0.04);
