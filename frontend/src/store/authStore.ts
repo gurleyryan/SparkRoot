@@ -29,12 +29,10 @@ export const useAuthStore = create<AuthState>()(
       error: null,
 
       login: async (credentials) => {
-        console.log('authStore login called with:', credentials);
         set({ isLoading: true, error: null });
         try {
           const apiClient = new ApiClient();
           const loginResp = await apiClient.login(credentials);
-          console.log('authStore login response:', loginResp);
           const { access_token } = loginResp as { access_token: string; token_type: string };
           if (!access_token) {
             throw new Error('No access_token in login response');
@@ -42,18 +40,17 @@ export const useAuthStore = create<AuthState>()(
           // Get user profile with the new token
           const profileClient = new ApiClient(access_token);
           const userProfile = await profileClient.getProfile() as User;
-          console.log('authStore userProfile:', userProfile);
           set({
             user: userProfile,
             token: access_token,
             isAuthenticated: true,
             isLoading: false,
           });
+          // Remove any legacy 'auth_token' from localStorage
           if (typeof window !== 'undefined') {
-            console.log('auth-storage in localStorage after login:', localStorage.getItem('auth-storage'));
+            localStorage.removeItem('auth_token');
           }
         } catch (e) {
-          console.error('authStore login failed:', e);
           set({
             error: 'Login failed',
             isLoading: false,
@@ -91,6 +88,10 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           error: null,
         });
+        // Remove any legacy 'auth_token' from localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth_token');
+        }
       },
 
       clearError: () => {
@@ -143,11 +144,18 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
+      partialize: (state: AuthState) => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
+      migrate: (persistedState: any, version: number) => {
+        // Remove any legacy 'auth_token' from localStorage on hydration
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth_token');
+        }
+        return persistedState;
+      },
     }
   )
 );
