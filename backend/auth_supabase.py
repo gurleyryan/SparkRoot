@@ -3,7 +3,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
-from jose import JWTError, jwt
+import jwt
 from datetime import datetime, timedelta
 import os
 from typing import Optional, List
@@ -83,6 +83,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    # PyJWT returns a string in v2+
     return encoded_jwt
 
 def get_user_from_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -96,7 +97,9 @@ def get_user_from_token(credentials: HTTPAuthorizationCredentials = Depends(secu
         user_id: int = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except JWTError:
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    except jwt.InvalidTokenError:
         raise credentials_exception
     
     user = UserManager.get_user_by_id(user_id)

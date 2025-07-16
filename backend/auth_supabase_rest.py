@@ -3,7 +3,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
-from jose import JWTError, jwt
+import jwt
 from datetime import datetime, timedelta
 import os
 from typing import Optional, List
@@ -260,6 +260,7 @@ class UserManager:
             expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        # PyJWT returns a string in v2+
         return encoded_jwt
 
     @staticmethod
@@ -367,9 +368,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user_id: str = payload.get("user_id")
         if email is None:
             raise credentials_exception
-    except JWTError:
+    except jwt.ExpiredSignatureError:
         raise credentials_exception
-    
+    except jwt.InvalidTokenError:
+        raise credentials_exception
     user = await UserManager.get_user_by_email(email)
     if user is None:
         raise credentials_exception
