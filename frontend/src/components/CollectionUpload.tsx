@@ -1,6 +1,14 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+// Hydration-safe Zustand hook
+function useHasHydrated() {
+  const [hasHydrated, setHasHydrated] = useState(false);
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+  return hasHydrated;
+}
 import { useDropzone } from 'react-dropzone';
 import type { MTGCard } from '@/types';
 import { ApiClient } from '@/lib/api';
@@ -13,6 +21,7 @@ interface CollectionUploadProps {
 
 
 export default function CollectionUpload({ onCollectionUploaded }: CollectionUploadProps) {
+  const hasHydrated = useHasHydrated();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const token = useAuthStore((state) => state.token);
@@ -22,9 +31,14 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   const addCollection = useCollectionStore((state) => state.addCollection);
 
   // Debug: log token and user info
-  console.debug('CollectionUpload: token', token);
-  console.debug('CollectionUpload: user', user);
-  console.debug('CollectionUpload: isAuthenticated', isAuthenticated);
+  useEffect(() => {
+    console.debug('CollectionUpload: token', token);
+    console.debug('CollectionUpload: user', user);
+    console.debug('CollectionUpload: isAuthenticated', isAuthenticated);
+    if (typeof window !== 'undefined') {
+      console.debug('auth-storage in localStorage:', localStorage.getItem('auth-storage'));
+    }
+  }, [token, user, isAuthenticated]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsUploading(true);
@@ -131,6 +145,10 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     },
     multiple: false,
   });
+
+  if (!hasHydrated) {
+    return <div className="text-center text-slate-400 py-12">Loading authentication state...</div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
