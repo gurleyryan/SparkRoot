@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import type { ReactElement } from "react";
 import { useAuthStore } from "@/store/authStore";
 import PlaymatSelector from "@/components/PlaymatSelector";
 
@@ -29,7 +30,7 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(false);
 
   // Spinner overlay
-  function SpinnerOverlay() {
+  function SpinnerOverlay(): ReactElement {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-mtg-blue"></div>
@@ -64,7 +65,7 @@ export default function AccountPage() {
   const [usernameAvailable, setUsernameAvailable] = useState(true);
 
   // Handler for input changes
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     if (name === "username") {
@@ -73,7 +74,7 @@ export default function AccountPage() {
   }
 
   // Real API calls for uniqueness checks
-  async function checkUsernameAvailability(username: string) {
+  async function checkUsernameAvailability(username: string): Promise<boolean> {
     if (!username) return false;
     try {
       const resp = await fetch(`/api/auth/check-username?username=${encodeURIComponent(username)}`);
@@ -84,7 +85,7 @@ export default function AccountPage() {
     }
   }
 
-  async function checkEmailAvailability(email: string) {
+  async function checkEmailAvailability(email: string): Promise<boolean> {
     if (!email) return false;
     try {
       const resp = await fetch(`/api/auth/check-email?email=${encodeURIComponent(email)}`);
@@ -95,7 +96,7 @@ export default function AccountPage() {
     }
   }
 
-  async function handleUpdate(e: React.FormEvent) {
+  async function handleUpdate(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     setLoading(true);
     setStatus("");
@@ -148,7 +149,7 @@ export default function AccountPage() {
   }
 
   // Real TOTP verification and email update
-  async function handleTOTPVerify(e: React.FormEvent) {
+  async function handleTOTPVerify(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     setTotpError("");
     setLoading(true);
