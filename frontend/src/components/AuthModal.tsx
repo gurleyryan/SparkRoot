@@ -1,4 +1,4 @@
-'use client';
+import React from 'react';
 
 import { useState } from 'react';
 import type { User } from '@/types';
@@ -82,7 +82,7 @@ export default function AuthModal({ onClose, onAuth }: AuthModalProps) {
       };
       onAuth(userData);
       setIsLoading(false);
-    } catch (err: any) {
+    } catch {
       setError('Authentication failed. Please try again.');
       setIsLoading(false);
     }

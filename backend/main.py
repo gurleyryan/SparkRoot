@@ -92,6 +92,7 @@ class CollectionCard(BaseModel):
 class DeckAnalysisRequest(BaseModel):
     collection: List[Dict[str, Any]]
     commander_id: str = None
+    bracket: int = 1  # 1-5, default to 1
 
 @app.get("/")
 async def root():
@@ -462,41 +463,45 @@ async def find_commanders(request: DeckAnalysisRequest):
 
 @app.post("/api/generate-deck")
 async def generate_deck(request: DeckAnalysisRequest):
-    """Generate optimized deck from collection using your existing algorithms"""
+    """Generate optimized deck from collection using your existing algorithms, enforcing bracket rules."""
     try:
         collection = request.collection
         commander_id = request.commander_id
-        
+        bracket = request.bracket or 1
+
         # Convert to DataFrame
         df = pd.DataFrame(collection)
-        
+
         # Find the selected commander
         selected_commander = None
         for card in collection:
             if card.get("id") == commander_id or card.get("scryfall_id") == commander_id:
                 selected_commander = card
                 break
-        
+
         if not selected_commander:
             return JSONResponse(
                 status_code=400,
                 content={"success": False, "error": "Commander not found"}
             )
-        
-        # Use your existing deck generation logic
+
+        # Enforce bracket rules in deck generation
+        from backend.deckgen import generate_commander_deck, enforce_bracket_rules
         deck_data = generate_commander_deck(selected_commander, df)
-        
+        deck_data = enforce_bracket_rules(deck_data, bracket)
+
         # Use your existing analysis logic
         deck_analysis = analyze_deck_quality(deck_data)
-        
+
         # Use your existing statistics logic
         deck_stats = get_deck_statistics(deck_data)
-        
+
         return {
             "success": True,
             "deck": deck_data,
             "analysis": deck_analysis,
-            "stats": deck_stats
+            "stats": deck_stats,
+            "bracket": bracket
         }
         
     except Exception as e:

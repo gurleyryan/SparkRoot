@@ -1,12 +1,21 @@
-'use client';
+import React from 'react';
 
 import { useState, useEffect } from 'react';
+
+interface SampleCollection {
+  stats?: {
+    total_cards?: number;
+    unique_cards?: number;
+    source?: string;
+  };
+  collection?: Array<Record<string, unknown>>;
+}
 import { ApiClient } from '../../lib/api';
 import { useAuthStore } from '@/store/authStore';
 
 export default function ApiTestPage() {
   const [apiStatus, setApiStatus] = useState<string>('Testing...');
-  const [sampleCollection, setSampleCollection] = useState<any>(null);
+  const [sampleCollection, setSampleCollection] = useState<SampleCollection | null>(null);
   const [loading, setLoading] = useState(false);
   
   const { user, token, login, register, logout, isAuthenticated, error } = useAuthStore();
@@ -40,7 +49,11 @@ export default function ApiTestPage() {
     try {
       const apiClient = new ApiClient(token || undefined);
       const collection = await apiClient.loadSampleCollection();
-      setSampleCollection(collection);
+      if (collection && typeof collection === 'object') {
+        setSampleCollection(collection as SampleCollection);
+      } else {
+        setSampleCollection(null);
+      }
     } catch (error) {
       console.error('Failed to load sample collection:', error);
     } finally {
@@ -199,21 +212,27 @@ export default function ApiTestPage() {
         {sampleCollection && (
           <div className="mt-4">
             <h3 className="font-semibold">Collection Stats:</h3>
-            <p>Total Cards: {sampleCollection.stats?.total_cards}</p>
-            <p>Unique Cards: {sampleCollection.stats?.unique_cards}</p>
-            <p>Source: {sampleCollection.stats?.source}</p>
-            
-            {sampleCollection.collection && sampleCollection.collection.length > 0 && (
+            <p>Total Cards: {sampleCollection.stats?.total_cards ?? 'N/A'}</p>
+            <p>Unique Cards: {sampleCollection.stats?.unique_cards ?? 'N/A'}</p>
+            <p>Source: {sampleCollection.stats?.source ?? 'N/A'}</p>
+            {Array.isArray(sampleCollection.collection) && sampleCollection.collection.length > 0 && (
               <div className="mt-4">
                 <h4 className="font-semibold">First 5 Cards:</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mt-2">
-                  {sampleCollection.collection.slice(0, 5).map((card: any, index: number) => (
-                    <div key={index} className="bg-black p-3 rounded border">
-                      <p className="font-semibold">{card.name}</p>
-                      <p className="text-sm text-gray-600">Set: {card.set_name || card.Set}</p>
-                      <p className="text-sm text-gray-600">Qty: {card.Quantity || 1}</p>
-                    </div>
-                  ))}
+                  {sampleCollection.collection.slice(0, 5).map((card, index) => {
+                    const name = typeof card === 'object' && card && 'name' in card ? (card as { name?: string }).name : '';
+                    const setName = typeof card === 'object' && card && ('set_name' in card || 'Set' in card)
+                      ? ((card as { set_name?: string; Set?: string }).set_name || (card as { Set?: string }).Set)
+                      : '';
+                    const qty = typeof card === 'object' && card && 'Quantity' in card ? (card as { Quantity?: number }).Quantity : 1;
+                    return (
+                      <div key={index} className="bg-black p-3 rounded border">
+                        <p className="font-semibold">{name}</p>
+                        <p className="text-sm text-gray-600">Set: {setName}</p>
+                        <p className="text-sm text-gray-600">Qty: {qty}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

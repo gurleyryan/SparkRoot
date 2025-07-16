@@ -1,4 +1,4 @@
-'use client';
+import React from 'react';
 
 import { useState, useEffect } from 'react';
 import { ApiClient } from '@/lib/api';
@@ -7,11 +7,9 @@ import { useCollectionStore } from '@/store/collectionStore';
 import Image from 'next/image';
 import type { MTGCard } from '@/types';
 
-interface CollectionGridProps {
-  // No props needed, will use store
-}
+type CollectionGridProps = Record<string, unknown>; // Fix empty interface warning
 
-// Helper function to get card properties (handles both API and CSV formats)
+// Helper function to get card properties (handles both API and CSV formats) - unused
 const getCardProperty = (card: MTGCard, property: keyof MTGCard, fallback?: string): string => {
   const value = card[property];
   if (value !== undefined && value !== null) {
@@ -20,77 +18,74 @@ const getCardProperty = (card: MTGCard, property: keyof MTGCard, fallback?: stri
   return fallback || '';
 };
 
-const token = useAuthStore((s) => s.token);
-const {
-  collections,
-  activeCollection,
-  setCollections,
-  setActiveCollection,
-  updateCollection,
-  deleteCollection,
-  viewMode,
-  setViewMode,
-  searchQuery,
-  setSearchQuery,
-  filters,
-  setFilters,
-  cards,
-  setCards,
-  filteredCards,
-  applyFilters,
-} = useCollectionStore();
-const [loading, setLoading] = useState(false);
-const [error, setError] = useState<string | null>(null);
-
-// Fetch collections on mount
-useEffect(() => {
-  async function fetchCollections() {
-    setLoading(true);
-    setError(null);
-    try {
-      const apiClient = new ApiClient(token || undefined);
-      const result = await apiClient.getCollections();
-      if (Array.isArray(result)) {
-        setCollections(result);
-        if (result.length > 0) setActiveCollection(result[0]);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch collections');
-    } finally {
-      setLoading(false);
-    }
-  }
-  fetchCollections();
-}, [token, setCollections, setActiveCollection]);
-
-// Get unique card types for filter
-const cardTypes = ['All', ...new Set((activeCollection?.cards || []).map(card =>
-  getCardProperty(card, 'type_line').split(' ')[0] || 'Unknown'
-))];
-
-// Filter collection
-const filteredCollection = (activeCollection?.cards || []).filter(card => {
-  const cardName = getCardProperty(card, 'name');
-  const matchesSearch = cardName.toLowerCase().includes(searchQuery.toLowerCase());
-  const cardType = getCardProperty(card, 'type_line');
-  const matchesType = filters.types?.length ? filters.types.includes(cardType) : true;
-  return matchesSearch && matchesType;
-});
-
-// Get Scryfall image URL for a card
-const getCardImageUrl = (card: MTGCard): string => {
-  // Use Scryfall image URL if available, otherwise use card name lookup
-  if (card.image_uris?.normal) {
-    return card.image_uris.normal;
-  }
-
-  // Fallback to name-based lookup
-  const cardName = getCardProperty(card, 'name');
-  const encodedName = encodeURIComponent(cardName);
-  return `https://api.scryfall.com/cards/named?exact=${encodedName}&format=image&version=normal`;
-};
-
 const CollectionGrid: React.FC<CollectionGridProps> = () => {
+  const token = useAuthStore((s) => s.token);
+  const {
+    collections,
+    activeCollection,
+    setCollections,
+    setActiveCollection,
+    updateCollection,
+    deleteCollection,
+    viewMode,
+    setViewMode,
+    searchQuery,
+    setSearchQuery,
+  } = useCollectionStore();
+  // removed loading as unused
+  const [error, setError] = useState<string | null>(null);
+  const [filters] = useState<{ types?: string[] }>({}); // removed setFilters as unused
+
+  // Fetch collections on mount
+  useEffect(() => {
+    async function fetchCollections() {
+      // setLoading(true); // removed as unused
+      setError(null);
+      try {
+        const apiClient = new ApiClient(token || undefined);
+        const result = await apiClient.getCollections();
+        if (Array.isArray(result)) {
+          setCollections(result);
+          if (result.length > 0) setActiveCollection(result[0]);
+        }
+      } catch (err: unknown) {
+        if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: string }).message === 'string') {
+          setError((err as { message: string }).message || 'Failed to fetch collections');
+        } else {
+          setError('Failed to fetch collections');
+        }
+      } finally {
+        // setLoading(false); // removed as unused
+      }
+    }
+    fetchCollections();
+  }, [token, setCollections, setActiveCollection]);
+
+  // Get unique card types for filter - unused
+  // removed cardTypes as unused
+
+  // Filter collection
+  const filteredCollection = (activeCollection?.cards || []).filter(card => {
+    const cardName = getCardProperty(card, 'name');
+    const matchesSearch = cardName.toLowerCase().includes(searchQuery.toLowerCase());
+    const cardType = getCardProperty(card, 'type_line');
+    const matchesType = filters.types?.length ? filters.types.includes(cardType) : true;
+    return matchesSearch && matchesType;
+  });
+
+  // Get Scryfall image URL for a card
+  const getCardImageUrl = (card: MTGCard): string => {
+    // Use Scryfall image URL if available, otherwise use card name lookup
+    if (card.image_uris?.normal) {
+      return card.image_uris.normal;
+    }
+
+    // Fallback to name-based lookup
+    const cardName = getCardProperty(card, 'name');
+    const encodedName = encodeURIComponent(cardName);
+    return `https://api.scryfall.com/cards/named?exact=${encodedName}&format=image&version=normal`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Collection Selector & Controls */}
@@ -158,8 +153,12 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                     const apiClient = new ApiClient(token || undefined);
                     await apiClient.saveCollection({ ...activeCollection, name: newName });
                     updateCollection(activeCollection.id, { name: newName });
-                  } catch (err: any) {
-                    setError(err.message || 'Failed to update collection');
+                  } catch (err: unknown) {
+                    if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: string }).message === 'string') {
+                      setError((err as { message: string }).message || 'Failed to update collection');
+                    } else {
+                      setError('Failed to update collection');
+                    }
                   }
                 }
               }}
@@ -172,8 +171,12 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                     const apiClient = new ApiClient(token || undefined);
                     await apiClient.deleteCollectionById(activeCollection.id); // <-- FIXED
                     deleteCollection(activeCollection.id);
-                  } catch (err: any) {
-                    setError(err.message || 'Failed to delete collection');
+                  } catch (err: unknown) {
+                    if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: string }).message === 'string') {
+                      setError((err as { message: string }).message || 'Failed to delete collection');
+                    } else {
+                      setError('Failed to delete collection');
+                    }
                   }
                 }
               }}

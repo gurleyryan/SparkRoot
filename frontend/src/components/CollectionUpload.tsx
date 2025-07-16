@@ -27,33 +27,65 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
       const parsed = await apiClient.parseCollection(file);
       // Type guard for expected response
       if (parsed && typeof parsed === 'object' && 'success' in parsed && parsed.success && 'collection' in parsed) {
-        const collectionObj = (parsed as any).collection;
-        // Save the collection to backend
-        const saveResult = await apiClient.saveCollection({
-          description: collectionObj.description || '',
-          collection_data: collectionObj.cards || collectionObj,
-          is_public: false,
-        });
-        if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
-           addCollection({
-            id: String((saveResult as { id: string }).id),
-            user_id: '', // Optionally fetch user_id from authStore
-            name: collectionObj.name || 'My Collection',
-            description: collectionObj.description || '',
-            cards: collectionObj.cards || collectionObj,
-            created_at: '',
-            updated_at: '',
+        const collectionObj = (parsed as { collection: unknown }).collection;
+        // Type guard for collectionObj
+        if (collectionObj && typeof collectionObj === 'object' && 'cards' in collectionObj && Array.isArray((collectionObj as { cards: unknown }).cards)) {
+          const cards = (collectionObj as { cards: MTGCard[] }).cards;
+          const name = (collectionObj as { name?: string }).name || 'My Collection';
+          const description = (collectionObj as { description?: string }).description || '';
+          // Save the collection to backend
+          const saveResult = await apiClient.saveCollection({
+            description,
+            collection_data: cards,
+            is_public: false,
           });
-        }
-        if (typeof onCollectionUploaded === 'function') {
-          onCollectionUploaded(collectionObj.cards || collectionObj);
+          if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
+            addCollection({
+              id: String((saveResult as { id: string }).id),
+              user_id: '',
+              name,
+              description,
+              cards,
+              created_at: '',
+              updated_at: '',
+            });
+          }
+          if (typeof onCollectionUploaded === 'function') {
+            onCollectionUploaded(cards);
+          }
+        } else if (Array.isArray(collectionObj)) {
+          // Fallback: treat as array of cards
+          const cards = collectionObj as MTGCard[];
+          const name = 'My Collection';
+          const description = '';
+          const saveResult = await apiClient.saveCollection({
+            description,
+            collection_data: cards,
+            is_public: false,
+          });
+          if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
+            addCollection({
+              id: String((saveResult as { id: string }).id),
+              user_id: '',
+              name,
+              description,
+              cards,
+              created_at: '',
+              updated_at: '',
+            });
+          }
+          if (typeof onCollectionUploaded === 'function') {
+            onCollectionUploaded(cards);
+          }
+        } else {
+          setError('Parsed collection format is invalid.');
         }
       } else if (parsed && typeof parsed === 'object' && 'error' in parsed) {
-        setError((parsed as any).error || 'Failed to parse collection');
+        setError((parsed as { error?: string }).error || 'Failed to parse collection');
       } else {
         setError('Failed to parse collection');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to upload collection. Make sure the backend is running.');
     } finally {
       setIsUploading(false);
@@ -118,30 +150,60 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                 const apiClient = new ApiClient(token || undefined);
                 const result = await apiClient.loadSampleCollection();
                 if (result && typeof result === 'object' && 'success' in result && result.success && 'collection' in result) {
-                  const collectionObj = (result as any).collection;
-                  // Save the sample collection to backend
-                  const saveResult = await apiClient.saveCollection({
-                    name: collectionObj.name || 'Sample Collection',
-                    description: collectionObj.description || '',
-                    collection_data: collectionObj.cards || collectionObj,
-                    is_public: false,
-                  });
-                  if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
-                    addCollection({
-                      id: String(saveResult.id),
-                      user_id: '',
-                      name: collectionObj.name || 'Sample Collection',
-                      description: collectionObj.description || '',
-                      cards: collectionObj.cards || collectionObj,
-                      created_at: '',
-                      updated_at: '',
+                  const collectionObj = (result as { collection: unknown }).collection;
+                  if (collectionObj && typeof collectionObj === 'object' && 'cards' in collectionObj && Array.isArray((collectionObj as { cards: unknown }).cards)) {
+                    const cards = (collectionObj as { cards: MTGCard[] }).cards;
+                    const name = (collectionObj as { name?: string }).name || 'Sample Collection';
+                    const description = (collectionObj as { description?: string }).description || '';
+                    const saveResult = await apiClient.saveCollection({
+                      name,
+                      description,
+                      collection_data: cards,
+                      is_public: false,
                     });
-                  }
-                  if (typeof onCollectionUploaded === 'function') {
-                    onCollectionUploaded(collectionObj.cards || collectionObj);
+                    if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
+                      addCollection({
+                        id: String((saveResult as { id: string }).id),
+                        user_id: '',
+                        name,
+                        description,
+                        cards,
+                        created_at: '',
+                        updated_at: '',
+                      });
+                    }
+                    if (typeof onCollectionUploaded === 'function') {
+                      onCollectionUploaded(cards);
+                    }
+                  } else if (Array.isArray(collectionObj)) {
+                    const cards = collectionObj as MTGCard[];
+                    const name = 'Sample Collection';
+                    const description = '';
+                    const saveResult = await apiClient.saveCollection({
+                      name,
+                      description,
+                      collection_data: cards,
+                      is_public: false,
+                    });
+                    if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
+                      addCollection({
+                        id: String((saveResult as { id: string }).id),
+                        user_id: '',
+                        name,
+                        description,
+                        cards,
+                        created_at: '',
+                        updated_at: '',
+                      });
+                    }
+                    if (typeof onCollectionUploaded === 'function') {
+                      onCollectionUploaded(cards);
+                    }
+                  } else {
+                    setError('Sample collection format is invalid.');
                   }
                 } else if (result && typeof result === 'object' && 'error' in result) {
-                  setError((result as any).error || 'Failed to load collection');
+                  setError((result as { error?: string }).error || 'Failed to load collection');
                 } else {
                   setError('Failed to load collection');
                 }

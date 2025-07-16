@@ -29,53 +29,46 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (credentials) => {
         set({ isLoading: true, error: null });
-        
         try {
           const apiClient = new ApiClient();
-          const data = await apiClient.login(credentials) as { access_token: string; token_type: string };
-          
+          const { access_token } = await apiClient.login(credentials) as { access_token: string; token_type: string };
           // Get user profile with the new token
-          const profileClient = new ApiClient(data.access_token);
+          const profileClient = new ApiClient(access_token);
           const userProfile = await profileClient.getProfile() as User;
-          
           set({
             user: userProfile,
-            token: data.access_token,
+            token: access_token,
             isAuthenticated: true,
             isLoading: false,
           });
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Login failed';
+        } catch {
           set({
-            error: errorMessage,
+            error: 'Login failed',
             isLoading: false,
             isAuthenticated: false,
             user: null,
             token: null,
           });
-          throw error;
+          throw new Error('Login failed');
         }
       },
 
       register: async (userData) => {
         set({ isLoading: true, error: null });
-        
         try {
           const apiClient = new ApiClient();
-          const data = await apiClient.register(userData) as User;
-          
+          await apiClient.register(userData) as User;
           // After successful registration, automatically log in
           await get().login({ 
             email: userData.email, 
             password: userData.password 
           });
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+        } catch {
           set({
-            error: errorMessage,
+            error: 'Registration failed',
             isLoading: false,
           });
-          throw error;
+          throw new Error('Registration failed');
         }
       },
 
@@ -110,7 +103,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           });
-        } catch (error) {
+        } catch {
           // Token is invalid, clear auth state
           set({
             user: null,

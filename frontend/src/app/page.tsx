@@ -7,6 +7,7 @@ import CollectionUpload from '@/components/CollectionUpload';
 import CollectionGrid from '@/components/CollectionGrid';
 import AuthModal from '@/components/AuthModal';
 import Navigation from '@/components/Navigation';
+import DeckBuilder from '@/components/DeckBuilder';
 import type { User } from '@/types';
 import { useCollectionStore } from '@/store/collectionStore';
 
@@ -106,6 +107,12 @@ export default function Home() {
           <CollectionUpload />
         ) : (
           <div>
+            {/* Bracket Deck Builder */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-mtg-white mb-2">Commander Bracket Deck Builder</h2>
+              <p className="text-slate-400 mb-4">Select your bracket and generate a deck with bracket rules enforced.</p>
+              <DeckBuilder />
+            </div>
             {/* Collection Grid */}
             <CollectionGrid />
           </div>

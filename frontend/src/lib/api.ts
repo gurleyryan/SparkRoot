@@ -144,7 +144,7 @@ export class ApiClient {
     });
   }
 
-  async saveCollection(collectionData: any) {
+  async saveCollection(collectionData: Record<string, unknown>) {
     return this.request(API_CONFIG.endpoints.collections, {
       method: 'POST',
       body: JSON.stringify(collectionData),
@@ -187,36 +187,36 @@ export class ApiClient {
   }
 
   // Deck methods
-  async findCommanders(collection: any[]) {
+  async findCommanders(collection: Array<Record<string, unknown>>) {
     return this.request(API_CONFIG.endpoints.findCommanders, {
       method: 'POST',
       body: JSON.stringify({ collection }),
     });
   }
 
-  async generateDeck(collection: any[], commanderId: string) {
+  async generateDeck(collection: Array<Record<string, unknown>>, commanderId: string, bracket: number) {
     return this.request(API_CONFIG.endpoints.generateDeck, {
       method: 'POST',
-      body: JSON.stringify({ collection, commander_id: commanderId }),
+      body: JSON.stringify({ collection, commander_id: commanderId, bracket }),
     });
   }
 
   // Pricing methods
-  async enrichCollectionPricing(collection: any[], source = 'tcgplayer') {
+  async enrichCollectionPricing(collection: Array<Record<string, unknown>>, source = 'tcgplayer') {
     return this.request(API_CONFIG.endpoints.enrichCollectionPricing, {
       method: 'POST',
       body: JSON.stringify({ collection, source }),
     });
   }
 
-  async getCollectionValue(collection: any[], source = 'tcgplayer') {
+  async getCollectionValue(collection: Array<Record<string, unknown>>, source = 'tcgplayer') {
     return this.request(API_CONFIG.endpoints.getCollectionValue, {
       method: 'POST',
       body: JSON.stringify({ collection, source }),
     });
   }
 
-  async getCollectionValuePublic(collection: any[], source = 'tcgplayer') {
+  async getCollectionValuePublic(collection: Array<Record<string, unknown>>, source = 'tcgplayer') {
     return this.request(API_CONFIG.endpoints.getCollectionValuePublic, {
       method: 'POST',
       body: JSON.stringify({ collection, source }),
@@ -228,7 +228,7 @@ export class ApiClient {
     return this.request(API_CONFIG.endpoints.settings);
   }
 
-  async updateSettings(settings: any) {
+  async updateSettings(settings: Record<string, unknown>) {
     return this.request(API_CONFIG.endpoints.settings, {
       method: 'PUT',
       body: JSON.stringify(settings),

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { MTGCard, Collection, CollectionStats, CardFilters, SortOptions } from '@/types';
-import { ApiClient } from '@/lib/api';
-import { useAuthStore } from './authStore';
+// ...existing code...
 
 interface CollectionState {
   // Data

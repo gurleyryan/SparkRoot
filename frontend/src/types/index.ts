@@ -1,3 +1,4 @@
+import React from 'react';
 // Core MTG Types
 export interface MTGCard {
   id: string;

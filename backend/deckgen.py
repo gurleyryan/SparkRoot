@@ -1,3 +1,48 @@
+# List of Game Changer cards (should match frontend)
+GAME_CHANGERS = set([
+    # White
+    "Drannith Magistrate", "Enlightened Tutor", "Humility", "Serra's Sanctum", "Smothering Tithe", "Teferi's Protection",
+    # Blue
+    "Consecrated Sphinx", "Cyclonic Rift", "Expropriate", "Force of Will", "Fierce Guardianship", "Gifts Ungiven", "Intuition", "Jin-Gitaxias, Core Augur", "Mystical Tutor", "Narset, Parter of Veils", "Rhystic Study", "Sway of the Stars", "Thassa's Oracle", "Urza, Lord High Artificer",
+    # Black
+    "Ad Nauseam", "Bolas's Citadel", "Braids, Cabal Minion", "Demonic Tutor", "Imperial Seal", "Necropotence", "Opposition Agent", "Orcish Bowmasters", "Tergrid, God of Fright", "Vampiric Tutor",
+    # Red
+    "Deflecting Swat", "Gamble", "Jeska's Will", "Underworld Breach",
+    # Multicolor
+    "Aura Shards", "Coalition Victory", "Grand Arbiter Augustin IV", "Kinnan, Bonder Prodigy", "Yuriko, the Tiger's Shadow", "Notion Thief", "Winota, Joiner of Forces",
+    # Colorless
+    "Ancient Tomb", "Chrome Mox", "Field of the Dead", "Glacial Chasm", "Grim Monolith", "Lion's Eye Diamond", "Mana Vault", "Mishra's Workshop", "Mox Diamond", "Panoptic Mirror", "The One Ring", "The Tabernacle at Pendrell Vale"
+])
+
+def enforce_bracket_rules(deck_data, bracket):
+    """
+    Enforce bracket rules on the generated deck.
+    - Bracket 1 & 2: No Game Changers
+    - Bracket 3: Up to 3 Game Changers
+    - Bracket 4 & 5: Unlimited
+    """
+    deck = deck_data["deck"]
+    # Remove or limit Game Changers
+    if bracket in [1, 2]:
+        deck = [card for card in deck if card.get("name") not in GAME_CHANGERS]
+    elif bracket == 3:
+        count = 0
+        new_deck = []
+        for card in deck:
+            if card.get("name") in GAME_CHANGERS:
+                if count < 3:
+                    new_deck.append(card)
+                    count += 1
+                # else: skip
+            else:
+                new_deck.append(card)
+        deck = new_deck
+    # Bracket 4 & 5: no restriction
+    deck_data["deck"] = deck
+    deck_data["deck_size"] = len(deck)
+    deck_data["total_cards"] = len(deck) + 1  # +1 for commander
+    deck_data["bracket"] = bracket
+    return deck_data
 def find_valid_commanders(enriched_df):
     commanders = []
     for _, card in enriched_df.iterrows():
