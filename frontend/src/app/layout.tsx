@@ -39,6 +39,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         <link rel="icon" href="/logo.svg" type="image/svg+xml" />
         <link rel="icon" href="/logo.png" type="image/png" />
+        <link href="/node_modules/mana-font/css/mana.min.css" rel="stylesheet" type="text/css" />
       </head>
       <body className="bg-mtg-black text-white antialiased font-mtg-body min-h-screen">
         <AuthHydrator />
