@@ -29,7 +29,7 @@ export default function Home() {
       
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
-        <div className="bg-mtg-black sleeve-morphism rounded-xl p-8 mb-12 border border-mtg-blue shadow-xl text-center">
+        <div className="bg-mtg-black rounded-xl p-8 mb-12 border border-mtg-blue shadow-xl text-center">
           <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="mx-auto mb-6 w-32 h-32" />
           <h1 className="text-6xl font-mtg font-bold text-mtg-white mb-4 drop-shadow-lg">
             MTG Deck Optimizer
