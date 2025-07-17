@@ -173,6 +173,38 @@ h6 {
   background-color: var(--color-rarity-mythic);
 }
 
+.bg-rarity-common {
+  background-color: var(--color-rarity-common);
+}
+
+.bg-rarity-uncommon {
+  background-color: var(--color-rarity-uncommon);
+}
+
+.bg-rarity-rare {
+  background-color: var(--color-rarity-rare);
+}
+
+.bg-rarity-mythic {
+  background-color: var(--color-rarity-mythic);
+}
+
+.hover\:bg-rarity-common:hover {
+  background-color: var(--color-rarity-common);
+}
+
+.hover\:bg-rarity-uncommon:hover {
+  background-color: var(--color-rarity-uncommon);
+}
+
+.hover\:bg-rarity-rare:hover {
+  background-color: var(--color-rarity-rare);
+}
+
+.hover\:bg-rarity-mythic:hover {
+  background-color: var(--color-rarity-mythic);
+}
+
 /* Form controls */
 .form-input {
   width: 100%;
