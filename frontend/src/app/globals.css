@@ -24,6 +24,7 @@
   --font-family-mtg-display: var(--font-cinzel), serif;
   --font-family-mtg-body: var(--font-source-sans), system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI", sans-serif;
   --font-family-mtg-mono: var(--font-jetbrains-mono), "Consolas", "Monaco", monospace;
+  --color-mtg-black-rgb: 21,11,0;
 }
 
 /* Base styles */
@@ -158,15 +159,14 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Sleeve morphism effect for card containers */
-/* Enhanced sleeve morphism effect */
 .sleeve-morphism {
-  background: linear-gradient(135deg, var(--color-mtg-black) 60%, var(--color-rarity-common) 100%);
-  opacity: 0.1;
+  background: none;
+  opacity: 1;
   border-radius: 1rem;
-  border: 2px solid rgba(255,255,255,0.08);
-  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37), inset 0 1px 8px 0 rgba(255,255,255,0.04);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  border: 2px solid rgba(255,255,255,0.10);
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.10), inset 0 1px 8px 0 rgba(255,255,255,0.08);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   position: relative;
   overflow: hidden;
   transition: box-shadow 0.2s, border-color 0.2s;
@@ -178,9 +178,9 @@ h1, h2, h3, h4, h5, h6 {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(120deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 100%),
-    radial-gradient(circle at 60% 20%, rgba(255,255,255,0.12) 0%, transparent 60%);
-  opacity: 0.1;
+    linear-gradient(120deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 100%),
+    radial-gradient(circle at 60% 20%, rgba(255,255,255,0.10) 0%, transparent 60%);
+  opacity: 0.12;
   z-index: 0;
 }
 
@@ -190,7 +190,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .sleeve-morphism:hover {
-  box-shadow: 0 12px 40px 0 rgba(0,0,0,0.45);
+  box-shadow: 0 12px 40px 0 rgba(0,0,0,0.18);
   border-color: var(--color-mtg-blue);
 }
 
