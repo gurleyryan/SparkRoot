@@ -23,13 +23,13 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-6">
-            <a href="#" className="text-rarity-uncommon hover:text-mtg-white transition-colors font-mtg-mono">
+            <a href="#" className="bg-rarity-uncommon hover:bg-rarity-mythic text-rarity-rare hover:text-mtg-white transition-colors font-mtg-mono">
               Collection
             </a>
-            <a href="#" className="text-rarity-uncommon hover:text-mtg-white transition-colors font-mtg-mono">
+            <a href="#" className="bg-rarity-uncommon hover:bg-rarity-mythic text-rarity-rare hover:text-mtg-white transition-colors font-mtg-mono">
               Deck Builder
             </a>
-            <a href="#" className="text-rarity-uncommon hover:text-mtg-white transition-colors font-mtg-mono">
+            <a href="#" className="bg-rarity-uncommon hover:bg-rarity-mythic text-rarity-rare hover:text-mtg-white transition-colors font-mtg-mono">
               Pricing
             </a>
           </div>
@@ -47,7 +47,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 </a>
                 <button
                   onClick={onLogout}
-                  className="bg-gray-700 hover:bg-gray-600 text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
+                  className="bg-rarity-uncommon hover:bg-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
                 >
                   Logout
                 </button>
@@ -55,7 +55,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             ) : (
               <button
                 onClick={onLogin}
-                className="bg-mtg-blue hover:bg-blue-600 text-mtg-white px-6 py-2 rounded-lg transition-colors font-mtg-mono"
+                className="bg-rarity-uncommon hover:bg-rarity-mythic text-mtg-white px-6 py-2 rounded-lg transition-colors font-mtg-mono"
               >
                 Sign In
               </button>

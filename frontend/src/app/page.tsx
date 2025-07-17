@@ -41,7 +41,7 @@ export default function Home() {
           {!isAuthenticated && (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="bg-mtg-blue hover:bg-blue-600 text-white font-mtg-mono font-semibold py-3 px-8 rounded-lg transition-colors shadow"
+              className="bg-rarity-uncommon hover:bg-rarity-mythic text-white font-mtg-mono font-semibold py-3 px-8 rounded-lg transition-colors shadow"
             >
               Create Account / Sign In
             </button>
@@ -78,7 +78,7 @@ export default function Home() {
               </div>
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="bg-rarity-mythic hover:bg-rarity-rare text-white font-mtg-mono font-semibold py-3 px-8 rounded-lg transition-colors"
+                className="bg-rarity-uncommon hover:bg-rarity-mythic text-white font-mtg-mono font-semibold py-3 px-8 rounded-lg transition-colors"
               >
                 Get Started
               </button>
