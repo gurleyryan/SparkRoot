@@ -51,7 +51,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 <button
                   onClick={onLogout}
                   className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
-                >
+                ><i className="ms ms-b text-mtg-black mr-2"></i>
                   Logout
                 </button>
               </div>
@@ -59,7 +59,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               <button
                 onClick={onLogin}
                 className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-6 py-2 rounded-lg transition-colors font-mtg-mono"
-              >
+              ><i className="ms ms-w text-mtg-white mr-2"></i>
                 Sign In
               </button>
             )}
