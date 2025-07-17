@@ -23,13 +23,13 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-6">
-            <a href="#" className="text-rarity-uncommon hover:text-mtg-white transition-colors font-mtg-body">
+            <a href="#" className="text-rarity-uncommon hover:text-mtg-white transition-colors font-mtg-mono">
               Collection
             </a>
-            <a href="#" className="text-rarity-uncommon hover:text-mtg-white transition-colors font-mtg-body">
+            <a href="#" className="text-rarity-uncommon hover:text-mtg-white transition-colors font-mtg-mono">
               Deck Builder
             </a>
-            <a href="#" className="text-rarity-uncommon hover:text-mtg-white transition-colors font-mtg-body">
+            <a href="#" className="text-rarity-uncommon hover:text-mtg-white transition-colors font-mtg-mono">
               Pricing
             </a>
           </div>
@@ -40,14 +40,14 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               <div className="flex items-center space-x-4">
                 <a
                   href="/account"
-                  className="text-rarity-uncommon font-mtg-body hover:text-mtg-blue transition-colors underline cursor-pointer"
+                  className="text-rarity-uncommon font-mtg-display hover:text-mtg-blue transition-colors underline cursor-pointer"
                   title="Account settings"
                 >
                   Welcome, {user?.username || 'User'}
                 </a>
                 <button
                   onClick={onLogout}
-                  className="bg-gray-700 hover:bg-gray-600 text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-body"
+                  className="bg-gray-700 hover:bg-gray-600 text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
                 >
                   Logout
                 </button>
@@ -55,7 +55,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             ) : (
               <button
                 onClick={onLogin}
-                className="bg-mtg-blue hover:bg-blue-600 text-mtg-white px-6 py-2 rounded-lg transition-colors font-mtg-body"
+                className="bg-mtg-blue hover:bg-blue-600 text-mtg-white px-6 py-2 rounded-lg transition-colors font-mtg-mono"
               >
                 Sign In
               </button>
