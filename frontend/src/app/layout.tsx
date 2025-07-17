@@ -69,7 +69,7 @@ export default function RootLayout({
           `}
         </script>
       </head>
-      <body className="bg-mtg-black text-white antialiased font-mtg-body min-h-screen">
+      <body className="text-white antialiased font-mtg-body min-h-screen">
         <AuthHydrator />
         <PlaymatHydrator />
         {children}
