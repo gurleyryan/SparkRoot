@@ -371,7 +371,6 @@ h6 {
 
 .sleeve-morphism:hover {
   box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.18);
-  border-color: var(--color-rarity-uncommon);
 }
 
 /* MTG color identity borders */
