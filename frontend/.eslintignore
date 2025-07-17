@@ -1,9 +1,0 @@
-# Ignore build output and config files for ESLint
-.next/
-build/
-dist/
-node_modules/
-tailwind.config.js
-postcss.config.js
-*.config.js
-!eslint.config.js
