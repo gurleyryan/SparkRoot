@@ -240,6 +240,19 @@ h6 {
   background-color: var(--color-rarity-mythic);
 }
 
+/* Force group-hover color for navigation icons and text (highest specificity) */
+.group:hover .text-rarity-rare,
+.group:hover .text-mtg-white,
+.group:hover .ms,
+.group:hover .group-hover\:text-rarity-uncommon {
+  color: var(--color-rarity-uncommon) !important;
+}
+
+/* Always show pointer cursor for buttons and links */
+button, .btn, a, .a {
+  cursor: pointer;
+}
+
 /* Form controls */
 .form-input {
   width: 100%;

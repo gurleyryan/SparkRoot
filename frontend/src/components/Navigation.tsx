@@ -23,14 +23,17 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-6">
-            <a href="#" className="text-rarity-rare hover:text-rarity-uncommon transition-colors font-mtg-mono">
-              Collection
+            <a href="/collection" className="group flex items-center transition-colors font-mtg-mono">
+              <i className="ms ms-counter-lore ms-2x mr-2 text-mtg-red group-hover:!text-rarity-uncommon"></i>
+              <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Collection</span>
             </a>
-            <a href="#" className="text-rarity-rare hover:text-rarity-uncommon transition-colors font-mtg-mono">
-              Deck Builder
+            <a href="/deck-builder" className="group flex items-center transition-colors font-mtg-mono">
+              <i className="ms ms-commander ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
+              <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Deck Builder</span>
             </a>
-            <a href="#" className="text-rarity-rare hover:text-rarity-uncommon transition-colors font-mtg-mono">
-              Pricing
+            <a href="/pricing" className="group flex items-center transition-colors font-mtg-mono">
+              <i className="ms ms-counter-gold ms-2x mr-2 text-rarity-rare group-hover:!text-rarity-uncommon"></i>
+              <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Pricing</span>
             </a>
           </div>
 

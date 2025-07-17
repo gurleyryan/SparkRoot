@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-  // Removed unused variable 'User'
+// Removed unused variable 'User'
 
 interface AuthModalProps {
   onClose: () => void;
@@ -60,7 +60,10 @@ export default function AuthModal({ onClose }: AuthModalProps) {
 
   return (
     <div className="modal-backdrop fixed inset-0 z-40 flex items-center justify-center">
-      <div className="sleeve-morphism bg-opacity-80 p-8 rounded-xl shadow-xl max-w-md w-full z-50">
+      <div
+        className="sleeve-morphism p-8 rounded-xl shadow-xl max-w-md w-full z-50"
+        style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb), 0.95)" }}
+      >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-mtg text-mtg-white">
             {isLogin ? 'Sign In' : 'Create Account'}
@@ -160,7 +163,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           )}
 
           {error && (
-            <div className="bg-red-900 border border-mtg-red text-red-300 px-4 py-3 rounded-lg">
+            <div className="bg-mtg-black border border-mtg-red text-mtg-red px-4 py-3 rounded-lg">
               {error}
             </div>
           )}
@@ -168,8 +171,9 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-rarity-mythic hover:bg-rarity-rare text-rarity-uncommon hover:text-rarity-common disabled:bg-rarity-common font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="w-full bg-rarity-rare hover:bg-rarity-mythic text-rarity-common hover:text-rarity-uncommon disabled:bg-rarity-common font-semibold py-3 px-6 rounded-lg transition-colors"
           >
+            <i className="ms ms-w text-mtg-white mr-2"></i>
             {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
         </form>
@@ -177,8 +181,9 @@ export default function AuthModal({ onClose }: AuthModalProps) {
         <div className="mt-6 text-center">
           <button
             onClick={() => setIsLogin(!isLogin)}
-            className="w-full bg-rarity-common hover:bg-rarity-uncommon text-rarity-rare hover:text-rarity-mythic disabled:bg-rarity-common font-semibold py-2 px-4 rounded-lg transition-colors"
+            className="w-full bg-rarity-common hover:bg-rarity-uncommon text-rarity-rare hover:text-rarity-common disabled:bg-rarity-common font-semibold py-2 px-4 rounded-lg transition-colors"
           >
+            <i className="ms ms-g text-mtg-green mr-2"></i>
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>
         </div>

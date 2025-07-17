@@ -73,7 +73,10 @@ export default function RootLayout({
         <AuthHydrator />
         <PlaymatHydrator />
         {children}
-        <footer className="font-mtg-body w-full text-center text-xs text-mtg-white py-4 mt-8 border-t border-rarity-uncommon">
+        <footer
+          className="bg-mtg-black/50 font-mtg-body w-full text-center text-xs text-mtg-white py-4 mt-8"
+          style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb), 0.5)" }}
+        >
           Magic: The Gathering® and all related logos, fonts, and trademarks are property of Wizards of the Coast. This is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
         </footer>
       </body>
