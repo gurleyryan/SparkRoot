@@ -433,7 +433,7 @@ h6 {
 
 /* Modal backdrop */
 .modal-backdrop {
-  background: rgba(15, 15, 15, 0.7);
+  background: rgba(15, 15, 15, 0.9);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
