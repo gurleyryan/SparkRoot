@@ -14,7 +14,17 @@
 
 ## 🚀 **Current Status: [Deployed](https://mtg-deck-optimizer.vercel.app/)**
 
----
+## 📢 Disclaimer
+
+ > Magic: The Gathering®, and all related logos, fonts, and trademarks are property of Wizards of the Coast. This is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
+
+## What Makes This Special
+
+1. **🎯 Uses Your Real Collection** - Not theoretical deckbuilding
+2. **⚡ Instant Results** - See what you can build right now
+3. **🔒 Format Perfect** - Follows all Commander rules automatically
+4. **🎨 Professional Quality** - Production-ready code and UI
+5. **🔧 Extensible Design** - Clean architecture for easy enhancement
 
 ## ✨ Features
 
@@ -39,7 +49,7 @@
 
 ### 🎨 **Professional Interface**
 - **Dark MTG Aesthetic**: Inspired by premium card sleeves and play mats
-- **Beleren-Inspired Typography**: Legal font alternatives that capture the authentic MTG feel
+- **Beleren-Inspired Typography**: Legal font alternatives (Cinzel) that capture the authentic MTG feel
 - **Rarity Color Coding**: Visual indicators for Common, Uncommon, Rare, and Mythic cards
 - **Responsive Design**: Optimized for desktop, tablet, and mobile devices
 - **Next.js 15**: Latest React 19 with App Router and TypeScript
@@ -49,6 +59,74 @@
 - **Collection Persistence**: Save and manage multiple collections
 - **User Preferences**: Customizable settings and advanced filters
 - **Privacy Focused**: Your collection data stays secure and private
+
+## 🎯 **Usage Guide**
+
+### **Getting Started**
+1. **Start the application** using one of the quick start methods above
+2. **Create an account** or sign in through the web interface
+3. **Upload your collection** in CSV format (MTGGoldfish, Archidekt, etc.)
+4. **Browse available commanders** from your collection
+5. **Generate optimized decks** with one click
+6. **Export and share** your decks in multiple formats
+
+### **CSV Format Support**
+The application automatically detects and handles various CSV formats:
+
+- **MTGGoldfish exports** (name, set, quantity, foil, price)
+- **Archidekt exports** (name, edition, quantity, condition)
+- **Custom formats** with automatic column mapping
+- **Quantity expansion** for multi-card entries
+
+## 📱 How to Use
+
+1. **🔍 Select Commander**: Browse commanders from your collection with interactive cards
+2. **⚡ Generate Deck**: Click to build a legal 99-card deck instantly
+3. **📊 Analyze Results**: View mana curve, card types, and deck composition  
+4. **💾 Export Deck**: Download as TXT, JSON, or copy for MoxField
+
+### Web Interface Features
+- **Interactive Commander Selection**: Click-to-select with visual feedback
+- **Real-time Deck Generation**: Instant deck building with full rule compliance
+- **Comprehensive Analysis**: Mana curve, type distribution, average CMC
+- **Multiple Export Options**: Professional formats for online play
+
+## Key Features
+
+### ⚔️ Smart Deck Building
+- ✅ **Color identity validation** - All cards match commander colors
+- ✅ **Format legality checking** - Only legal Commander cards included
+- ✅ **Proper basic land handling** - Unlimited basics as per rules
+- ✅ **Collection quantity respect** - Uses your actual card availability
+
+### 💾 Export & Analysis
+- 📄 **MTGO/Arena format** (.txt files) - Ready for online import
+- 💾 **JSON format** (programmatic use) - Complete deck data
+- 📋 **MoxField import** (copy to clipboard) - One-click sharing
+- 📊 **Deck statistics** - Type distribution and mana analysis
+
+### 🧪 Proven Results
+*From our test collection of 635 cards (343 unique cards):*
+- ✅ **7 legal commanders** found automatically
+- ✅ **Complete 100-card deck** generated (Lavinia of the Tenth)
+- ✅ **Perfect distribution**: 24 creatures, 10 instants, 53 lands
+- ✅ **All export formats** working flawlessly
+- ✅ **Sub-2 second** load times with 108K+ card database
+
+## 🔧 Technical Details
+
+### Architecture
+- **Frontend**: Next.js 15 + TypeScript + Tailwind CSS
+- **Backend**: FastAPI + Pandas for efficient data processing
+- **Data Source**: Scryfall API for complete, up-to-date card information  
+- **Format Support**: Commander/EDH with full rules compliance
+- **Deployment**: Vercel (frontend) + Railway/Render (backend)
+
+### Performance
+- **Load Time**: ~2 seconds for 108K card database
+- **Deck Generation**: Instant (<1 second)
+- **Export Speed**: <1 second for all formats
+- **Memory Usage**: Efficient pandas operations for large datasets
 
 ### 📋 **Manual Setup**
 
@@ -103,8 +181,6 @@ MTG-Deck-Optimizer/
     ├── dev.bat         # Windows development script
     └── dev.sh          # Unix development script
 ```
-
----
 
 ## 📦 Data Files for Deployment
 
@@ -193,8 +269,6 @@ Add this script to your Railway deployment or download the file manually.
 - **Input Validation**: All input is validated using Pydantic models
 - **Environment Variables**: All secrets and config are managed via standardized `.env` files
 
----
-
 ## 📡 **API Documentation & Error Monitoring**
 
 The FastAPI backend provides a comprehensive REST API with automatic OpenAPI documentation at `http://localhost:8000/docs`.
@@ -222,8 +296,6 @@ The FastAPI backend provides a comprehensive REST API with automatic OpenAPI doc
 - TOTP is required for email changes and other sensitive actions.
 - Uniqueness checks for username/email are available via dedicated endpoints.
 
----
-
 ### Error Monitoring & Logging
 - **Sentry**: All backend and frontend errors are reported to Sentry in production.
 - **structlog**: Backend logs use JSON format with timestamps for easy analysis and monitoring.
@@ -239,89 +311,6 @@ The FastAPI backend provides a comprehensive REST API with automatic OpenAPI doc
 6. **CI/CD**: Ensure CI workflow does not overwrite or remove Sentry/structlog config.
 7. **Documentation**: This README is the single source of truth for error monitoring and logging setup.
 
----
-
-## 🎯 **Usage Guide**
-
-### **Getting Started**
-1. **Start the application** using one of the quick start methods above
-2. **Create an account** or sign in through the web interface
-3. **Upload your collection** in CSV format (MTGGoldfish, Archidekt, etc.)
-4. **Browse available commanders** from your collection
-5. **Generate optimized decks** with one click
-6. **Export and share** your decks in multiple formats
-
-### **CSV Format Support**
-The application automatically detects and handles various CSV formats:
-
-- **MTGGoldfish exports** (name, set, quantity, foil, price)
-- **Archidekt exports** (name, edition, quantity, condition)
-- **Custom formats** with automatic column mapping
-- **Quantity expansion** for multi-card entries
-
----
-
-### 3. Use Your Collection
-- Upload your collection CSV via the web interface
-- Supports ManaBox, Moxfield, and other formats
-- App automatically enriches data with Scryfall information
-
----
-
-## 📱 How to Use
-
-1. **🔍 Select Commander**: Browse commanders from your collection with interactive cards
-2. **⚡ Generate Deck**: Click to build a legal 99-card deck instantly
-3. **📊 Analyze Results**: View mana curve, card types, and deck composition  
-4. **💾 Export Deck**: Download as TXT, JSON, or copy for MoxField
-
-### Web Interface Features
-- **Interactive Commander Selection**: Click-to-select with visual feedback
-- **Real-time Deck Generation**: Instant deck building with full rule compliance
-- **Comprehensive Analysis**: Mana curve, type distribution, average CMC
-- **Multiple Export Options**: Professional formats for online play
-
----
-
-## Key Features
-
-### ⚔️ Smart Deck Building
-- ✅ **Color identity validation** - All cards match commander colors
-- ✅ **Format legality checking** - Only legal Commander cards included
-- ✅ **Proper basic land handling** - Unlimited basics as per rules
-- ✅ **Collection quantity respect** - Uses your actual card availability
-
-### 💾 Export & Analysis
-- 📄 **MTGO/Arena format** (.txt files) - Ready for online import
-- 💾 **JSON format** (programmatic use) - Complete deck data
-- 📋 **MoxField import** (copy to clipboard) - One-click sharing
-- 📊 **Deck statistics** - Type distribution and mana analysis
-
-### 🧪 Proven Results
-*From our test collection of 635 cards (343 unique cards):*
-- ✅ **7 legal commanders** found automatically
-- ✅ **Complete 100-card deck** generated (Lavinia of the Tenth)
-- ✅ **Perfect distribution**: 24 creatures, 10 instants, 53 lands
-- ✅ **All export formats** working flawlessly
-- ✅ **Sub-2 second** load times with 108K+ card database
-
----
-
-## 🔧 Technical Details
-
-### Architecture
-- **Frontend**: Next.js 15 + TypeScript + Tailwind CSS
-- **Backend**: FastAPI + Pandas for efficient data processing
-- **Data Source**: Scryfall API for complete, up-to-date card information  
-- **Format Support**: Commander/EDH with full rules compliance
-- **Deployment**: Vercel (frontend) + Railway/Render (backend)
-
-### Performance
-- **Load Time**: ~2 seconds for 108K card database
-- **Deck Generation**: Instant (<1 second)
-- **Export Speed**: <1 second for all formats
-- **Memory Usage**: Efficient pandas operations for large datasets
-
 ### Key Algorithms
 ```python
 # Core Functions
@@ -331,55 +320,7 @@ analyze_deck_quality()          # Advanced 422-line scoring system
 export_deck_to_*()             # Multi-format export system
 ```
 
----
-
-## What Makes This Special
-
-1. **🎯 Uses Your Real Collection** - Not theoretical deckbuilding
-2. **⚡ Instant Results** - See what you can build right now
-3. **🔒 Format Perfect** - Follows all Commander rules automatically
-4. **🎨 Professional Quality** - Production-ready code and UI
-5. **🔧 Extensible Design** - Clean architecture for easy enhancement
-
----
-
-## Development Roadmap
-
-### 🎯 Phase 2: Enhanced Features (Next Sprint)
-- [ ] **EDHREC Integration** - Compare with meta decks
-- [ ] **Advanced Scoring** - Rate deck quality and balance
-- [ ] **Multiple Variants** - Generate different builds per commander
-- [ ] **Visual Mana Curve** - Interactive charts and graphs
-
-### 🌐 Phase 3: Community Features
-- [ ] **Deck Sharing** - Community deck database
-- [ ] **Collection Upload** - Direct CSV upload interface
-- [ ] **Price Tracking** - Card value and budget analysis
-- [ ] **Tournament Mode** - Competitive deck suggestions
-
-### 💰 Phase 4: Business Development
-- [ ] **SaaS Deployment** - Cloud hosting for broader access
-- [ ] **LGS Partnerships** - Local game store integrations
-- [ ] **Premium Features** - Advanced analytics and tools
-- [ ] **Mobile App** - Native mobile experience
-
----
-
-### Development Setup
-```bash
-# Install development dependencies
-pip install -r requirements.txt
-
-# Run tests
-python src/demo.py
-
-# Start development server
-cd src && python app.py
-```
-
----
-
-### **Deployment**
+## **Deployment**
 
 #### Supabase + Railway + Vercel**
 
@@ -426,32 +367,47 @@ POST /decks/generate          # Generate deck for commander
 GET  /decks/export/{format}   # Export deck in specified format
 ```
 
----
+## Development Roadmap
+
+### 🎯 Phase 2: Enhanced Features (Next Sprint)
+- [ ] **EDHREC Integration** - Compare with meta decks
+- [ ] **Advanced Scoring** - Rate deck quality and balance
+- [ ] **Multiple Variants** - Generate different builds per commander
+- [ ] **Visual Mana Curve** - Interactive charts and graphs
+
+### 🌐 Phase 3: Community Features
+- [ ] **Deck Sharing** - Community deck database
+- [ ] **Collection Upload** - Direct CSV upload interface
+- [ ] **Price Tracking** - Card value and budget analysis
+- [ ] **Tournament Mode** - Competitive deck suggestions
+
+### 💰 Phase 4: Business Development
+- [ ] **SaaS Deployment** - Cloud hosting for broader access
+- [ ] **WOTC and LGS Partnerships** - Receive support from Wizards of the Coast and local game store integrations
+- [ ] **Premium Features** - Advanced analytics and tools
+- [ ] **Mobile App** - Native mobile experience
 
 ## 🤝 Contributing
 
 We welcome contributions! This project is built with clean, modular code that's easy to enhance.
 
-### Getting Started
-1. Check out issues labeled [`good first issue`](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-2. Fork the repository and create a feature branch
-3. Run the demo script: `python src/demo.py`
-4. Make your changes and test thoroughly
-5. Submit a pull request with a clear description
-
----
-
 ## Attributions
 
-Icons from [mana-font](https://mana.andrewgioia.com/).
+Icons from [mana-font](https://mana.andrewgioia.com/) by Andrew Gioia.
+> All mana images and card symbols © Wizards of the Coast.<br>
+The Mana font is licensed under the the SIL OFL 1.1.<br>
+Mana CSS, LESS, and Sass files are licensed under the MIT License.<br>
 
----
+## 📢 Disclaimer
+
+> Magic: The Gathering®, and all related logos, fonts, and trademarks are property of Wizards of the Coast. This is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
 
 ## License
 
 This project is licensed under the [Business Source License 1.1(BUSL-1.1)](LICENSE).
-
----
+> You may make use of the Licensed Work in non-production (non-commercial) environments.<br>
+Use of the Licensed Work in a production environment (commercial use, SaaS, or hosted deployment) requires purchasing a separate commercial license from the Licensor.<br>
+On the Change Date, the Licensed Work will automatically transition to the Change License.
 
 ## Questions
 

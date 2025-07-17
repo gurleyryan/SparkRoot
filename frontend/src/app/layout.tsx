@@ -5,19 +5,19 @@ import type { Metadata } from "next";
 import { Cinzel, Source_Sans_3, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
 
-const cinzel = Cinzel({ 
+const cinzel = Cinzel({
   subsets: ['latin'],
   variable: '--font-cinzel',
   display: 'swap',
 });
 
-const sourceSans = Source_Sans_3({ 
+const sourceSans = Source_Sans_3({
   subsets: ['latin'],
   variable: '--font-source-sans',
   display: 'swap',
 });
 
-const jetbrainsMono = JetBrains_Mono({ 
+const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains-mono',
   display: 'swap',
@@ -34,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}> 
+    <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
       <head>
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         <link rel="icon" href="/logo.svg" type="image/svg+xml" />
@@ -46,6 +46,9 @@ export default function RootLayout({
         <AuthHydrator />
         <PlaymatHydrator />
         {children}
+        <footer className="w-full text-center text-xs text-gray-400 py-4 mt-8">
+          Magic: The Gathering®, and all related logos, fonts, and trademarks are property of Wizards of the Coast. This is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
+        </footer>
       </body>
     </html>
   );
