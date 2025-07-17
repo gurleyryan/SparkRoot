@@ -14,8 +14,11 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
     <nav className="bg-mtg-black sleeve-morphism border-b-2 border-mtg-blue shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          <div className="text-2xl font-mtg text-mtg-white drop-shadow-lg tracking-wide">
-            ⚔️ MTG Optimizer
+          <div className="flex items-center gap-3">
+            <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8" />
+            <span className="text-2xl font-mtg text-mtg-white drop-shadow-lg tracking-wide">
+              MTG Optimizer
+            </span>
           </div>
 
           {/* Navigation Links */}
