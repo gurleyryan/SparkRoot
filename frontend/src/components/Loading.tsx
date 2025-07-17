@@ -75,7 +75,7 @@ interface LoadingCardProps {
 
 export function LoadingCard({ className = '' }: LoadingCardProps) {
   return (
-    <div className={`sleeve-morphism p-6 border border-gray-700 ${className}`}>
+    <div className={`p-6 border border-gray-700 ${className}`}>
       <div className="animate-pulse">
         <div className="bg-gray-700 h-40 rounded-lg mb-4" />
         <div className="space-y-3">

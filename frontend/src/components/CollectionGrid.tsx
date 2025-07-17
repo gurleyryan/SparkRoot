@@ -1,8 +1,6 @@
 import React from 'react';
-
 import { useState, useEffect } from 'react';
 import { ApiClient } from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
 import { useCollectionStore } from '@/store/collectionStore';
 import Image from 'next/image';
 import type { MTGCard } from '@/types';

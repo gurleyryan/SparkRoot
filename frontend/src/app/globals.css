@@ -62,6 +62,10 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-family-mtg-display);
 }
 
+.font-mtg {
+  font-family: var(--font-family-mtg);
+}
+
 /* MTG Card styling */
 .mtg-card {
   background-color: var(--color-mtg-black);
