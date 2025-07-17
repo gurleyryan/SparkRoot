@@ -19,7 +19,7 @@ export default function Home() {
   const logout = useAuthStore((s) => s.logout);
 
   return (
-    <div className="min-h-screen bg-mtg-black">
+    <div className="min-h-screen">
       <Navigation 
         isAuthenticated={isAuthenticated}
         user={user}
@@ -29,7 +29,7 @@ export default function Home() {
       
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
-        <div className="bg-mtg-black sleeve-morphism rounded-xl p-8 mb-12 border border-rarity-uncommon shadow-xl text-center" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}}>
+        <div className="sleeve-morphism rounded-xl p-8 mb-12 border border-rarity-uncommon shadow-xl text-center" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}}>
           <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="mx-auto mb-6 w-32 h-32" />
           <h1 className="text-6xl font-mtg font-bold text-mtg-white mb-4 drop-shadow-lg">
             MTG Deck Optimizer
@@ -51,7 +51,7 @@ export default function Home() {
         {/* Main Content */}
         {!isAuthenticated ? (
           <div className="text-center py-12">
-            <div className="bg-mtg-black sleeve-morphism rounded-xl p-8 max-w-2xl mx-auto border border-rarity-uncommon" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}}>
+            <div className="sleeve-morphism rounded-xl p-8 max-w-2xl mx-auto border border-rarity-uncommon" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}}>
               <h2 className="text-2xl font-mtg text-mtg-white mb-4">Welcome to MTG Deck Optimizer</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="text-center">
