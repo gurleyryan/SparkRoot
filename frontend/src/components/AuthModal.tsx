@@ -67,7 +67,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white text-2xl"
+            className="text-gray-400 hover:text-mtg-white text-2xl"
           >
             ×
           </button>
@@ -77,24 +77,24 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           {isLogin ? (
             <>
               <div>
-                <label className="block text-gray-300 mb-2 font-mtg-body">Email or Username</label>
+                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Email or Username</label>
                 <input
                   type="text"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
               <div>
-                <label className="block text-gray-300 mb-2 font-mtg-body">Password</label>
+                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Password</label>
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
@@ -102,57 +102,57 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           ) : (
             <>
               <div>
-                <label className="block text-gray-300 mb-2 font-mtg-body">Email</label>
+                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Email</label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
               <div>
-                <label className="block text-gray-300 mb-2 font-mtg-body">Username</label>
+                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Username</label>
                 <input
                   type="text"
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
               <div>
-                <label className="block text-gray-300 mb-2 font-mtg-body">Full Name</label>
+                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Full Name</label>
                 <input
                   type="text"
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
               <div>
-                <label className="block text-gray-300 mb-2 font-mtg-body">Password</label>
+                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Password</label>
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
               <div>
-                <label className="block text-gray-300 mb-2 font-mtg-body">Confirm Password</label>
+                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Confirm Password</label>
                 <input
                   type="password"
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
@@ -168,7 +168,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-mtg-blue hover:bg-blue-600 disabled:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="w-full bg-rarity-uncommon hover:bg-rarity-mythic text-rarity-rare hover:text-rarity-common disabled:bg-rarity-common font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
@@ -177,7 +177,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
         <div className="mt-6 text-center">
           <button
             onClick={() => setIsLogin(!isLogin)}
-            className="text-mtg-blue hover:text-blue-400 font-mtg-body"
+            className="w-full bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic disabled:bg-rarity-common font-semibold py-2 px-4 rounded-lg transition-colors"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>
