@@ -109,4 +109,14 @@ module.exports = {
     },
   },
   plugins: [],
+  safelist: [
+    'bg-rarity-common',
+    'bg-rarity-uncommon',
+    'bg-rarity-rare',
+    'bg-rarity-mythic',
+    'hover:bg-rarity-common',
+    'hover:bg-rarity-uncommon',
+    'hover:bg-rarity-rare',
+    'hover:bg-rarity-mythic',
+  ],
 }
