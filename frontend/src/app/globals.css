@@ -158,7 +158,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-rarity-uncommon);
 }
 
-/* Rarity text colors */
+/* Text colors */
 .text-rarity-common {
   color: var(--color-rarity-common);
 }
@@ -173,6 +173,23 @@ h1, h2, h3, h4, h5, h6 {
 
 .text-rarity-mythic {
   color: var(--color-rarity-mythic);
+}
+
+.text-mtg-white {
+  color: var(--color-mtg-white);
+}
+
+.text-mtg-blue {
+  color: var(--color-mtg-blue);
+}
+.text-mtg-black {
+  color: var(--color-mtg-black);
+}
+.text-mtg-red {
+  color: var(--color-mtg-red);
+}
+.text-mtg-green {
+  color: var(--color-mtg-green);
 }
 
 /* Sleeve morphism effect for card containers */
