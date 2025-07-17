@@ -8,16 +8,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green.svg)](https://fastapi.tiangolo.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-BUSL--1.1-yellow.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)]()
+[![Status](https://img.shields.io/badge/Status-Deployed-brightgreen.svg)](https://mtg-deck-optimizer.vercel.app/)
 
 > **Professional-grade MTG deck building and collection management** - Transform your physical collection into optimized Commander decks through an intuitive, beautifully designed web interface with powerful Python algorithms for complex deck generation tasks.
 
-## 🚀 **Current Status: Backend Ready, Frontend Integration Next**
-- ✅ **Backend API**: FastAPI server running on `http://localhost:8000`
-- ✅ **Database**: Supabase REST API integration with secure authentication
-- ✅ **User System**: Registration, login, and JWT authentication
-- ✅ **Environment**: Local development setup complete
-- 🔄 **Next**: Frontend-backend integration and testing
+## 🚀 **Current Status: [Deployed](https://mtg-deck-optimizer.vercel.app/)**
 
 ---
 
@@ -54,22 +49,6 @@
 - **Collection Persistence**: Save and manage multiple collections
 - **User Preferences**: Customizable settings and advanced filters
 - **Privacy Focused**: Your collection data stays secure and private
-
-## 🚀 Quick Start
-
-### 🛠️ **One-Command Setup**
-
-```bash
-# Windows
-scripts\dev.bat
-
-# Unix/Mac/Linux
-./scripts/dev.sh
-```
-
-This automatically starts both servers:
-- 🎨 **Frontend**: http://localhost:3000 (Next.js)
-- 📡 **Backend**: http://localhost:8000 (FastAPI)
 
 ### 📋 **Manual Setup**
 
@@ -207,7 +186,7 @@ Add this script to your Railway deployment or download the file manually.
 
 ## 🛡️ **Security & Monitoring**
 
-- **Sentry**: All backend and frontend errors are tracked in Sentry (see SENTRY_STRUCTLOG_CHECKLIST.md)
+- **Sentry**: All backend and frontend errors are tracked in Sentry
 - **structlog**: Backend logs use JSON format with timestamps for easy analysis
 - **TOTP**: Two-factor authentication required for sensitive actions
 - **Rate Limiting**: Sensitive endpoints are rate-limited
@@ -319,34 +298,12 @@ The application automatically detects and handles various CSV formats:
 - 📊 **Deck statistics** - Type distribution and mana analysis
 
 ### 🧪 Proven Results
-*From our test collection of 343 cards:*
+*From our test collection of 635 cards (343 unique cards):*
 - ✅ **7 legal commanders** found automatically
 - ✅ **Complete 100-card deck** generated (Lavinia of the Tenth)
 - ✅ **Perfect distribution**: 24 creatures, 10 instants, 53 lands
 - ✅ **All export formats** working flawlessly
 - ✅ **Sub-2 second** load times with 108K+ card database
-
----
-
-## 🏗️ Project Structure
-
-```
-MTG-Deck-Optimizer/
-├── frontend/                   # Next.js React application
-│   ├── src/app/               # App router pages  
-│   ├── src/components/        # React components
-│   └── package.json           # Frontend dependencies
-├── backend/                   # FastAPI Python application
-│   ├── main.py               # API server entry point
-│   ├── deckgen.py            # Deck generation algorithms
-│   ├── deck_analysis.py      # Advanced scoring system
-│   ├── deck_export.py        # Multi-format exports  
-│   ├── utils.py              # Scryfall integration
-│   └── requirements.txt      # Backend dependencies
-├── data/                     # Scryfall card database
-├── scripts/                  # Development utilities
-└── legacy/                   # Original Flask implementation
-```
 
 ---
 
@@ -408,17 +365,6 @@ export_deck_to_*()             # Multi-format export system
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! This project is built with clean, modular code that's easy to enhance.
-
-### Getting Started
-1. Check out issues labeled [`good first issue`](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-2. Fork the repository and create a feature branch
-3. Run the demo script: `python src/demo.py`
-4. Make your changes and test thoroughly
-5. Submit a pull request with a clear description
-
 ### Development Setup
 ```bash
 # Install development dependencies
@@ -433,30 +379,9 @@ cd src && python app.py
 
 ---
 
-## 📊 Success Metrics
+### **Deployment**
 
-**Current Achievement** (Milestone 1):
-- ✅ Complete working application
-- ✅ Professional UI/UX
-- ✅ Multi-format exports
-- ✅ Comprehensive documentation
-- ✅ Production-ready codebase
-
-**Next Targets** (6 months):
-## 🚀 **Deployment**
-
-### **Production Ready**
-This application is fully optimized and ready for production deployment:
-
-- ✅ **Zero ESLint errors** - Clean, maintainable code
-- ✅ **100% TypeScript coverage** - Complete type safety
-- ✅ **Optimized builds** - Fast loading and performance
-- ✅ **Security best practices** - JWT authentication, password hashing, CORS
-- ✅ **Mobile responsive** - Works perfectly on all devices
-
-### **Deployment Options**
-
-#### **Option 1: Supabase + Railway + Vercel (Recommended)**
+#### Supabase + Railway + Vercel**
 
 **Complete modern stack with PostgreSQL:**
 
@@ -474,33 +399,6 @@ This application is fully optimized and ready for production deployment:
    - Deploy frontend with API URL configuration
    - Automatic HTTPS and global CDN
    - Zero-config deployment
-
-📚 **[Complete Supabase Setup Guide](SUPABASE_DEPLOYMENT.md)**
-
-#### **Option 2: Railway SQLite (Quick Start)**
-
-**Frontend (Vercel):**
-1. Push code to GitHub repository
-2. Connect repository to Vercel
-3. Set root directory to `/frontend`
-4. Configure environment variables:
-   ```
-   NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app
-   ```
-5. Deploy automatically on every push
-
-**Backend (Railway):**
-1. Connect GitHub repository to Railway
-2. Set root directory to `/backend`
-3. Use existing SQLite database (simple setup)
-4. Configure environment variables
-5. Deploy with automatic container builds
-
-#### **Option 3: Full Docker Deployment**
-```bash
-# Build and run with Docker Compose
-docker-compose up --build
-```
 
 ## 📡 **API Documentation**
 
@@ -527,3 +425,37 @@ GET  /cards/commanders         # Find available commanders
 POST /decks/generate          # Generate deck for commander
 GET  /decks/export/{format}   # Export deck in specified format
 ```
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! This project is built with clean, modular code that's easy to enhance.
+
+### Getting Started
+1. Check out issues labeled [`good first issue`](../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+2. Fork the repository and create a feature branch
+3. Run the demo script: `python src/demo.py`
+4. Make your changes and test thoroughly
+5. Submit a pull request with a clear description
+
+---
+
+## Attributions
+
+Icons from [mana-font](https://mana.andrewgioia.com/).
+
+---
+
+## License
+
+This project is licensed under the [Business Source License 1.1(BUSL-1.1)](LICENSE).
+
+---
+
+## Questions
+
+For questions, feedback, or collaboration opportunities:
+
+- **GitHub**: [@gurleyryan](https://github.com/gurleyryan)
+- **Email**: [gurleyryan@gmail.com](mailto:gurleyryan@gmail.com)
