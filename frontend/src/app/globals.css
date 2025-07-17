@@ -1,6 +1,6 @@
-@import "tailwindcss";
 @import url('https://cdn.jsdelivr.net/npm/mana-font@latest/css/mana.css');
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cormorant:ital,wght@0,400;0,700;1,400;1,700&family=Cormorant+Small+Caps:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=Lora:wght@400;700&family=EB+Garamond:ital,wght@0,400;1,400&display=swap');
+@import "tailwindcss";
 
 :root {
   /* MTG-inspired color palette */
