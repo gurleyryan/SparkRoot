@@ -168,7 +168,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-rarity-uncommon hover:bg-rarity-mythic text-rarity-rare hover:text-rarity-common disabled:bg-rarity-common font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="w-full bg-rarity-mythic hover:bg-rarity-rare text-rarity-uncommon hover:text-rarity-common disabled:bg-rarity-common font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
@@ -177,7 +177,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
         <div className="mt-6 text-center">
           <button
             onClick={() => setIsLogin(!isLogin)}
-            className="w-full bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic disabled:bg-rarity-common font-semibold py-2 px-4 rounded-lg transition-colors"
+            className="w-full bg-rarity-common hover:bg-rarity-uncommon text-rarity-rare hover:text-rarity-mythic disabled:bg-rarity-common font-semibold py-2 px-4 rounded-lg transition-colors"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>

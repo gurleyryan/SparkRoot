@@ -360,7 +360,7 @@ h6 {
   background:
     linear-gradient(120deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.01) 100%),
     radial-gradient(circle at 60% 20%, rgba(255, 255, 255, 0.10) 0%, transparent 60%);
-  opacity: 0.12;
+  opacity: 0.7;
   z-index: 0;
 }
 
@@ -433,7 +433,7 @@ h6 {
 
 /* Modal backdrop */
 .modal-backdrop {
-  background: rgba(15, 15, 15, 0.9);
+  background: rgba(15, 15, 15, 0.1);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
