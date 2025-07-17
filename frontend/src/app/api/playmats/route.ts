@@ -9,7 +9,7 @@ export async function GET() {
   try {
     files = fs.readdirSync(publicDir)
       .filter(f => /^playmat-texture.*\.svg$/i.test(f));
-  } catch (e) {
+  } catch {
     return NextResponse.json({ success: false, error: 'Failed to read public directory' }, { status: 500 });
   }
   return NextResponse.json({ success: true, files });

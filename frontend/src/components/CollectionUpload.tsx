@@ -54,7 +54,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
         setIsUploading(false);
         return;
       }
-    } catch (e) {
+    } catch {
       setError('Session expired or invalid. Please log in again.');
       setIsUploading(false);
       return;
@@ -137,7 +137,6 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
       'text/csv': ['.csv'],
       'application/vnd.ms-excel': ['.xls', '.xlsx'],
     },
-    multiple: false,
   });
 
   if (!hasHydrated) {
@@ -185,8 +184,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
 
           {/* Real Collection Button */}
           <button
-            onClick={async (e) => {
-              e.stopPropagation();
+            onClick={async () => {
               setIsUploading(true);
               setError(null);
               try {
@@ -205,15 +203,15 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                       is_public: false,
                     });
                     if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
-                      addCollection({
-                        id: String((saveResult as { id: string }).id),
-                        user_id: '',
-                        name,
-                        description,
-                        cards,
-                        created_at: '',
-                        updated_at: '',
-                      });
+        addCollection({
+          id: String((saveResult as { id: string }).id),
+          user_id: '',
+          name,
+          description,
+          cards,
+          created_at: '',
+          updated_at: '',
+        });
                     }
                     if (typeof onCollectionUploaded === 'function') {
                       onCollectionUploaded(cards);

@@ -17,7 +17,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
           <div className="flex items-center gap-3">
             <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8" />
             <span className="text-2xl font-mtg text-mtg-white drop-shadow-lg tracking-wide">
-              MTG Optimizer
+              MTG Deck Optimizer
             </span>
           </div>
 

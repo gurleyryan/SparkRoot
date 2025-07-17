@@ -41,7 +41,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const apiClient = new ApiClient();
-          const loginResp = await apiClient.login(credentials);
+          await apiClient.login(credentials);
           // After login, backend sets HttpOnly cookie. Fetch user profile.
           const profileClient = new ApiClient();
           const userProfile = await profileClient.getProfile() as User;
@@ -52,7 +52,9 @@ export const useAuthStore = create<AuthState>()(
             if (settingsResp && settingsResp.success && settingsResp.settings) {
               userSettings = settingsResp.settings;
             }
-          } catch {}
+          } catch {
+            // Handle error silently
+          }
           // Randomize playmat if not set
           let playmat_texture = userSettings?.playmat_texture || null;
           if (!playmat_texture) {
@@ -63,13 +65,17 @@ export const useAuthStore = create<AuthState>()(
               if (data.success && Array.isArray(data.files)) {
                 mats = data.files;
               }
-            } catch {}
+            } catch {
+              // Error fetching playmat textures
+            }
             if (mats.length > 0) {
               playmat_texture = mats[Math.floor(Math.random() * mats.length)];
               // Persist to backend
               try {
                 await profileClient.updateSettings({ ...userSettings, playmat_texture });
-              } catch {}
+              } catch {
+                // Error updating playmat texture
+              }
             }
           }
           set({
@@ -79,7 +85,7 @@ export const useAuthStore = create<AuthState>()(
             playmat_texture,
             userSettings,
           });
-        } catch (e) {
+        } catch {
           set({
             error: 'Login failed',
             isLoading: false,
@@ -114,7 +120,9 @@ export const useAuthStore = create<AuthState>()(
               }
             } 
           });
-        } catch {}
+        } catch {
+          // Error updating playmat texture
+        }
       },
 
       register: async (userData) => {
@@ -192,10 +200,10 @@ export const useAuthStore = create<AuthState>()(
         playmat_texture: state.playmat_texture,
         userSettings: state.userSettings,
       }),
-      migrate: (persistedState: any, version: number) => {
+      migrate: (persistedState: unknown) => {
         // No localStorage cleanup needed
-        return persistedState;
-      },
+        return persistedState as Partial<AuthState>;
+      }
     }
   )
 );

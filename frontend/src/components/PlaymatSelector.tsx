@@ -26,7 +26,9 @@ export default function PlaymatSelector() {
             }))
           );
         }
-      } catch {}
+      } catch {
+        // ...removed empty block...
+      }
     }
     fetchPlaymats();
   }, []);

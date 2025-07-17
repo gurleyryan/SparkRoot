@@ -3,7 +3,7 @@ import { useState } from 'react';
 import BracketPicker from '@/components/BracketPicker';
 import { ApiClient } from '@/lib/api';
 import { useCollectionStore } from '@/store/collectionStore';
-import { useAuthStore } from '@/store/authStore';
+// ...existing code...
 
 interface DeckResult {
   deck: Record<string, unknown>;

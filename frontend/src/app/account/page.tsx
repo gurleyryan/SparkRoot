@@ -7,9 +7,20 @@ import PlaymatSelector from "@/components/PlaymatSelector";
 export default function AccountPage() {
   // Remove token from Zustand/localStorage, rely on cookie-based session
   const user = useAuthStore((s) => s.user);
-  const userSettings = useAuthStore((s) => s.userSettings);
-  // Instead of Zustand isAuthenticated, check session via API
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    full_name: user?.full_name || "",
+    username: user?.username || "",
+    email: user?.email || ""
+  });
+  const [status, setStatus] = useState("");
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [showTOTPModal, setShowTOTPModal] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpError, setTotpError] = useState("");
+  const [usernameAvailable, setUsernameAvailable] = useState(true);
+
   useEffect(() => {
     async function checkSession() {
       try {
@@ -27,7 +38,10 @@ export default function AccountPage() {
     }
     checkSession();
   }, []);
-  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Optionally, fetch latest settings on mount
+  }, []);
 
   // Spinner overlay
   function SpinnerOverlay(): ReactElement {
@@ -38,10 +52,6 @@ export default function AccountPage() {
     );
   }
 
-  useEffect(() => {
-    // Optionally, fetch latest settings on mount
-  }, []);
-
   if (!isAuthenticated) {
     return (
       <div className="max-w-xl mx-auto p-8 mt-12 bg-black rounded-xl border border-mtg-blue text-center">
@@ -51,18 +61,7 @@ export default function AccountPage() {
     );
   }
 
-  // Form state for editable fields
-  const [form, setForm] = useState({
-    full_name: user?.full_name || "",
-    username: user?.username || "",
-    email: user?.email || ""
-  });
-  const [status, setStatus] = useState("");
-  const [verifyingEmail, setVerifyingEmail] = useState(false);
-  const [showTOTPModal, setShowTOTPModal] = useState(false);
-  const [totpCode, setTotpCode] = useState("");
-  const [totpError, setTotpError] = useState("");
-  const [usernameAvailable, setUsernameAvailable] = useState(true);
+  // ...existing code...
 
   // Handler for input changes
   function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {

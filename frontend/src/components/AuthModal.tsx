@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import type { User } from '@/types';
+  // Removed unused variable 'User'
 
 interface AuthModalProps {
   onClose: () => void;
@@ -45,8 +45,8 @@ export default function AuthModal({ onClose }: AuthModalProps) {
       }
       setIsLoading(false);
       onClose();
-    } catch (err: any) {
-      setError(err?.message || 'Authentication failed. Please try again.');
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Authentication failed. Please try again.');
       setIsLoading(false);
     }
   };

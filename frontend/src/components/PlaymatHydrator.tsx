@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "../store/authStore";
 
 export default function PlaymatHydrator() {
@@ -17,7 +17,9 @@ export default function PlaymatHydrator() {
             const random = data.files[Math.floor(Math.random() * data.files.length)];
             setBgPlaymat(`url('/${random}')`);
           }
-        } catch {}
+        } catch {
+          // Handle error silently
+        }
       } else {
         setBgPlaymat(playmat_texture ? `url('/${playmat_texture}')` : null);
       }
