@@ -74,7 +74,7 @@ export default function RootLayout({
         <PlaymatHydrator />
         {children}
         <footer className="w-full text-center text-xs text-mtg-white py-4 mt-8 border-t border-rarity-uncommon">
-          Magic: The Gathering®, and all related logos, fonts, and trademarks are property of Wizards of the Coast. This is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
+          Magic: The Gathering® and all related logos, fonts, and trademarks are property of Wizards of the Coast. This is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
         </footer>
       </body>
     </html>
