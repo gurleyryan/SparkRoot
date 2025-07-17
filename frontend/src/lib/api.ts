@@ -79,6 +79,7 @@ export class ApiClient {
         ...this.defaultHeaders,
         ...options.headers,
       },
+      credentials: 'include',
     };
 
     try {
