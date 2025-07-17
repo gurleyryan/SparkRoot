@@ -189,6 +189,46 @@ h6 {
   background-color: var(--color-rarity-mythic);
 }
 
+.bg-mtg-white {
+  background-color: var(--color-mtg-white);
+}
+
+.bg-mtg-blue {
+  background-color: var(--color-mtg-blue);
+}
+
+.bg-mtg-black {
+  background-color: var(--color-mtg-black);
+}
+
+.bg-mtg-red {
+  background-color: var(--color-mtg-red);
+}
+
+.bg-mtg-green {
+  background-color: var(--color-mtg-green);
+}
+
+.hover\:bg-mtg-white:hover {
+  background-color: var(--color-mtg-white);
+}
+
+.hover\:bg-mtg-blue:hover {
+  background-color: var(--color-mtg-blue);
+}
+
+.hover\:bg-mtg-black:hover {
+  background-color: var(--color-mtg-black);
+}
+
+.hover\:bg-mtg-red:hover {
+  background-color: var(--color-mtg-red);
+}
+
+.hover\:bg-mtg-green:hover {
+  background-color: var(--color-mtg-green);
+}
+
 .hover\:bg-rarity-common:hover {
   background-color: var(--color-rarity-common);
 }
@@ -259,6 +299,42 @@ h6 {
 }
 
 .text-mtg-green {
+  color: var(--color-mtg-green);
+}
+
+.hover\:text-rarity-common:hover {
+  color: var(--color-rarity-common);
+}
+
+.hover\:text-rarity-uncommon:hover {
+  color: var(--color-rarity-uncommon);
+}
+
+.hover\:text-rarity-rare:hover {
+  color: var(--color-rarity-rare);
+}
+
+.hover\:text-rarity-mythic:hover {
+  color: var(--color-rarity-mythic);
+}
+
+.hover\:text-mtg-white:hover {
+  color: var(--color-mtg-white);
+}
+
+.hover\:text-mtg-blue:hover {
+  color: var(--color-mtg-blue);
+}
+
+.hover\:text-mtg-black:hover {
+  color: var(--color-mtg-black);
+}
+
+.hover\:text-mtg-red:hover {
+  color: var(--color-mtg-red);
+}
+
+.hover\:text-mtg-green:hover {
   color: var(--color-mtg-green);
 }
 
