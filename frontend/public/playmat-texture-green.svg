@@ -1,0 +1,26 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="greenBg" cx="20%" cy="80%" r="95%">
+      <stop offset="0%" stop-color="#00733e" stop-opacity="0.7"/>
+      <stop offset="60%" stop-color="#00733e" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#150b00" stop-opacity="1"/>
+    </radialGradient>
+    <filter id="greenGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="16" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="800" fill="url(#greenBg)"/>
+  <g filter="url(#greenGlow)">
+    <ellipse cx="300" cy="700" rx="320" ry="120" stroke="#00733e" stroke-width="4" opacity="0.10" fill="none"/>
+    <ellipse cx="1000" cy="120" rx="180" ry="60" stroke="#d3202a" stroke-width="2" opacity="0.09" fill="none"/>
+  </g>
+  <g opacity="0.10">
+    <rect x="900" y="600" width="60" height="60" rx="30" fill="#00733e"/>
+    <rect x="70" y="150" width="80" height="80" rx="40" fill="#d3202a"/>
+  </g>
+  <path d="M100,400 Q600,100 1100,400" stroke="#00733e" stroke-width="8" opacity="0.07" fill="none"/>
+</svg>
