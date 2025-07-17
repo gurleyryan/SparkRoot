@@ -1,9 +1,9 @@
 <svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <radialGradient id="redBg" cx="80%" cy="80%" r="90%">
-      <stop offset="0%" stop-color="#d3202a" stop-opacity="0.7"/>
-      <stop offset="60%" stop-color="#d3202a" stop-opacity="0.2"/>
-      <stop offset="100%" stop-color="#150b00" stop-opacity="1"/>
+      <stop offset="0%" stop-color="#D3202A" stop-opacity="0.7"/>
+      <stop offset="60%" stop-color="#EB9F82" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#D3202A" stop-opacity="1"/>
     </radialGradient>
     <filter id="redGlow" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="12" result="coloredBlur"/>
@@ -15,12 +15,12 @@
   </defs>
   <rect width="1200" height="800" fill="url(#redBg)"/>
   <g filter="url(#redGlow)">
-    <ellipse cx="200" cy="100" rx="220" ry="80" stroke="#d3202a" stroke-width="3" opacity="0.10" fill="none"/>
-    <ellipse cx="1000" cy="700" rx="120" ry="40" stroke="#ff2200ff" stroke-width="2" opacity="0.09" fill="none"/>
+    <ellipse cx="200" cy="100" rx="220" ry="80" stroke="#D3202A" stroke-width="3" opacity="0.10" fill="none"/>
+    <ellipse cx="1000" cy="700" rx="120" ry="40" stroke="#EB9F82" stroke-width="2" opacity="0.09" fill="none"/>
   </g>
   <g opacity="0.10">
-    <rect x="600" y="700" width="120" height="60" rx="30" fill="#d3202a"/>
-    <rect x="900" y="600" width="80" height="80" rx="40" fill="#d3202a"/>
+    <rect x="600" y="700" width="120" height="60" rx="30" fill="#D3202A"/>
+    <rect x="900" y="600" width="80" height="80" rx="40" fill="#EB9F82"/>
   </g>
-  <path d="M1100,100 Q600,700 100,100" stroke="#d3202a" stroke-width="7" opacity="0.07" fill="none"/>
+  <path d="M1100,100 Q600,700 100,100" stroke="#D3202A" stroke-width="7" opacity="0.07" fill="none"/>
 </svg>
