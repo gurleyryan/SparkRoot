@@ -8,52 +8,77 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // MTG Color Identity
-        'mtg-white': '#FFFBD5',
-        'mtg-blue': '#0E68AB',
-        'mtg-black': '#150B00',
-        'mtg-red': '#D3202A',
+        /* MTG-inspired color palette */
+
+        // Green (Forest)
         'mtg-green': '#00733E',
-        
-        // MTG Rarity Colors
-        'rarity-common': '#1a1a1a',
-        'rarity-uncommon': '#c0c0c0',
-        'rarity-rare': '#ffd700',
-        'rarity-mythic': '#ff8c00',
-        
+        'mtg-green-rgb': '0, 115, 62',
+        'mtg-green-bg': '#C4D3CA',
+        'mtg-green-bg-rgb': '196, 211, 202',
+
+        // Blue (Island)
+        'mtg-blue': '#0E68AB',
+        'mtg-blue-rgb': '14, 104, 171',
+        'mtg-blue-bg': '#B3CEEA',
+        'mtg-blue-bg-rgb': '179, 206, 234',
+
+        // Red (Mountain)
+        'mtg-red': '#D3202A',
+        'mtg-red-rgb': '211, 32, 42',
+        'mtg-red-bg': '#EB9F82',
+        'mtg-red-bg-rgb': '235, 159, 130',
+
+        // White (Plains)
+        'mtg-white': '#F9FAF4',
+        'mtg-white-rgb': '249, 250, 244',
+        'mtg-white-bg': '#F8E7B9',
+        'mtg-white-bg-rgb': '248, 231, 185',
+
+        // Black (Swamp)
+        'mtg-black': '#150B00',
+        'mtg-black-rgb': '21, 11, 0',
+        'mtg-black-bg': '#A69F9D',
+        'mtg-black-bg-rgb': '166, 159, 157',
+
+        // Rarity colors
+        'rarity-common': '#231F20',
+        'rarity-common-rgb': '35, 31, 32',
+        'rarity-uncommon': '#BBE2EF',
+        'rarity-uncommon-rgb': '187, 226, 239',
+        'rarity-rare': '#DCBF7D',
+        'rarity-rare-rgb': '220, 191, 125',
+        'rarity-mythic': '#F8991C',
+        'rarity-mythic-rgb': '248, 153, 28',
+
         // Dark theme base
         'dark-bg': '#0f0f0f',
         'dark-surface': '#1a1a1a',
         'dark-border': '#333333',
       },
       fontFamily: {
-        // Primary MTG font stack using Next.js optimized fonts
-        'mtg': [
-          'var(--font-cinzel)', // Next.js optimized Cinzel
-          'Times New Roman', // System fallback
+        mtg: [
+          'Cinzel',
+          'Times New Roman',
           'serif'
         ],
-        // For special headings and card names
         'mtg-display': [
-          'var(--font-cinzel)', // Next.js optimized Cinzel
+          'Cormorant Small Caps',
+          'Cinzel',
           'serif'
         ],
-        // Clean body text font
         'mtg-body': [
-          'var(--font-source-sans)', // Next.js optimized Source Sans 3
-          'system-ui',
-          '-apple-system',
-          'BlinkMacSystemFont',
-          'Segoe UI',
-          'sans-serif'
+          'Crimson Text',
+          'Lora',
+          'serif'
         ],
-        // Monospace for code/data
         'mtg-mono': [
-          'var(--font-jetbrains-mono)', // Next.js optimized JetBrains Mono
+          'EB Garamond',
+          'Cormorant',
+          'JetBrains Mono',
           'Consolas',
           'Monaco',
           'monospace'
-        ]
+        ],
       },
       boxShadow: {
         'rarity-common': '0 0 10px rgba(128, 128, 128, 0.3)',
