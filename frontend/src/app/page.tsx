@@ -41,7 +41,7 @@ export default function Home() {
           {!isAuthenticated && (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="bg-rarity-uncommon hover:bg-rarity-mythic text-white font-mtg-mono font-semibold py-3 px-8 rounded-lg transition-colors shadow"
+              className="bg-rarity-mythic hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic font-mtg-mono font-semibold py-3 px-8 rounded-lg transition-colors shadow"
             >
               Create Account / Sign In
             </button>
@@ -55,21 +55,21 @@ export default function Home() {
               <h2 className="text-2xl font-mtg text-mtg-white mb-4">Welcome to MTG Deck Optimizer</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-mtg-red rounded-full flex items-center justify-center mx-auto mb-3">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                     <i className="ms ms-counter-lore ms-2x text-mtg-red"></i>
                   </div>
                   <h3 className="font-semibold font-mtg-display text-mtg-white">Collection Management</h3>
                   <p className="text-rarity-uncommon font-mtg-body text-sm">Upload and organize your cards with ease</p>
                 </div>
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-rarity-rare rounded-full flex items-center justify-center mx-auto mb-3">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                     <i className="ms ms-counter-gold ms-2x text-rarity-rare"></i>
                   </div>
                   <h3 className="font-semibold font-mtg-display text-mtg-white">Real-time Pricing</h3>
                   <p className="text-rarity-uncommon font-mtg-body text-sm">Track card values and collection worth</p>
                 </div>
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-rarity-mythic rounded-full flex items-center justify-center mx-auto mb-3">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                     <i className="ms ms-commander ms-2x text-rarity-mythic"></i>
                   </div>
                   <h3 className="font-semibold font-mtg-display text-mtg-white">Deck Building</h3>
@@ -78,7 +78,7 @@ export default function Home() {
               </div>
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="bg-rarity-uncommon hover:bg-rarity-mythic text-white font-mtg-mono font-semibold py-3 px-8 rounded-lg transition-colors"
+                className="bg-rarity-mythic hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic font-mtg-mono font-semibold py-3 px-8 rounded-lg transition-colors"
               >
                 Get Started
               </button>

@@ -23,13 +23,13 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-6">
-            <a href="#" className="bg-rarity-uncommon hover:bg-rarity-mythic text-rarity-rare hover:text-mtg-white transition-colors font-mtg-mono">
+            <a href="#" className="text-rarity-rare hover:text-rarity-uncommon transition-colors font-mtg-mono">
               Collection
             </a>
-            <a href="#" className="bg-rarity-uncommon hover:bg-rarity-mythic text-rarity-rare hover:text-mtg-white transition-colors font-mtg-mono">
+            <a href="#" className="text-rarity-rare hover:text-rarity-uncommon transition-colors font-mtg-mono">
               Deck Builder
             </a>
-            <a href="#" className="bg-rarity-uncommon hover:bg-rarity-mythic text-rarity-rare hover:text-mtg-white transition-colors font-mtg-mono">
+            <a href="#" className="text-rarity-rare hover:text-rarity-uncommon transition-colors font-mtg-mono">
               Pricing
             </a>
           </div>
@@ -40,14 +40,14 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               <div className="flex items-center space-x-4">
                 <a
                   href="/account"
-                  className="text-rarity-uncommon font-mtg-display hover:text-mtg-blue transition-colors underline cursor-pointer"
+                  className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer"
                   title="Account settings"
                 >
                   Welcome, {user?.username || 'User'}
                 </a>
                 <button
                   onClick={onLogout}
-                  className="bg-rarity-uncommon hover:bg-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
+                  className="bg-rarity-mythic hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
                 >
                   Logout
                 </button>
@@ -55,7 +55,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             ) : (
               <button
                 onClick={onLogin}
-                className="bg-rarity-uncommon hover:bg-rarity-mythic text-mtg-white px-6 py-2 rounded-lg transition-colors font-mtg-mono"
+                className="bg-rarity-mythic hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-6 py-2 rounded-lg transition-colors font-mtg-mono"
               >
                 Sign In
               </button>
