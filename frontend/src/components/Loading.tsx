@@ -75,7 +75,7 @@ interface LoadingCardProps {
 
 export function LoadingCard({ className = '' }: LoadingCardProps) {
   return (
-    <div className={`p-6 border border-gray-700 ${className}`}>
+    <div className={`p-6 border border-rarity-uncommon ${className}`}>
       <div className="animate-pulse">
         <div className="bg-gray-700 h-40 rounded-lg mb-4" />
         <div className="space-y-3">
@@ -110,7 +110,7 @@ export function LoadingOverlay({
       {children}
       {isLoading && (
         <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
-          <div className="bg-gray-800 rounded-lg p-6 shadow-xl border border-gray-700">
+          <div className="bg-gray-800 rounded-lg p-6 shadow-xl border border-rarity-uncommon">
             <div className="flex items-center space-x-4">
               <LoadingSpinner size="lg" />
               <div className="text-white font-mtg-body">{message}</div>

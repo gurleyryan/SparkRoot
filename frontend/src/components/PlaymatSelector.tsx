@@ -40,7 +40,7 @@ export default function PlaymatSelector() {
         {playmatOptions.map((option) => (
           <div key={option.value} className="flex flex-col items-center">
             <div
-              className={`border-4 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 ${playmat_texture === option.value ? 'border-mtg-blue shadow-lg' : 'border-gray-700'}`}
+              className={`border-4 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 ${playmat_texture === option.value ? 'border-rarity-mythic shadow-lg' : 'border-rarity-uncommon hover:border-mtg-blue'}`}
               style={{ width: 180, height: 120 }}
               onClick={() => setPlaymatTexture(option.value)}
             >

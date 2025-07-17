@@ -149,9 +149,9 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
         {...getRootProps()}
         className={`
           relative border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-300
-          ${isDragActive 
-            ? 'border-amber-400 bg-amber-400/10' 
-            : 'border-slate-600 hover:border-amber-400/50 bg-slate-800/30'
+          ${isDragActive
+            ? 'border-rarity-mythic bg-amber-400/10'
+            : 'border-rarity-uncommon hover:border-rarity-mythic/50 bg-slate-800/30'
           }
           ${isUploading ? 'pointer-events-none opacity-50' : ''}
         `}
@@ -263,13 +263,13 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
 
       {/* Error Message */}
       {error && (
-        <div className="mt-4 p-4 bg-red-900/50 border border-red-500 rounded-lg">
+        <div className="mt-4 p-4 bg-red-900/50 border border-mtg-red rounded-lg">
           <p className="text-red-200">{error}</p>
         </div>
       )}
 
       {/* Instructions */}
-      <div className="mt-8 bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
+      <div className="mt-8 bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-rarity-uncommon">
         <h4 className="text-lg font-semibold text-amber-400 mb-3">Supported Formats</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-300">
           <div>

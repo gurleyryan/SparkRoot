@@ -89,7 +89,7 @@ const BracketPicker: React.FC<BracketPickerProps> = ({ value, onChange, classNam
             key={b.value}
             type="button"
             className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all
-              ${value === b.value ? "bg-amber-600 border-amber-400 text-white" : "bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"}`}
+              ${value === b.value ? "bg-rarity-mythic border-rarity-mythic text-white" : "bg-slate-700 border-rarity-uncommon text-rarity-uncommon hover:bg-slate-600"}`}
             onClick={() => onChange(b.value)}
             title={b.desc}
           >
@@ -119,12 +119,12 @@ const BracketPicker: React.FC<BracketPickerProps> = ({ value, onChange, classNam
         </div>
       </div>
       {/* Game Changer List (hidden by default, scrolls into view) */}
-      <div id="game-changers-list" className="mt-6 bg-slate-800/80 rounded-lg p-4 border border-slate-700 text-xs text-slate-300 max-h-64 overflow-y-auto">
+      <div id="game-changers-list" className="mt-6 bg-slate-800/80 rounded-lg p-4 border border-rarity-mythic text-xs text-rarity-uncommon max-h-64 overflow-y-auto">
         <div className="font-bold text-amber-400 mb-2">Game Changer Cards</div>
         <div className="mb-2">Cards that can dramatically warp Commander games. Bracket 1 & 2: Excluded. Bracket 3: Up to 3 allowed. Bracket 4 & 5: Unlimited.</div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {GAME_CHANGERS.map((card) => (
-            <div key={card} className="bg-slate-900/60 rounded px-2 py-1 border border-slate-700 text-slate-200">{card}</div>
+            <div key={card} className="bg-slate-900/60 rounded px-2 py-1 border border-rarity-mythic text-rarity-uncommon">{card}</div>
           ))}
         </div>
         <div className="mt-2 text-xs text-slate-400">

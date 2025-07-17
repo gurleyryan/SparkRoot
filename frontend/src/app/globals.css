@@ -42,7 +42,7 @@ body {
     linear-gradient(120deg, #150b00 0%, #1a1a1a 100%);
   background-repeat: repeat;
   background-size: 600px 600px, cover;
-  color: #ffffff;
+  color: var(--color-mtg-white);
   min-height: 100vh;
   font-family: var(--font-family-mtg-body);
 }
@@ -91,12 +91,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .mtg-card-common {
-  border-color: #4b5563; /* gray-600 */
+  border-color: var(--color-rarity-common);
   box-shadow: 0 0 10px rgba(128, 128, 128, 0.3);
 }
 
 .mtg-card-uncommon {
-  border-color: #9ca3af; /* gray-400 */
+  border-color: var(--color-rarity-uncommon);
   box-shadow: 0 0 10px rgba(192, 192, 192, 0.4);
 }
 
@@ -112,8 +112,8 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Button styles */
 .btn-primary {
-  background-color: #2563eb; /* blue-600 */
-  color: white;
+  background-color: var(--color-mtg-blue);
+  color: var(--color-mtg-white);
   font-weight: 500;
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
@@ -121,12 +121,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-primary:hover {
-  background-color: #1d4ed8; /* blue-700 */
+  background-color: var(--color-rarity-uncommon);
 }
 
 .btn-secondary {
-  background-color: #4b5563; /* gray-600 */
-  color: white;
+  background-color: var(--color-rarity-uncommon);
+  color: var(--color-mtg-white);
   font-weight: 500;
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
@@ -134,7 +134,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-secondary:hover {
-  background-color: #374151; /* gray-700 */
+  background-color: var(--color-rarity-mythic);
 }
 
 /* Form controls */
@@ -142,28 +142,28 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   padding: 0.5rem 0.75rem;
   background-color: var(--color-mtg-black); 
-  border: 1px solid #4b5563; /* gray-600 */
+  border: 1px solid var(--color-rarity-uncommon);
   border-radius: 0.375rem;
-  color: white;
+  color: var(--color-mtg-white);
   transition: border-color 0.2s;
 }
 
 .form-input:focus {
-  border-color: #2563eb; /* blue-600 */
+  border-color: var(--color-mtg-blue);
   outline: none;
 }
 
 .form-input::placeholder {
-  color: #9ca3af; /* gray-400 */
+  color: var(--color-rarity-uncommon);
 }
 
 /* Rarity text colors */
 .text-rarity-common {
-  color: #d1d5db; /* gray-300 */
+  color: var(--color-rarity-common);
 }
 
 .text-rarity-uncommon {
-  color: #e5e7eb; /* gray-200 */
+  color: var(--color-rarity-uncommon);
 }
 
 .text-rarity-rare {

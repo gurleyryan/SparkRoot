@@ -83,7 +83,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
@@ -94,7 +94,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
@@ -108,7 +108,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
@@ -119,7 +119,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
@@ -130,7 +130,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
@@ -141,7 +141,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
@@ -152,7 +152,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
+                  className="w-full bg-gray-700 border border-rarity-uncommon rounded-lg px-4 py-3 text-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
@@ -160,7 +160,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           )}
 
           {error && (
-            <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg">
+            <div className="bg-red-900 border border-mtg-red text-red-300 px-4 py-3 rounded-lg">
               {error}
             </div>
           )}

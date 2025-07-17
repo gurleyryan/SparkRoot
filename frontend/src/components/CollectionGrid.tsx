@@ -87,7 +87,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
   return (
     <div className="space-y-6">
       {/* Collection Selector & Controls */}
-      <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
+      <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-rarity-uncommon">
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
           {/* Collection Selector */}
           <div className="flex-1 max-w-md">
@@ -97,7 +97,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                 const selected = collections.find(c => c.id === e.target.value);
                 if (selected) setActiveCollection(selected);
               }}
-              className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:border-amber-400 focus:outline-none mb-2"
+              className="w-full px-4 py-2 bg-slate-700 border border-rarity-uncommon rounded-lg text-white focus:border-rarity-mythic focus:outline-none mb-2"
             >
               {collections.map(col => (
                 <option key={col.id} value={col.id}>{col.name}</option>
@@ -116,7 +116,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                 placeholder="Search cards..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-amber-400 focus:outline-none"
+                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-rarity-uncommon rounded-lg text-white placeholder-slate-400 focus:border-rarity-mythic focus:outline-none"
               />
             </div>
           </div>
@@ -200,7 +200,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
             return (
               <div
                 key={`${cardName}-${index}`}
-                className="group relative bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-700 hover:border-amber-400/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+                className="group relative bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-rarity-uncommon hover:border-rarity-mythic/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               >
                 {/* Card Image */}
                 <div className="relative aspect-[63/88] bg-slate-900">
@@ -245,7 +245,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
             return (
               <div
                 key={`${cardName}-${index}`}
-                className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700 hover:border-amber-400/50 transition-colors"
+                className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-rarity-uncommon hover:border-rarity-mythic/50 transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
