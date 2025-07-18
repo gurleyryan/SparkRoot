@@ -14,21 +14,29 @@ export default function PlaymatSelector() {
 
   useEffect(() => {
     async function fetchPlaymats() {
-      try {
-        const resp = await fetch('/api/playmats');
-        const data = await resp.json();
-        if (data.success && Array.isArray(data.files)) {
-          setPlaymatOptions(
-            data.files.map((file: string, idx: number) => ({
-              label: `Playmat ${idx + 1}`,
-              value: file,
-              preview: `/${file}`,
-            }))
-          );
-        }
-      } catch {
-        // ...removed empty block...
-      }
+  return (
+    <div className="mb-8">
+      <h3 className="font-mtg text-xl mb-2 text-mtg-white">Choose Your Playmat</h3>
+      <div className="flex gap-6 overflow-x-auto md:flex-wrap md:overflow-x-visible pb-2" style={{maxWidth: '100vw'}}>
+        {playmatOptions.map((option) => (
+          <div key={option.value} className="flex flex-col items-center min-w-[96px] md:min-w-0 relative">
+            <button
+              type="button"
+              className={`rounded-lg border-2 ${playmat_texture === option.value ? 'border-mtg-blue ring-2 ring-mtg-blue' : 'border-slate-700'} focus:outline-none focus:ring-2 focus:ring-mtg-blue transition-all`}
+              style={{ width: 80, height: 56, backgroundImage: `url('${option.preview}')`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              aria-label={`Select ${option.label}`}
+              onClick={() => setPlaymatTexture(option.value)}
+            >
+              {playmat_texture === option.value && (
+                <span className="absolute top-1 right-1 bg-mtg-blue text-white rounded-full px-2 py-0.5 text-xs font-bold shadow">✓</span>
+              )}
+            </button>
+            <span className="mt-2 text-xs text-mtg-white">{option.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
     }
     fetchPlaymats();
   }, []);
