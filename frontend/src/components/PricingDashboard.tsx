@@ -85,11 +85,11 @@ export default function PricingDashboard() {
     <div className="max-w-3xl mx-auto p-8 mt-12 bg-black rounded-xl border border-mtg-blue relative">
       <h2 className="text-3xl font-bold mb-6 text-mtg-white">Pricing Dashboard</h2>
       <div className="flex gap-4 mb-6 flex-wrap">
-        <button className={`btn-secondary ${activeTab === 'trends' ? 'bg-mtg-blue text-white' : ''}`} onClick={() => setActiveTab('trends')}>Trends</button>
-        <button className={`btn-secondary ${activeTab === 'cei' ? 'bg-mtg-blue text-white' : ''}`} onClick={() => setActiveTab('cei')}>Card Efficiency Index</button>
-        <button className={`btn-secondary ${activeTab === 'deck' ? 'bg-mtg-blue text-white' : ''}`} onClick={() => setActiveTab('deck')}>Deck Cost-to-Win</button>
-        <button className={`btn-secondary ${activeTab === 'invest' ? 'bg-mtg-blue text-white' : ''}`} onClick={() => setActiveTab('invest')}>Investment Watch</button>
-        <button className={`btn-secondary ${activeTab === 'roi' ? 'bg-mtg-blue text-white' : ''}`} onClick={() => setActiveTab('roi')}>Collection ROI</button>
+        <button className={activeTab === 'trends' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('trends')}>Trends</button>
+        <button className={activeTab === 'cei' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('cei')}>Card Efficiency Index</button>
+        <button className={activeTab === 'deck' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('deck')}>Deck Cost-to-Win</button>
+        <button className={activeTab === 'invest' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('invest')}>Investment Watch</button>
+        <button className={activeTab === 'roi' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('roi')}>Collection ROI</button>
       </div>
       {(loading || analyticsLoading) && <div className="text-mtg-blue">Loading pricing data...</div>}
       {error && <div className="text-red-500">{error}</div>}

@@ -56,6 +56,13 @@ module.exports = {
         'dark-surface': '#1a1a1a',
         'dark-border': '#333333',
       },
+      borderColor: theme => ({
+        ...theme('colors'),
+        'rarity-common': '#231F20',
+        'rarity-uncommon': '#BBE2EF',
+        'rarity-rare': '#DCBF7D',
+        'rarity-mythic': '#F8991C',
+      }),
       fontFamily: {
         mtg: [
           'Cinzel',
@@ -118,5 +125,9 @@ module.exports = {
     'hover:bg-rarity-uncommon',
     'hover:bg-rarity-rare',
     'hover:bg-rarity-mythic',
+    'border-rarity-common',
+    'border-rarity-uncommon',
+    'border-rarity-rare',
+    'border-rarity-mythic',
   ],
 }

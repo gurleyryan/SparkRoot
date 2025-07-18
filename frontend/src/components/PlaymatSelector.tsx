@@ -28,10 +28,10 @@ export default function PlaymatSelector() {
               onClick={() => setPlaymatTexture(option.value)}
             >
               {playmat_texture === option.value && (
-                <span className="absolute top-1 right-1 bg-mtg-blue text-white rounded-full px-2 py-0.5 text-xs font-bold shadow">✓</span>
+                <span className="absolute top-1 right-1 bg-mtg-blue text-white rounded-full px-2 py-0.5 text-sm font-bold shadow">✓</span>
               )}
             </button>
-            <span className="mt-2 text-xs text-mtg-white">{option.label}</span>
+            <span className="mt-2 text-sm text-mtg-white">{option.label}</span>
           </div>
         ))}
       </div>
@@ -56,7 +56,7 @@ export default function PlaymatSelector() {
             </div>
             <span className="mt-2 text-mtg-white font-mtg-body text-sm">{option.label}</span>
             {playmat_texture === option.value && (
-              <span className="text-xs text-mtg-blue mt-1">Selected</span>
+              <span className="text-sm text-mtg-blue mt-1">Selected</span>
             )}
           </div>
         ))}

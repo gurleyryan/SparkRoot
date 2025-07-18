@@ -403,9 +403,9 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                       <div className="text-center p-4">
                         <h3 className="text-white font-bold text-sm mb-2">{cardName}</h3>
-                        <p className="text-slate-300 text-xs">{cardType}</p>
+                        <p className="text-slate-300 text-sm">{cardType}</p>
                         {manaCost && (
-                          <p className="text-amber-400 text-xs mt-1">{manaCost}</p>
+                          <p className="text-amber-400 text-sm mt-1">{manaCost}</p>
                         )}
                       </div>
                     </div>
@@ -438,7 +438,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                         <p className="text-amber-400 font-mono text-sm">{manaCost}</p>
                       )}
                       {cmc !== undefined && (
-                        <p className="text-slate-400 text-xs">CMC: {cmc}</p>
+                        <p className="text-slate-400 text-sm">CMC: {cmc}</p>
                       )}
                     </div>
                   </div>

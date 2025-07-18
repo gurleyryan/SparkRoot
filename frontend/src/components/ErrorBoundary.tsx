@@ -98,11 +98,11 @@ function DefaultErrorFallback({ error, errorInfo }: ErrorBoundaryState) {
                 <div className="text-red-400 mb-2">
                   {error.name}: {error.message}
                 </div>
-                <pre className="text-gray-400 whitespace-pre-wrap text-xs">
+                <pre className="text-gray-400 whitespace-pre-wrap text-sm">
                   {error.stack}
                 </pre>
                 {errorInfo && (
-                  <pre className="text-gray-500 whitespace-pre-wrap text-xs mt-4">
+                  <pre className="text-gray-500 whitespace-pre-wrap text-sm mt-4">
                     {errorInfo.componentStack}
                   </pre>
                 )}

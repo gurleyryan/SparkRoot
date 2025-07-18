@@ -20,15 +20,15 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
       <a href="#main-content" className="sr-only focus:not-sr-only absolute left-2 top-2 bg-mtg-blue text-white px-4 py-2 rounded z-50" tabIndex={0}>
         Skip to main content
       </a>
-      <nav className="sleeve-morphism border-b-2 border-rarity-uncommon shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
+      <nav className="sleeve-morphism border-b-2 shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8" />
-              <span className="text-2xl font-mtg text-mtg-white drop-shadow-lg tracking-wide">
+            <a href="/" className="flex items-center gap-3 group" aria-label="Go to home page">
+              <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8 group-hover:scale-105 transition-transform" />
+              <span className="text-5xl font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors">
                 MTG Deck Optimizer
               </span>
-            </div>
+            </a>
 
             {/* Hamburger for mobile */}
             <button

@@ -49,6 +49,7 @@
   --color-dark-bg: #0f0f0f;
   --color-dark-surface: #1a1a1a;
   --color-dark-border: #333333;
+  --color-card-black: #16120f;
 
   /* Font families - Next.js optimized fonts */
   --font-family-mtg: 'Cinzel', 'Times New Roman', serif;
@@ -71,6 +72,122 @@ body {
   color: var(--color-mtg-white);
   min-height: 100vh;
   font-family: var(--font-family-mtg-body);
+}
+
+/* Explicit rarity border color classes as fallback for Tailwind */
+.border-rarity-common {
+  border-color: var(--color-rarity-common) !important;
+}
+
+.border-rarity-uncommon {
+  border-color: var(--color-rarity-uncommon) !important;
+  position: relative;
+  overflow: visible;
+}
+
+.border-rarity-uncommon::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  padding: 0.15em;
+  /* background: linear-gradient(120deg, rgba(187,226,239,0.25) 0%, rgba(255,255,255,0.12) 50%, rgba(187,226,239,0.25) 100%); */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  background-clip: border-box;
+  box-sizing: border-box;
+  opacity: 1;
+  /* The following creates a border-only effect by using a transparent center */
+  /* Use a box-shadow for a soft glow if desired */
+}
+
+.border-rarity-rare {
+  border-color: var(--color-rarity-rare) !important;
+  position: relative;
+  overflow: visible;
+  box-shadow: 0 0 6px 3px rgba(220, 191, 125, 0.4), 0 0 32px 8px rgba(220, 191, 125, 0.15);
+}
+
+.border-rarity-rare::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  padding: 0.15em;
+  /* background: linear-gradient(120deg, rgba(220,191,125,0.32) 0%, rgba(255,255,255,0.18) 50%, rgba(220,191,125,0.32) 100%); */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  background-clip: border-box;
+  box-sizing: border-box;
+  opacity: 1;
+}
+
+.border-rarity-mythic {
+  border-color: var(--color-rarity-mythic) !important;
+  position: relative;
+  overflow: visible;
+  box-shadow: 0 0 12px 3px rgba(248,153,28,0.5), 0 0 48px 12px rgba(248, 153, 28, 0.18);
+  animation: mythic-shimmer 2.5s linear infinite;
+}
+
+.border-rarity-mythic::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  padding: 0.15em;
+  /* background: linear-gradient(120deg, rgba(248,153,28,0.38) 0%, rgba(255,255,255,0.22) 50%, rgba(248,153,28,0.38) 100%); */
+  filter: blur(1px);
+  animation: mythic-shine 2.5s linear infinite;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  background-clip: border-box;
+  box-sizing: border-box;
+  opacity: 1;
+}
+
+/* Keyframes for mythic effects */
+@keyframes mythic-shine {
+  0% {
+    opacity: 0.7;
+    background-position: 0% 50%;
+  }
+
+  50% {
+    opacity: 1;
+    background-position: 100% 50%;
+  }
+
+  100% {
+    opacity: 0.7;
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes mythic-shimmer {
+  0% {
+    box-shadow: 0 0 12px 3px rgba(248, 153, 28, 0.5), 0 0 12px 3px rgba(248, 153, 28, 0.18);
+  }
+
+  50% {
+    box-shadow: 0 0 12px 3px rgba(248, 153, 28, 0.7), 0 0 24px 6px rgba(248, 153, 28, 0.28);
+  }
+
+  100% {
+    box-shadow: 0 0 12px 3px rgba(248, 153, 28, 0.5), 0 0 12px 3px rgba(248, 153, 28, 0.18);
+  }
 }
 
 /* Typography hierarchy */
@@ -141,31 +258,39 @@ h6 {
   box-shadow: 0 0 20px rgba(255, 140, 0, 0.6);
 }
 
+.hover\:bg-card-black:hover {
+  background-color: var(--color-card-black);
+}
+
 /* Button styles */
 .btn-primary {
-  background-color: var(--color-mtg-blue);
+  background-color: rgba(var(--color-rarity-mythic-rgb), 0.5);
   color: var(--color-mtg-white);
   font-weight: 500;
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
   transition: background-color 0.2s;
+  border: none;
 }
 
 .btn-primary:hover {
   background-color: var(--color-rarity-uncommon);
 }
 
+
+/* Use background with alpha for .btn-secondary, so only the background is transparent */
 .btn-secondary {
-  background-color: var(--color-rarity-uncommon);
+  background-color: rgba(var(--color-rarity-rare-rgb), 0.5);
   color: var(--color-mtg-white);
   font-weight: 500;
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
   transition: background-color 0.2s;
+  border: none;
 }
 
 .btn-secondary:hover {
-  background-color: var(--color-rarity-mythic);
+  background-color: var(--color-rarity-uncommon);
 }
 
 .bg-rarity-common {
@@ -249,7 +374,10 @@ h6 {
 }
 
 /* Always show pointer cursor for buttons and links */
-button, .btn, a, .a {
+button,
+.btn,
+a,
+.a {
   cursor: pointer;
 }
 
