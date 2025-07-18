@@ -11,4 +11,13 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!(lodash-es|other-es-modules)/)',
   ],
+  globals: {
+    'ts-jest': {
+      tsconfig: '<rootDir>/tsconfig.json',
+      useESM: false,
+    },
+  },
+  testEnvironmentOptions: {
+    customExportConditions: ["node", "node-addons"],
+  },
 };
