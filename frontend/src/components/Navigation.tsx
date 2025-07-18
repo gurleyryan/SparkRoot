@@ -32,7 +32,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
 
             {/* Hamburger for mobile */}
             <button
-              className="md:hidden flex items-center px-3 py-2 border rounded text-mtg-white border-mtg-blue focus:outline-none"
+              className="md:hidden flex items-center px-3 py-2 border rounded text-mtg-white border-mtg-rarity-rare focus:outline-none"
               onClick={() => setDrawerOpen(!drawerOpen)}
               aria-label="Open navigation menu"
               aria-expanded={drawerOpen}
@@ -165,7 +165,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 </>
               );
             })()}
-            <div className="border-t border-mtg-blue my-4" />
+            <div className="border-t border-rarity-rare my-4" />
             {/* User Actions */}
             {isAuthenticated ? (
               <>
