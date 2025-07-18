@@ -1,25 +1,12 @@
-import React, { useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-// Removed unused variable 'User'
+import React, { useEffect, useRef, useCallback, useState } from "react";
 
 interface AuthModalProps {
   onClose: () => void;
 }
 
 export default function AuthModal({ onClose }: AuthModalProps) {
-  const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({
-    username: '',
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const login = useAuthStore((s) => s.login);
-  const register = useAuthStore((s) => s.register);
-
+  // Accessible form submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -45,11 +32,77 @@ export default function AuthModal({ onClose }: AuthModalProps) {
       }
       setIsLoading(false);
       onClose();
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : 'Authentication failed. Please try again.');
+    } catch (error: any) {
+      let msg = 'Authentication failed. Please try again.';
+      if (error && typeof error === 'object' && error.message) {
+        msg = error.message;
+      }
+      // Custom handling for common Supabase/SQL errors
+      if (msg.match(/unique.*email/i)) {
+        msg = 'An account with this email already exists.';
+      } else if (msg.match(/unique.*username/i)) {
+        msg = 'This username is already taken.';
+      } else if (msg.match(/password.*too short/i)) {
+        msg = 'Password is too short.';
+      } else if (msg.match(/invalid.*email/i)) {
+        msg = 'Please enter a valid email address.';
+      } else if (msg.match(/incorrect.*password/i)) {
+        msg = 'Incorrect password.';
+      } else if (msg.match(/user.*not found/i)) {
+        msg = 'No account found with that email or username.';
+      }
+      setError(msg);
       setIsLoading(false);
     }
   };
+  const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({
+    username: '',
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const login = useAuthStore((s) => s.login);
+  const register = useAuthStore((s) => s.register);
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  const firstInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus trap and ESC to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+      // Focus trap
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'input, button, select, textarea, a[href], [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        } else if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    // Focus first input
+    setTimeout(() => {
+      firstInputRef.current?.focus();
+    }, 0);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({

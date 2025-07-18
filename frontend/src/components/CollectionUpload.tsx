@@ -1,4 +1,5 @@
-'use client';
+
+import { useToast } from './ToastProvider';
 
 import { useState, useCallback, useEffect } from 'react';
 // Hydration-safe Zustand hook
@@ -21,6 +22,7 @@ interface CollectionUploadProps {
 
 
 export default function CollectionUpload({ onCollectionUploaded }: CollectionUploadProps) {
+  const showToast = useToast();
   const hasHydrated = useHasHydrated();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,11 +53,13 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
       await checkAuth();
       if (!useAuthStore.getState().isAuthenticated) {
         setError('Session expired or invalid. Please log in again.');
+        showToast('Session expired or invalid. Please log in again.', 'error');
         setIsUploading(false);
         return;
       }
     } catch {
       setError('Session expired or invalid. Please log in again.');
+      showToast('Session expired or invalid. Please log in again.', 'error');
       setIsUploading(false);
       return;
     }
@@ -118,16 +122,47 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
           }
         } else {
           setError('Parsed collection format is invalid.');
+          showToast('Parsed collection format is invalid.', 'error');
         }
       } else if (parsed && typeof parsed === 'object' && 'error' in parsed) {
-        setError((parsed as { error?: string }).error || 'Failed to parse collection');
+        const msg = (parsed as { error?: string }).error || 'Failed to parse collection';
+        setError(msg);
+        showToast(msg, 'error');
       } else {
         setError('Failed to parse collection');
+        showToast('Failed to parse collection', 'error');
       }
-    } catch {
-      setError('Failed to upload collection. Make sure the backend is running.');
+    } catch (err: any) {
+      // Try to extract backend error message if available
+      let errorMessage = 'Failed to upload collection. Make sure the backend is running.';
+      if (err) {
+        // If error is a Response object (fetch error)
+        if (err instanceof Response) {
+          try {
+            const data = await err.json();
+            if (data && typeof data === 'object' && 'error' in data) {
+              errorMessage = data.error || errorMessage;
+            } else if (data && typeof data === 'string') {
+              errorMessage = data;
+            }
+          } catch {}
+        } else if (typeof err === 'object' && err !== null) {
+          if ('error' in err && typeof err.error === 'string') {
+            errorMessage = err.error;
+          } else if ('message' in err && typeof err.message === 'string') {
+            errorMessage = err.message;
+          }
+        } else if (typeof err === 'string') {
+          errorMessage = err;
+        }
+      }
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setIsUploading(false);
+      if (!error && !setError) {
+        showToast('Collection uploaded successfully!', 'success');
+      }
     }
   }, [addCollection, onCollectionUploaded, checkAuth]);
 
@@ -250,8 +285,12 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                 }
               } catch {
                 setError('Failed to load collection. Make sure the backend is running.');
+                showToast('Failed to load collection. Make sure the backend is running.', 'error');
               } finally {
                 setIsUploading(false);
+                if (!error && !setError) {
+                  showToast('Sample collection loaded!', 'success');
+                }
               }
             }}
             className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors font-semibold"
@@ -285,4 +324,3 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     </div>
   );
 }
-

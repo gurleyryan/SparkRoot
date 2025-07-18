@@ -1,3 +1,4 @@
+import type { User } from '@/types';
 // API Configuration for MTG Deck Optimizer
 // This file configures the API endpoints for both development and production
 
@@ -31,15 +32,12 @@ const API_CONFIG = {
     settings: '/api/settings',
     
     // Health
+
     health: '/health',
   },
-  
-  // Default headers
   defaultHeaders: {
     'Content-Type': 'application/json',
   },
-  
-  // Request timeout
   timeout: 30000,
 };
 
@@ -61,6 +59,39 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
 export class ApiClient {
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
+
+  // Advanced Analytics
+  async getCardEfficiencyIndex() {
+    const url = `${this.baseURL}/api/analytics/cei`;
+    const resp = await fetch(url, { headers: this.defaultHeaders });
+    if (!resp.ok) throw new Error('Failed to fetch Card Efficiency Index');
+    return resp.json();
+  }
+
+  async getDeckCostToWin() {
+    const url = `${this.baseURL}/api/analytics/deck-cost-to-win`;
+    const resp = await fetch(url, { headers: this.defaultHeaders });
+    if (!resp.ok) throw new Error('Failed to fetch Deck Cost-to-Win');
+    return resp.json();
+  }
+
+  async getInvestmentWatch() {
+    const url = `${this.baseURL}/api/analytics/investment-watch`;
+    const resp = await fetch(url, { headers: this.defaultHeaders });
+    if (!resp.ok) throw new Error('Failed to fetch Investment Watch');
+    return resp.json();
+  }
+
+  async getCollectionROI(collection: any) {
+    const url = `${this.baseURL}/api/analytics/collection-roi`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: this.defaultHeaders,
+      body: JSON.stringify(collection),
+    });
+    if (!resp.ok) throw new Error('Failed to fetch Collection ROI');
+    return resp.json();
+  }
 
   constructor(token?: string) {
     this.baseURL = API_CONFIG.baseURL;
@@ -240,6 +271,23 @@ export class ApiClient {
   // Health check
   async healthCheck() {
     return this.request(API_CONFIG.endpoints.health);
+  }
+
+  // Profile methods
+  async updateProfile(profile: Partial<User>) {
+    // Adjust endpoint as needed; assuming /api/auth/me for profile update
+    return this.request(API_CONFIG.endpoints.me, {
+      method: 'PUT',
+      body: JSON.stringify(profile),
+    });
+  }
+
+  async changePassword(data: { oldPassword: string; newPassword: string }) {
+    // Adjust endpoint as needed; assuming /api/auth/change-password
+    return this.request('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 }
 

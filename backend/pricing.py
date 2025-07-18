@@ -1,289 +1,206 @@
-# Card Pricing Integration
-# Fetches current market prices from multiple sources
 
-import requests
+import os
+import json
 import asyncio
 import aiohttp
-from typing import Dict, List, Optional, Any
+import requests
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+from collections import defaultdict
 
-import json
+router = APIRouter()
 
-from dataclasses import dataclass
-from backend.supabase_db import db
+# --- Data Models ---
+@dataclass
+class Card:
+    name: str
+    price: float = 0.0
+    decks_containing: int = 0
+    win_count: int = 0
 
 @dataclass
-class PriceData:
-    source: str
-    market_price: Optional[float] = None
-    low_price: Optional[float] = None
-    high_price: Optional[float] = None
-    currency: str = "USD"
-    last_updated: Optional[datetime] = None
+class Deck:
+    id: str
+    name: str
+    format: str
+    event: str
+    event_date: Optional[str]
+    win_count: Optional[int]
+    card_list: List[Dict] = field(default_factory=list)
+    source: str = ""
 
-class PriceCache:
-    """Manage price caching to avoid excessive API calls"""
-    
-    def __init__(self, cache_duration_hours: int = 6):
-        self.cache_duration = timedelta(hours=cache_duration_hours)
-    
-    async def get_cached_price(self, card_name: str, set_code: str, source: str) -> Optional[PriceData]:
-        """Get cached price if still valid (PostgreSQL)"""
-        result = await db.execute_query_one(
-            '''SELECT market_price, low_price, high_price, currency, last_updated
-               FROM price_cache
-               WHERE card_name = %s AND set_code = %s AND source = %s''',
-            (card_name, set_code, source)
-        )
-        if not result:
-            return None
-        last_updated = result.get('last_updated')
-        if last_updated and isinstance(last_updated, str):
-            last_updated = datetime.fromisoformat(last_updated)
-        elif last_updated and isinstance(last_updated, datetime):
-            pass
-        else:
-            last_updated = None
-        if last_updated and datetime.now() - last_updated > self.cache_duration:
-            return None  # Cache expired
-        return PriceData(
-            source=source,
-            market_price=result.get('market_price'),
-            low_price=result.get('low_price'),
-            high_price=result.get('high_price'),
-            currency=result.get('currency'),
-            last_updated=last_updated
-        )
-    
-    async def cache_price(self, card_name: str, set_code: str, price_data: PriceData):
-        """Cache price data (PostgreSQL)"""
-        await db.execute_query(
-            '''INSERT INTO price_cache (card_name, set_code, source, market_price, low_price, high_price, currency, last_updated)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-               ON CONFLICT (card_name, set_code, source)
-               DO UPDATE SET market_price = EXCLUDED.market_price,
-                             low_price = EXCLUDED.low_price,
-                             high_price = EXCLUDED.high_price,
-                             currency = EXCLUDED.currency,
-                             last_updated = NOW()
-            ''',
-            (card_name, set_code, price_data.source, price_data.market_price,
-             price_data.low_price, price_data.high_price, price_data.currency)
-        )
+@dataclass
+class Event:
+    name: str
+    type: str
+    date: str
+    format: str
 
-class TCGCSVAPI:
-    """tcgcsv.com API integration (public TCGplayer cache)"""
-    BASE_URL = "https://tcgcsv.com/tcgplayer"
+# --- Config ---
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+DECKS_JSON = os.path.join(DATA_DIR, 'tournament_decks_mtggoldfish.json')
 
-    @staticmethod
-    def get_category_id(game: str = "mtg") -> int:
-        # Only MTG supported for now
-        return 1
+# --- Helper: Load decks from JSON ---
+def load_decks() -> List[Deck]:
+    if not os.path.exists(DECKS_JSON):
+        return []
+    with open(DECKS_JSON, 'r', encoding='utf-8') as f:
+        raw = json.load(f)
+    decks = []
+    for d in raw:
+        decks.append(Deck(
+            id=d.get('id', d.get('source', '')),
+            name=d.get('name', ''),
+            format=d.get('format', ''),
+            event=d.get('event', ''),
+            event_date=d.get('event_date'),
+            win_count=d.get('win_count'),
+            card_list=d.get('card_list', []),
+            source=d.get('source', '')
+        ))
+    return decks
 
-    @staticmethod
-    def get_group_id_for_set(set_name: str) -> int:
-        # This should be cached or indexed for production use
-        category_id = TCGCSVAPI.get_category_id()
-        url = f"{TCGCSVAPI.BASE_URL}/{category_id}/groups"
-        resp = requests.get(url)
-        if resp.status_code != 200:
-            return None
-        groups = resp.json().get('results', [])
-        for group in groups:
-            if group['name'].lower() == set_name.lower():
-                return group['groupId']
+# --- Archive/Price Helpers ---
+def get_available_archive_dates() -> List[str]:
+    # Returns list of available price archive dates (YYYY-MM-DD) in data dir
+    if not os.path.exists(DATA_DIR):
+        return []
+    files = os.listdir(DATA_DIR)
+    dates = []
+    for fname in files:
+        if fname.startswith('prices-') and fname.endswith('.ppmd.7z'):
+            date_str = fname[len('prices-'):-len('.ppmd.7z')]
+            dates.append(date_str)
+    return dates
+
+def read_price_for_card(tcgcsv_id: str, date_str: str) -> Optional[float]:
+    # Looks for extracted price file for given date, returns price for card id
+    price_file = os.path.join(DATA_DIR, date_str, 'prices.json')
+    if not os.path.exists(price_file):
         return None
+    try:
+        with open(price_file, 'r', encoding='utf-8') as f:
+            prices = json.load(f)
+        price = prices.get(tcgcsv_id)
+        if price is not None:
+            return float(price)
+    except Exception:
+        return None
+    return None
 
-    @staticmethod
-    def get_product_and_price(card_name: str, set_name: str = None) -> Optional[PriceData]:
-        category_id = TCGCSVAPI.get_category_id()
-        group_id = None
-        if set_name:
-            group_id = TCGCSVAPI.get_group_id_for_set(set_name)
-        if not group_id:
-            # fallback: try all groups
-            url = f"{TCGCSVAPI.BASE_URL}/{category_id}/groups"
-            resp = requests.get(url)
-            if resp.status_code != 200:
-                return None
-            groups = resp.json().get('results', [])
-        else:
-            groups = [{"groupId": group_id}]
-
-        for group in groups:
-            gid = group['groupId']
-            # Get products for this group
-            prod_url = f"{TCGCSVAPI.BASE_URL}/{category_id}/{gid}/products"
-            prod_resp = requests.get(prod_url)
-            if prod_resp.status_code != 200:
+# --- Analytics Endpoints ---
+@router.get("/api/analytics/cei")
+async def analytics_cei():
+    decks = load_decks()
+    card_stats = {}
+    for deck in decks:
+        seen = set()
+        for card in deck.card_list:
+            name = card.get('name', '').strip()
+            if not name or name in seen:
                 continue
-            products = prod_resp.json().get('results', [])
-            for product in products:
-                if product['name'].lower() == card_name.lower():
-                    product_id = product['productId']
-                    # Get price for this product
-                    price_url = f"{TCGCSVAPI.BASE_URL}/{category_id}/{gid}/prices"
-                    price_resp = requests.get(price_url)
-                    if price_resp.status_code != 200:
-                        continue
-                    prices = price_resp.json().get('results', [])
-                    for price in prices:
-                        if price['productId'] == product_id:
-                            return PriceData(
-                                source='tcgcsv',
-                                market_price=price.get('midPrice'),
-                                low_price=price.get('lowPrice'),
-                                high_price=price.get('highPrice'),
-                                currency='USD'
-                            )
-        return None
+            seen.add(name)
+            if name not in card_stats:
+                card_stats[name] = { 'name': name, 'decks_containing': 0, 'win_count': 0, 'price': 0.0 }
+            card_stats[name]['decks_containing'] += 1
+            if deck.win_count:
+                card_stats[name]['win_count'] += deck.win_count
+    available_dates = get_available_archive_dates()
+    latest_date = max(available_dates) if available_dates else None
+    for name, stat in card_stats.items():
+        tcgcsv_id = None
+        for deck in decks:
+            for card in deck.card_list:
+                if card.get('name', '').strip() == name:
+                    tcgcsv_id = str(card.get('tcgcsv_id') or card.get('product_id') or card.get('id'))
+                    break
+            if tcgcsv_id:
+                break
+        if tcgcsv_id and latest_date:
+            price = read_price_for_card(tcgcsv_id, latest_date)
+            if price:
+                stat['price'] = price
+        stat['cei'] = (stat['decks_containing'] / stat['price']) if stat['price'] else None
+    result = sorted(card_stats.values(), key=lambda x: (x['cei'] or 0, x['decks_containing']), reverse=True)
+    return JSONResponse(result)
 
-class ScryfallPriceAPI:
-    """Use Scryfall's pricing data as a fallback"""
-    
-    @staticmethod
-    async def get_card_price(card_name: str, set_code: str = None) -> Optional[PriceData]:
-        """Get card price from Scryfall"""
-        try:
-            base_url = "https://api.scryfall.com/cards/named"
-            params = {'fuzzy': card_name}
-            if set_code:
-                params['set'] = set_code
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(base_url, params=params) as response:
-                    if response.status != 200:
-                        return None
-                    
-                    card_data = await response.json()
-                    prices = card_data.get('prices', {})
-                    
-                    # Scryfall provides USD prices
-                    usd_price = prices.get('usd')
-                    
-                    if usd_price:
-                        price_float = float(usd_price)
-                        return PriceData(
-                            source='scryfall',
-                            market_price=price_float,
-                            low_price=price_float * 0.8,  # Estimate
-                            high_price=price_float * 1.2,  # Estimate
-                            currency='USD'
-                        )
-        
-        except Exception as e:
-            print(f"Scryfall API error for {card_name}: {e}")
-            return None
+@router.get("/api/analytics/deck-cost-to-win")
+async def analytics_deck_cost_to_win():
+    decks = load_decks()
+    available_dates = get_available_archive_dates()
+    latest_date = max(available_dates) if available_dates else None
+    results = []
+    for deck in decks:
+        total_price = 0.0
+        for card in deck.card_list:
+            tcgcsv_id = str(card.get('tcgcsv_id') or card.get('product_id') or card.get('id'))
+            price = read_price_for_card(tcgcsv_id, latest_date) if latest_date else 0.0
+            qty = float(card.get('quantity', 1))
+            if price:
+                total_price += price * qty
+        cost_to_win = (total_price / deck.win_count) if deck.win_count else None
+        results.append({
+            'id': deck.id,
+            'name': deck.name,
+            'event': deck.event,
+            'event_date': deck.event_date,
+            'win_count': deck.win_count,
+            'total_price': total_price,
+            'cost_to_win': cost_to_win
+        })
+    results = sorted(results, key=lambda x: (x['cost_to_win'] if x['cost_to_win'] is not None else float('inf')))
+    return JSONResponse(results)
 
-class PriceManager:
-    """Centralized price management with multiple sources"""
-    
-    def __init__(self):
-        self.cache = PriceCache()
-        self.tcgplayer = TCGCSVAPI()
-        self.scryfall = ScryfallPriceAPI()
-        self.source_priority = ['tcgplayer', 'scryfall']
-    
-    async def get_card_price(self, card_name: str, set_code: str = None, preferred_source: str = 'tcgplayer') -> Optional[PriceData]:
-        """Get card price with caching and fallback sources"""
-        # Check cache first
-        cached_price = await self.cache.get_cached_price(card_name, set_code or '', preferred_source)
-        if cached_price:
-            return cached_price
-        # Try preferred source first
-        price_data = None
-        if preferred_source == 'tcgplayer':
-            price_data = TCGCSVAPI.get_product_and_price(card_name, set_code)
-        elif preferred_source == 'scryfall':
-            price_data = await self.scryfall.get_card_price(card_name, set_code)
-        # Fallback to other sources if preferred fails
-        if not price_data:
-            for source in self.source_priority:
-                if source != preferred_source:
-                    if source == 'tcgplayer':
-                        price_data = TCGCSVAPI.get_product_and_price(card_name, set_code)
-                    elif source == 'scryfall':
-                        price_data = await self.scryfall.get_card_price(card_name, set_code)
-                    if price_data:
-                        break
-        # Cache the result
-        if price_data:
-            await self.cache.cache_price(card_name, set_code or '', price_data)
-        return price_data
-    
-    async def get_collection_prices(self, collection: List[Dict], preferred_source: str = 'tcgplayer') -> Dict[str, PriceData]:
-        """Get prices for an entire collection"""
-        price_data = {}
-        batch_size = 10
-        for i in range(0, len(collection), batch_size):
-            batch = collection[i:i + batch_size]
-            tasks = []
-            for card in batch:
-                card_name = card.get('name', '')
-                set_code = card.get('set', '')
-                if card_name:
-                    task = self.get_card_price(card_name, set_code, preferred_source)
-                    tasks.append((card_name, set_code, task))
-            results = await asyncio.gather(*[task for _, _, task in tasks], return_exceptions=True)
-            for (card_name, set_code, _), result in zip(tasks, results):
-                if isinstance(result, PriceData):
-                    key = f"{card_name}|{set_code}"
-                    price_data[key] = result
-            await asyncio.sleep(1)
-        return price_data
+@router.get("/api/analytics/investment-watch")
+async def analytics_investment_watch():
+    available_dates = sorted(get_available_archive_dates())
+    if not available_dates:
+        return JSONResponse([])
+    decks = load_decks()
+    card_names = set()
+    for deck in decks:
+        for card in deck.card_list:
+            card_names.add(card.get('name', '').strip())
+    investment_data = []
+    for name in card_names:
+        price_trend = []
+        tcgcsv_id = None
+        for deck in decks:
+            for card in deck.card_list:
+                if card.get('name', '').strip() == name:
+                    tcgcsv_id = str(card.get('tcgcsv_id') or card.get('product_id') or card.get('id'))
+                    break
+            if tcgcsv_id:
+                break
+        if not tcgcsv_id:
+            continue
+        for date_str in available_dates:
+            price = read_price_for_card(tcgcsv_id, date_str)
+            price_trend.append({'date': date_str, 'price': price})
+        investment_data.append({'name': name, 'price_trend': price_trend})
+    return JSONResponse(investment_data)
 
-async def enrich_collection_with_prices(collection: List[Dict], preferred_source: str = 'tcgplayer') -> List[Dict]:
-    """Add pricing data to collection"""
-    price_manager = PriceManager()
-    price_data = await price_manager.get_collection_prices(collection, preferred_source)
-    enriched_collection = []
-    for card in collection:
-        enriched_card = card.copy()
-        card_name = card.get('name', '')
-        set_code = card.get('set', '')
-        key = f"{card_name}|{set_code}"
-        if key in price_data:
-            price_info = price_data[key]
-            enriched_card['price_data'] = {
-                'source': price_info.source,
-                'market_price': price_info.market_price,
-                'low_price': price_info.low_price,
-                'high_price': price_info.high_price,
-                'currency': price_info.currency,
-                'last_updated': price_info.last_updated.isoformat() if price_info.last_updated else None
-            }
-            quantity = card.get('Quantity', 1)
-            if price_info.market_price:
-                enriched_card['total_value'] = price_info.market_price * quantity
-        enriched_collection.append(enriched_card)
-    return enriched_collection
+@router.get("/api/analytics/pack-set-analysis")
+async def analytics_pack_set_analysis():
+    decks = load_decks()
+    set_stats = {}
+    for deck in decks:
+        for card in deck.card_list:
+            set_name = card.get('set', 'Unknown')
+            rarity = card.get('rarity', 'Unknown')
+            if set_name not in set_stats:
+                set_stats[set_name] = {'total': 0, 'rarity': {}}
+            set_stats[set_name]['total'] += 1
+            if rarity not in set_stats[set_name]['rarity']:
+                set_stats[set_name]['rarity'][rarity] = 0
+            set_stats[set_name]['rarity'][rarity] += 1
+    return JSONResponse(set_stats)
 
-def calculate_collection_value(collection: List[Dict]) -> Dict[str, float]:
-    """Calculate total collection value from cards with price data"""
-    total_value = 0
-    total_low = 0
-    total_high = 0
-    cards_with_prices = 0
-    
-    for card in collection:
-        price_data = card.get('price_data', {})
-        quantity = card.get('Quantity', 1)
-        
-        if price_data.get('market_price'):
-            total_value += price_data['market_price'] * quantity
-            cards_with_prices += 1
-        
-        if price_data.get('low_price'):
-            total_low += price_data['low_price'] * quantity
-        
-        if price_data.get('high_price'):
-            total_high += price_data['high_price'] * quantity
-    
-    return {
-        'total_market_value': round(total_value, 2),
-        'total_low_value': round(total_low, 2),
-        'total_high_value': round(total_high, 2),
-        'cards_with_prices': cards_with_prices,
-        'total_cards': len(collection),
-        'pricing_coverage': round(cards_with_prices / len(collection) * 100, 2) if collection else 0
-    }
+@router.get("/api/analytics/credit")
+async def analytics_credit():
+    return JSONResponse({
+        "credit": "Data from MTGGoldfish/MTGTop8. All rights belong to their respective owners. This project respects robots.txt and rate limits."
+    })

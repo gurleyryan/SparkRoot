@@ -60,6 +60,7 @@ decks/
 data/scryfall_all_cards.json
 data/*.json
 data/samples/*.csv
+data/data/
 
 # Exclude specific files but keep requirements.txt
 !requirements.txt
