@@ -162,7 +162,9 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
         try {
-          const resp = await fetch('/api/auth/me', {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+          const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+          const resp = await fetch(`${baseUrl}/api/auth/me`, {
             headers: { Authorization: `Bearer ${accessToken}` },
           });
           if (!resp.ok) {
@@ -180,11 +182,14 @@ export const useAuthStore = create<AuthState>()(
       },
       fetchWithAuth: async (input, init = {}) => {
         const { accessToken } = get();
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+        const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+        let url = typeof input === 'string' && input.startsWith('/') ? `${baseUrl}${input}` : input;
         const headers = {
           ...(init.headers || {}),
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         };
-        return fetch(input, { ...init, headers });
+        return fetch(url, { ...init, headers });
       },
     }),
     {
