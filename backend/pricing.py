@@ -1,3 +1,64 @@
+# --- Collection Pricing Helpers ---
+import asyncio
+
+async def enrich_collection_with_prices(collection: list, source: str = "tcgplayer") -> list:
+    """
+    Enrich a collection of cards with price data from the price_cache table or external source.
+    Each card dict should get a 'price_data' field with at least 'market_price'.
+    """
+    # Import db here to avoid circular import
+    from backend.supabase_db import db
+    enriched = []
+    for card in collection:
+        card_name = card.get('name')
+        set_code = card.get('set', '')
+        # Try to get cached price
+        price_row = await db.execute_query_one(
+            '''SELECT * FROM price_cache WHERE card_name = %s AND set_code = %s AND source = %s ORDER BY last_updated DESC LIMIT 1''',
+            (card_name, set_code, source)
+        )
+        if price_row:
+            card['price_data'] = {
+                'market_price': price_row.get('market_price'),
+                'low_price': price_row.get('low_price'),
+                'high_price': price_row.get('high_price'),
+                'currency': price_row.get('currency', 'USD'),
+                'source': source
+            }
+        else:
+            # Fallback: no price found
+            card['price_data'] = {'market_price': 0.0, 'currency': 'USD', 'source': source}
+        enriched.append(card)
+    return enriched
+
+def calculate_collection_value(collection: list) -> dict:
+    """
+    Calculate total value and breakdowns for a collection of cards with price_data.
+    Returns: { total_value, by_rarity, by_set, by_color, ... }
+    """
+    total_value = 0.0
+    by_rarity = {}
+    by_set = {}
+    by_color = {}
+    for card in collection:
+        price = 0.0
+        qty = float(card.get('quantity', 1))
+        if 'price_data' in card and card['price_data'].get('market_price') is not None:
+            price = float(card['price_data']['market_price'])
+        value = price * qty
+        total_value += value
+        rarity = card.get('rarity', 'Unknown')
+        by_rarity[rarity] = by_rarity.get(rarity, 0.0) + value
+        set_name = card.get('set', 'Unknown')
+        by_set[set_name] = by_set.get(set_name, 0.0) + value
+        color = ','.join(card.get('color_identity', [])) if card.get('color_identity') else 'Colorless'
+        by_color[color] = by_color.get(color, 0.0) + value
+    return {
+        'total_value': total_value,
+        'by_rarity': by_rarity,
+        'by_set': by_set,
+        'by_color': by_color
+    }
 
 import os
 import json
@@ -10,6 +71,7 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from collections import defaultdict
+from .tcgcsv_price_lookup import get_tcgcsv_price_for_card, load_tcgcsv_products_csv
 
 router = APIRouter()
 
@@ -26,7 +88,59 @@ class Deck:
     id: str
     name: str
     format: str
-    event: str
+async def enrich_collection_with_prices(collection: list, source: str = "tcgcsv", date: Optional[str] = None) -> list:
+    """
+    Enrich a collection with price data from TCGCSV files (preferred) or cache fallback.
+    If date is provided, use historical prices from the archive for that date (YYYY-MM-DD).
+    """
+    DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+    # If date is provided, use archive folder, else use 'latest' or fallback
+    if date:
+        date_dir = os.path.join(DATA_DIR, date)
+    else:
+        # Assume 'latest' is a symlink or copy of the most recent archive
+        date_dir = os.path.join(DATA_DIR, 'latest')
+        if not os.path.exists(date_dir):
+            # Fallback: use most recent available date
+            all_dates = [d for d in os.listdir(DATA_DIR) if d[:4].isdigit()]
+            if all_dates:
+                date_dir = os.path.join(DATA_DIR, sorted(all_dates)[-1])
+
+    # Load product mapping for name->productId/groupId
+    # Assume ProductsAndPrices.csv is in each group folder
+    # Build a mapping: (set_name, card_name) -> (group_id, product_id)
+    product_map = {}
+    for group_folder in os.listdir(os.path.join(date_dir, '3')):
+        group_path = os.path.join(date_dir, '3', group_folder)
+        csv_path = os.path.join(group_path, 'ProductsAndPrices.csv')
+        if os.path.exists(csv_path):
+            group_products = load_tcgcsv_products_csv(csv_path)
+            for name, row in group_products.items():
+                product_map[(row['groupName'].strip().lower(), name)] = (row['groupId'], row['productId'])
+
+    enriched = []
+    for card in collection:
+        # Try to find group and product id
+        set_name = card.get('set_name', '').strip().lower()
+        card_name = card.get('name', '').strip().lower()
+        ids = product_map.get((set_name, card_name))
+        price_data = None
+        if ids:
+            group_id, product_id = ids
+            price_data = get_tcgcsv_price_for_card(date_dir, group_id, product_id)
+        # Fallback: no price found
+        if price_data:
+            card['price_mid'] = price_data.get('midPrice')
+            card['price_market'] = price_data.get('marketPrice')
+            card['price_low'] = price_data.get('lowPrice')
+            card['price_date'] = price_data.get('date')
+        else:
+            card['price_mid'] = None
+            card['price_market'] = None
+            card['price_low'] = None
+            card['price_date'] = None
+        enriched.append(card)
+    return enriched
     event_date: Optional[str]
     win_count: Optional[int]
     card_list: List[Dict] = field(default_factory=list)

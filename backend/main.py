@@ -58,9 +58,9 @@ from backend.auth_supabase_rest import (
     UserManager, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
     get_collection_by_id, update_collection, delete_collection
 )
-
-# Import pricing modules
 from backend.pricing import enrich_collection_with_prices, calculate_collection_value
+
+
 
 # Database connection (using Supabase REST API via auth_supabase.py)
 # from supabase_db import db  # Commented out - using REST API instead
@@ -488,21 +488,19 @@ class PricingRequest(BaseModel):
     collection: List[Dict[str, Any]]
     source: str = "tcgplayer"  # tcgplayer, scryfall
 
+
+# Pricing enrichment endpoint
 @app.post("/api/pricing/enrich-collection")
 async def enrich_collection_pricing(
     request: PricingRequest,
     current_user = Depends(get_user_from_token)
 ):
-    """Add pricing data to collection cards"""
     try:
         enriched_collection = await enrich_collection_with_prices(
             request.collection, 
             request.source
         )
-        
-        # Calculate collection value
         value_stats = calculate_collection_value(enriched_collection)
-        
         return {
             "success": True,
             "collection": enriched_collection,
@@ -514,27 +512,22 @@ async def enrich_collection_pricing(
             content={"success": False, "error": str(e)}
         )
 
+# Collection value endpoint
 @app.post("/api/pricing/collection-value")
 async def get_collection_value(
     request: PricingRequest,
     current_user = Depends(get_user_from_token)
 ):
-    """Get just the value statistics for a collection"""
     try:
-        # Check if collection already has pricing data
         has_pricing = any(card.get('price_data') for card in request.collection)
-        
         if not has_pricing:
-            # Enrich with pricing data first
             enriched_collection = await enrich_collection_with_prices(
                 request.collection, 
                 request.source
             )
         else:
             enriched_collection = request.collection
-        
         value_stats = calculate_collection_value(enriched_collection)
-        
         return {
             "success": True,
             "value_stats": value_stats,
@@ -546,13 +539,11 @@ async def get_collection_value(
             content={"success": False, "error": str(e)}
         )
 
-# Public pricing endpoints (no authentication required)
+# Public collection value endpoint
 @app.post("/api/pricing/collection-value-public")
 async def get_collection_value_public(request: PricingRequest):
-    """Get collection value without authentication"""
     try:
         has_pricing = any(card.get('price_data') for card in request.collection)
-        
         if not has_pricing:
             enriched_collection = await enrich_collection_with_prices(
                 request.collection, 
@@ -560,9 +551,7 @@ async def get_collection_value_public(request: PricingRequest):
             )
         else:
             enriched_collection = request.collection
-        
         value_stats = calculate_collection_value(enriched_collection)
-        
         return {
             "success": True,
             "value_stats": value_stats,
