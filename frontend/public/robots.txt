@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://mtgdeckoptimizer.com/sitemap.xml
