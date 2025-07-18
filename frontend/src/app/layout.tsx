@@ -24,52 +24,74 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
+
 export const metadata: Metadata = {
   title: "MTG Deck Optimizer",
   description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
+  icons: [
+    { rel: "icon", url: "/favicon.ico", type: "image/x-icon" },
+    { rel: "icon", url: "/logo.svg", type: "image/svg+xml" },
+    { rel: "icon", url: "/logo.png", type: "image/png" },
+    { rel: "apple-touch-icon", url: "/logo.png" },
+  ],
+  openGraph: {
+    type: "website",
+    url: "https://mtgdeckoptimizer.com/",
+    title: "MTG Deck Optimizer",
+    description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
+    images: [
+      {
+        url: "https://mtgdeckoptimizer.com/logo.png",
+        width: 512,
+        height: 512,
+        alt: "MTG Deck Optimizer Logo",
+        type: "image/png",
+      },
+      {
+        url: "https://mtgdeckoptimizer.com/logo.svg",
+        type: "image/svg+xml",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MTG Deck Optimizer",
+    description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
+    images: ["https://mtgdeckoptimizer.com/logo.png"],
+    site: "@MTGDeckOptimizer",
+  },
+  metadataBase: new URL("https://mtgdeckoptimizer.com/"),
+  themeColor: "#1a1a1a",
+  viewport: "width=device-width, initial-scale=1",
+  other: {
+    // Schema.org JSON-LD for rich results
+    'ld+json': JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'WebApplication',
+      'name': 'MTG Deck Optimizer',
+      'url': 'https://mtgdeckoptimizer.com/',
+      'description': 'Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.',
+      'applicationCategory': 'ProductivityApplication',
+      'operatingSystem': 'All',
+      'image': 'https://mtgdeckoptimizer.com/logo.png',
+      'author': {
+        '@type': 'Organization',
+        'name': 'MTG Deck Optimizer'
+      },
+      'offers': {
+        '@type': 'Offer',
+        'price': '0',
+        'priceCurrency': 'USD'
+      }
+    })
+  }
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
-      <head>
-        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-        <link rel="icon" href="/logo.svg" type="image/svg+xml" />
-        <link rel="icon" href="/logo.png" type="image/png" />
-        <link href="/node_modules/mana-font/css/mana.min.css" rel="stylesheet" type="text/css" />
-        <link href="https://cdn.jsdelivr.net/npm/mana-font@latest/css/mana.css" rel="stylesheet" type="text/css" />
-        {/* Open Graph for social sharing */}
-        <meta property="og:image" content="/logo.png" />
-        <meta property="og:image:type" content="image/png" />
-        <meta property="og:image:width" content="512" />
-        <meta property="og:image:height" content="512" />
-        <meta property="og:image:alt" content="MTG Deck Optimizer Logo" />
-
-        {/* SVG fallback for platforms that support it */}
-        <meta property="og:image" content="/logo.svg" />
-        <meta property="og:image:type" content="image/svg+xml" />
-
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:image" content="/logo.png" />
-
-        {/* Structured Data for Google */}
-        <script type="application/ld+json">
-          {`
-            {
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              "name": "MTG Deck Optimizer",
-              "url": "https://mtg-deck-optimizer.vercel.app/",
-              "logo": "https://mtg-deck-optimizer.vercel.app/logo.png"
-            }
-          `}
-        </script>
-      </head>
+    <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}> 
       <body className="text-white antialiased font-mtg-body min-h-screen">
         <ToastProvider>
           <AuthHydrator />
