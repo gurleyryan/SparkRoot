@@ -123,32 +123,42 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <a href="/collection" className="group flex items-center transition-colors font-mtg-mono py-2" onClick={() => setDrawerOpen(false)}>
-              <i className="ms ms-counter-lore ms-2x mr-2 text-mtg-red group-hover:!text-rarity-uncommon"></i>
-              <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Collection</span>
-            </a>
-            <a href="/deck-builder" className="group flex items-center transition-colors font-mtg-mono py-2" onClick={() => setDrawerOpen(false)}>
-              <i className="ms ms-commander ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
-              <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Deck Builder</span>
-            </a>
-            <a href="/pricing" className="group flex items-center transition-colors font-mtg-mono py-2" onClick={() => setDrawerOpen(false)}>
-              <i className="ms ms-counter-gold ms-2x mr-2 text-rarity-rare group-hover:!text-rarity-uncommon"></i>
-              <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Pricing</span>
-            </a>
-            <a href="/settings" className="group flex items-center transition-colors font-mtg-mono py-2" onClick={() => setDrawerOpen(false)}>
-              <i className="ms ms-cog ms-2x mr-2 text-mtg-blue group-hover:!text-rarity-uncommon"></i>
-              <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Settings</span>
-            </a>
-            <a href="/help" className="group flex items-center transition-colors font-mtg-mono py-2" onClick={() => setDrawerOpen(false)}>
-              <i className="ms ms-question ms-2x mr-2 text-mtg-green group-hover:!text-rarity-uncommon"></i>
-              <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Help</span>
-            </a>
-            {isAdmin && (
-              <a href="/admin" className="group flex items-center transition-colors font-mtg-mono py-2" onClick={() => setDrawerOpen(false)}>
-                <i className="ms ms-crown ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
-                <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
-              </a>
-            )}
+            {(() => {
+              const { usePathname } = require("next/navigation");
+              const pathname = usePathname();
+              const navLinks = [
+                { href: "/collection", label: "Collection", icon: "ms-counter-lore", iconColor: "text-mtg-red" },
+                { href: "/deck-builder", label: "Deck Builder", icon: "ms-commander", iconColor: "text-rarity-mythic" },
+                { href: "/pricing", label: "Pricing", icon: "ms-counter-gold", iconColor: "text-rarity-rare" },
+                { href: "/settings", label: "Settings", icon: "ms-cog", iconColor: "text-mtg-blue" },
+                { href: "/help", label: "Help", icon: "ms-question", iconColor: "text-mtg-green" },
+              ];
+              return (
+                <>
+                  {navLinks.map(link => (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      className={`group flex items-center transition-colors font-mtg-mono py-2 ${pathname === link.href ? "bg-mtg-blue/30 text-rarity-uncommon" : ""}`}
+                      onClick={() => setDrawerOpen(false)}
+                    >
+                      <i className={`ms ms-2x mr-2 ${link.icon} ${link.iconColor} group-hover:!text-rarity-uncommon`}></i>
+                      <span className="text-rarity-rare group-hover:!text-rarity-uncommon">{link.label}</span>
+                    </a>
+                  ))}
+                  {isAdmin && (
+                    <a
+                      href="/admin"
+                      className={`group flex items-center transition-colors font-mtg-mono py-2 ${pathname === "/admin" ? "bg-mtg-blue/30 text-rarity-uncommon" : ""}`}
+                      onClick={() => setDrawerOpen(false)}
+                    >
+                      <i className="ms ms-crown ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
+                      <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
+                    </a>
+                  )}
+                </>
+              );
+            })()}
             <div className="border-t border-mtg-blue my-4" />
             {isAuthenticated ? (
               <>
