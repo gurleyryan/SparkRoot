@@ -50,10 +50,11 @@ export const useAuthStore = create<AuthState>()(
       changePassword: async (data) => {
         set({ isLoading: true, error: null });
         try {
-          const resp = await fetch('/api/auth/change-password', {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+          const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+          const resp = await fetch(`${baseUrl}/api/auth/change-password`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
             body: JSON.stringify(data),
           });
           if (!resp.ok) {
@@ -71,7 +72,9 @@ export const useAuthStore = create<AuthState>()(
       login: async (credentials) => {
         set({ isLoading: true, error: null });
         try {
-          const resp = await fetch('/api/auth/login', {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+          const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+          const resp = await fetch(`${baseUrl}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(credentials),
@@ -122,7 +125,9 @@ export const useAuthStore = create<AuthState>()(
       register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
-          const resp = await fetch('/api/auth/register', {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+          const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+          const resp = await fetch(`${baseUrl}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData),
