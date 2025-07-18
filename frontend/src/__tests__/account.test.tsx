@@ -2,7 +2,7 @@ import "@testing-library/jest-dom";
 import "@testing-library/jest-dom/extend-expect";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { act } from "@testing-library/react";
-import AccountPage from "../app/account/page";
+import AccountPage from "../components/AccountPage";
 import { useAuthStore } from "../store/authStore";
 import { jest } from '@jest/globals';
 
