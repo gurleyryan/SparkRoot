@@ -190,7 +190,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://mtg-deck-optimizer.vercel.app",
-        "https://mtg-deck-optimizer-gurleyryan.vercel.app"
+        "https://mtg-deck-optimizer-gurleyryan.vercel.app",
+        "https://mtg.up.railway.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
