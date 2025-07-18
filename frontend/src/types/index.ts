@@ -37,6 +37,10 @@ export interface User {
   avatar_url?: string;
   created_at?: string;
   updated_at?: string;
+  app_metadata?: {
+    role?: string;
+    [key: string]: any;
+  };
 }
 
 export interface AuthResponse {

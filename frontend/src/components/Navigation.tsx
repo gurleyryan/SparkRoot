@@ -13,7 +13,8 @@ import React, { useState } from 'react';
 
 export default function Navigation({ isAuthenticated, user, onLogin, onLogout }: NavigationProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const isAdmin = user && user.email && user.email.endsWith('@admin.com');
+  // Use app_metadata.role for admin check
+  const isAdmin = user?.app_metadata?.role === 'admin';
   return (
     <>
       {/* Skip to content link for accessibility */}
@@ -58,16 +59,16 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Pricing</span>
               </a>
               <a href="/settings" className="group flex items-center transition-colors font-mtg-mono">
-                <i className="ms ms-cog ms-2x mr-2 text-mtg-blue group-hover:!text-rarity-uncommon"></i>
+                <i className="ms ms-ability-investigate ms-2x mr-2 text-mtg-blue group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Settings</span>
               </a>
               <a href="/help" className="group flex items-center transition-colors font-mtg-mono">
-                <i className="ms ms-question ms-2x mr-2 text-mtg-green group-hover:!text-rarity-uncommon"></i>
+                <i className="ms ms-party-wizard ms-2x mr-2 text-mtg-green group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Help</span>
               </a>
             {isAdmin && (
               <a href="/admin" className="group flex items-center transition-colors font-mtg-mono">
-                <i className="ms ms-crown ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
+                <i className="ms ms-ability-dungeon ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
               </a>
             )}
