@@ -58,10 +58,6 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 <i className="ms ms-counter-gold ms-2x mr-2 text-rarity-rare group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Pricing</span>
               </a>
-              <a href="/settings" className="group flex items-center transition-colors font-mtg-mono">
-                <i className="ms ms-ability-investigate ms-2x mr-2 text-mtg-blue group-hover:!text-rarity-uncommon"></i>
-                <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Settings</span>
-              </a>
               <a href="/help" className="group flex items-center transition-colors font-mtg-mono">
                 <i className="ms ms-party-wizard ms-2x mr-2 text-mtg-green group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Help</span>
@@ -81,7 +77,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 <a
                   href="/account"
                   className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer"
-                  title="Account settings"
+                  title="Account"
                 >
                   Welcome, {user?.username || user?.full_name || user?.email || 'User'}
                 </a>
@@ -137,7 +133,6 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 { href: "/collection", label: "Collection", icon: "ms-counter-lore", iconColor: "text-mtg-red" },
                 { href: "/deck-builder", label: "Deck Builder", icon: "ms-commander", iconColor: "text-rarity-mythic" },
                 { href: "/pricing", label: "Pricing", icon: "ms-counter-gold", iconColor: "text-rarity-rare" },
-                { href: "/settings", label: "Settings", icon: "ms-cog", iconColor: "text-mtg-blue" },
                 { href: "/help", label: "Help", icon: "ms-question", iconColor: "text-mtg-green" },
               ];
               return (
@@ -173,7 +168,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 <a
                   href="/account"
                   className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer py-2"
-                  title="Account settings"
+                  title="Account"
                   onClick={() => setDrawerOpen(false)}
                 >
                   Welcome, {user?.username || user?.full_name || user?.email || 'User'}
