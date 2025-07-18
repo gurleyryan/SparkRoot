@@ -329,7 +329,7 @@ async def login_user(payload: dict = Body(...), response: Response = None):
         value=access_token,
         httponly=True,
         secure=True,
-        samesite="strict",
+        samesite="none",
         expires=expire.strftime("%a, %d %b %Y %H:%M:%S GMT")
     )
     return {
