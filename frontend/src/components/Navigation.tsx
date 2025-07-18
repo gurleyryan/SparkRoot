@@ -123,9 +123,15 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+            {/* Navigation Links */}
             {(() => {
-              const { usePathname } = require("next/navigation");
-              const pathname = usePathname();
+              // Use dynamic import to avoid SSR issues with next/navigation
+              let pathname = '';
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { usePathname } = require('next/navigation');
+                pathname = usePathname();
+              } catch {}
               const navLinks = [
                 { href: "/collection", label: "Collection", icon: "ms-counter-lore", iconColor: "text-mtg-red" },
                 { href: "/deck-builder", label: "Deck Builder", icon: "ms-commander", iconColor: "text-rarity-mythic" },
@@ -160,6 +166,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               );
             })()}
             <div className="border-t border-mtg-blue my-4" />
+            {/* User Actions */}
             {isAuthenticated ? (
               <>
                 <a
