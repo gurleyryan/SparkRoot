@@ -1,3 +1,6 @@
+// ...existing code...
+
+// ...existing code...
 import type { User } from '@/types';
 // API Configuration for MTG Deck Optimizer
 // This file configures the API endpoints for both development and production
@@ -57,6 +60,20 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
 
 // API client class
 export class ApiClient {
+  // ...existing code...
+
+  // Deck detail methods
+  async getDeckById(deckId: string) {
+    // Assumes endpoint: /api/decks/{deck_id}
+    return this.request(`/api/decks/${deckId}`);
+  }
+
+  async deleteDeck(deckId: string) {
+    // Assumes endpoint: /api/decks/{deck_id}
+    return this.request(`/api/decks/${deckId}`, {
+      method: 'DELETE',
+    });
+  }
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
 

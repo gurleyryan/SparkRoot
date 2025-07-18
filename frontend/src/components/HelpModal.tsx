@@ -70,7 +70,7 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
           <li>Customize your playmat and preferences in Settings.</li>
         </ol>
         <div className="text-mtg-blue font-mtg-body text-sm mt-4">
-          Need more help? Contact support or check the FAQ (coming soon).
+          Need more help? Contact support or check the [README](https://github.com/gurleyryan/MTG-Deck-Optimizer).
         </div>
       </div>
     </div>

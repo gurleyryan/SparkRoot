@@ -1,3 +1,4 @@
+
 # User Authentication and Data Management API - Supabase Version
 
 from fastapi import Depends, HTTPException, status
@@ -68,6 +69,25 @@ class SocialIntegration(BaseModel):
     access_token: Optional[str] = None
 
 # Password handling
+
+from fastapi import APIRouter
+router = APIRouter()
+
+
+# Robust, authenticated deck delete endpoint
+@router.delete("/api/decks/{deck_id}")
+async def delete_deck(deck_id: int, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id = payload.get("sub")
+    # Only allow deleting user's own deck
+    deck = await UserManager.get_deck_by_id(deck_id, user_id)
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found or not owned by user")
+    result = await db.execute_query_one("DELETE FROM saved_decks WHERE id = %s AND user_id = %s RETURNING id", (deck_id, user_id))
+    if not result:
+        raise HTTPException(status_code=404, detail="Deck not found or already deleted")
+    return {"success": True, "deleted_id": deck_id}
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -233,6 +253,8 @@ class UserManager:
             ''', (deck_id,))
 
 # Cache management for pricing data
+from fastapi import Request
+
 class PriceCache:
     @staticmethod
     def get_price(card_name: str, set_code: str, source: str = "tcgplayer"):
@@ -258,3 +280,86 @@ class PriceCache:
                 currency = EXCLUDED.currency,
                 last_updated = NOW()
         ''', (card_name, set_code, source, market_price, low_price, high_price, currency))
+
+
+# --- FastAPI Endpoints ---
+
+@router.post("/api/auth/register")
+async def register(user: UserCreate):
+    user_id = await UserManager.create_user(user)
+    return {"success": True, "user_id": user_id}
+
+@router.post("/api/auth/login")
+async def login(user: UserLogin):
+    db_user = await UserManager.authenticate_user(user.email, user.password)
+    if not db_user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    access_token = create_access_token({"sub": db_user["id"]}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/api/auth/me")
+async def get_profile(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id = payload.get("sub")
+    user = await db.execute_query_one("SELECT * FROM users WHERE id = %s", (user_id,))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@router.get("/api/collections")
+async def get_collections(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id = payload.get("sub")
+    collections = await UserManager.get_user_collections(user_id)
+    return collections
+
+@router.post("/api/collections")
+async def save_collection(collection: CollectionSave, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id = payload.get("sub")
+    collection_id = await UserManager.save_collection(user_id, collection)
+    return {"success": True, "collection_id": collection_id}
+
+@router.get("/api/decks")
+async def get_decks(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id = payload.get("sub")
+    decks = await UserManager.get_user_decks(user_id)
+    return decks
+
+@router.post("/api/decks")
+async def save_deck(request: Request, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    data = await request.json()
+    payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id = payload.get("sub")
+    name = data.get("name")
+    commander_name = data.get("commander_name")
+    deck_data = data.get("deck_data")
+    deck_analysis = data.get("deck_analysis")
+    is_public = data.get("is_public", False)
+    bracket = data.get("bracket", 1)
+    deck_id = await UserManager.save_deck(user_id, name, commander_name, deck_data, deck_analysis, is_public, bracket)
+    return {"success": True, "deck_id": deck_id}
+
+@router.get("/api/decks/{deck_id}")
+async def get_deck(deck_id: int, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id = payload.get("sub")
+    deck = await UserManager.get_deck_by_id(deck_id, user_id)
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    return deck
+
+@router.get("/api/settings")
+async def get_settings(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id = payload.get("sub")
+    settings = await UserManager.get_user_settings(user_id)
+    return settings
+
+@router.post("/api/settings")
+async def update_settings(settings: UserSettings, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id = payload.get("sub")
+    await UserManager.update_user_settings(user_id, settings)
+    return {"success": True}

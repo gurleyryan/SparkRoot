@@ -38,31 +38,13 @@ export default function DeckDetail({ deckId }: DeckDetailProps) {
       setError(null);
       try {
         const api = new ApiClient();
-        // Assume getDeckById exists, otherwise fetch from collections or decks endpoint
-        const allDecks = (await api.getCollections()) as any[]; // fallback: get all, find by id
-        let found: Deck | null = null;
-        for (const col of allDecks) {
-          if (col.id === deckId && col.cards) {
-            found = {
-              id: col.id,
-              name: col.name,
-              commander: col.cards[0], // crude guess, real app should store commander
-              cards: col.cards,
-              description: col.description || "",
-              colors: [],
-              total_cards: col.cards.length,
-              mana_curve: {},
-              created_at: col.created_at,
-              updated_at: col.updated_at,
-            };
-            break;
-          }
-        }
-        if (!found) throw new Error("Deck not found");
-        setDeck(found);
-        setEditName(found.name);
-        setEditDesc(found.description || "");
-        setEditCommander(found.commander?.name || "");
+        const result = await api.getDeckById(deckId);
+        if (!result) throw new Error("Deck not found");
+        const deckData = result as Deck;
+        setDeck(deckData);
+        setEditName(deckData.name);
+        setEditDesc(deckData.description || "");
+        setEditCommander(deckData.commander?.name || "");
       } catch (err: any) {
         setError(err.message || "Failed to load deck");
         showToast(err.message || "Failed to load deck", "error");
@@ -143,10 +125,19 @@ export default function DeckDetail({ deckId }: DeckDetailProps) {
     }, 100);
   };
 
-  // Delete deck handler (placeholder, real API needed)
-  const handleDelete = () => {
+  // Delete deck handler (real API)
+  const handleDelete = async () => {
     setShowDelete(false);
-    showToast("Deck deleted (not implemented)", "info");
+    if (!deck) return;
+    try {
+      const api = new ApiClient();
+      await api.deleteDeck(deck.id);
+      showToast("Deck deleted successfully", "success");
+      // Optionally redirect or update state
+      setDeck(null);
+    } catch (err: any) {
+      showToast(err.message || "Failed to delete deck", "error");
+    }
   };
 
   if (loading) return <div className="text-mtg-white">Loading deck...</div>;

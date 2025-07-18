@@ -1,11 +1,13 @@
-import { useAuthStore } from '@/store/authStore';
 import React, { useEffect, useRef, useCallback, useState } from "react";
+import { useAuthStore } from '@/store/authStore';
+import { useToast } from "./ToastProvider";
 
 interface AuthModalProps {
   onClose: () => void;
 }
 
 export default function AuthModal({ onClose }: AuthModalProps) {
+  const showToast = useToast();
   // Accessible form submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -14,6 +16,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
     try {
       if (!isLogin && formData.password !== formData.confirmPassword) {
         setError('Passwords do not match.');
+        showToast('Passwords do not match.', 'error');
         setIsLoading(false);
         return;
       }
@@ -22,6 +25,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           email: formData.email || formData.username,
           password: formData.password,
         });
+        showToast('Login successful!', 'success');
       } else {
         await register({
           username: formData.username,
@@ -29,6 +33,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           password: formData.password,
           full_name: formData.fullName,
         });
+        showToast('Registration successful! You are now logged in.', 'success');
       }
       setIsLoading(false);
       onClose();
@@ -52,6 +57,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
         msg = 'No account found with that email or username.';
       }
       setError(msg);
+      showToast(msg, 'error');
       setIsLoading(false);
     }
   };

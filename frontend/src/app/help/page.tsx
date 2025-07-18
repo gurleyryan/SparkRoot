@@ -12,7 +12,7 @@ export default function HelpPage() {
           <li><strong>How do I build a deck?</strong> Go to the Deck Builder page and select your collection and preferences.</li>
           <li><strong>How do I track prices?</strong> The Pricing page shows collection value trends, breakdowns, and advanced analytics.</li>
           <li><strong>How do I change my playmat?</strong> Go to Settings and pick a playmat background.</li>
-          <li><strong>Need more help?</strong> Contact support or check the project README for more info.</li>
+          <li><strong>Need more help?</strong> Contact support or check the project [README](https://github.com/gurleyryan/MTG-Deck-Optimizer) for more info.</li>
         </ul>
       </div>
     </div>
