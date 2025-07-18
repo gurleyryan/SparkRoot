@@ -67,15 +67,31 @@ export default function HelpPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
-      <div className="flex items-center justify-center bg-black min-h-[80vh]">
-        <div className="sleeve-morphism p-8 rounded-xl shadow-xl max-w-lg w-full border border-rarity-uncommon bg-mtg-black text-mtg-white">
-          <h2 className="text-3xl font-bold mb-6">Help & FAQ</h2>
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <div className="sleeve-morphism rounded-xl p-8 max-w-2xl mx-auto border border-rarity-uncommon" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+          <h2 className="text-3xl text-rarity-rare font-bold mb-6">Help & FAQ</h2>
           <ul className="space-y-4 text-lg">
-            <li><strong>How do I upload my collection?</strong> Use the Collection page to upload a CSV or Excel file exported from Manabox, Moxfield, or similar tools.</li>
-            <li><strong>How do I build a deck?</strong> Go to the Deck Builder page and select your collection and preferences.</li>
-            <li><strong>How do I track prices?</strong> The Pricing page shows collection value trends, breakdowns, and advanced analytics.</li>
-            <li><strong>How do I change my playmat?</strong> Go to Settings and pick a playmat background.</li>
-            <li><strong>Need more help?</strong> Contact support or check the project <a href="https://github.com/gurleyryan/MTG-Deck-Optimizer" target="_blank" rel="noopener noreferrer" className="underline text-mtg-blue hover:text-mtg-white">README</a> for more info.</li>
+            <li><span className="font-bold text-rarity-rare">How do I upload my collection?</span></li>
+            <li><span className="text-mtg-white">Use the Collection page to upload a CSV or Excel file exported from Manabox, Moxfield, or similar tools.</span></li>
+            <li><span className="font-bold text-rarity-rare">How do I build a deck?</span></li>
+            <li><span className="text-mtg-white">Go to the Deck Builder page and select your collection and preferences.</span></li>
+            <li><span className="font-bold text-rarity-rare">How do I track prices?</span></li>
+            <li><span className="text-mtg-white">The Pricing page shows collection value trends, breakdowns, and advanced analytics.</span></li>
+            <li><span className="font-bold text-rarity-rare">How do I change my playmat?</span></li>
+            <li><span className="text-mtg-white">Go to Settings and pick a playmat background.</span></li>
+            <li><span className="font-bold text-rarity-rare">Need more help?</span></li>
+            <li><span className="text-mtg-white">
+              Contact support or check the project{" "}
+              <a
+                href="https://github.com/gurleyryan/MTG-Deck-Optimizer"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline text-rarity-mythic hover:text-rarity-uncommon"
+              >
+                README
+              </a>{" "}
+              for more info.
+            </span></li>
           </ul>
         </div>
       </div>
