@@ -17,4 +17,6 @@ module.exports = {
     customExportConditions: ["node", "node-addons"],
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  roots: ['<rootDir>/src'],
+  testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
 };
