@@ -300,7 +300,7 @@ from datetime import datetime, timedelta
 
 @app.post("/api/auth/login")
 async def login_user(payload: dict = Body(...), response: Response = None):
-    """Authenticate user and set access token in HttpOnly cookie"""
+    """Authenticate user and return access token in JSON response (use Authorization header for future requests)"""
     identifier = payload.get("identifier") or payload.get("email") or payload.get("username")
     password = payload.get("password")
     if not identifier or not password:
@@ -324,21 +324,14 @@ async def login_user(payload: dict = Body(...), response: Response = None):
         },
         expires_delta=access_token_expires
     )
-    expire = datetime.utcnow() + access_token_expires
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        expires=expire.strftime("%a, %d %b %Y %H:%M:%S GMT")
-    )
     return {
         "id": user_id,
         "email": user_email,
         "username": username,
         "full_name": full_name,
-        "created_at": user.get("created_at")
+        "created_at": user.get("created_at"),
+        "access_token": access_token,
+        "token_type": "bearer"
     }
 
 @app.get("/api/auth/me", response_model=UserResponse)

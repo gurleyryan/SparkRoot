@@ -10,6 +10,7 @@ interface AuthState {
   error: string | null;
   playmat_texture: string | null;
   userSettings: UserSettings | null;
+  accessToken: string | null; // <-- add this
   setUser: (user: User | null) => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
   changePassword: (data: { oldPassword: string; newPassword: string }) => Promise<void>;
@@ -20,6 +21,7 @@ interface AuthState {
   clearError: () => void;
   checkAuth: () => Promise<void>;
   rehydrateUser: () => Promise<void>;
+  fetchWithAuth: (input: RequestInfo, init?: RequestInit) => Promise<Response>; // <-- add this
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -31,6 +33,7 @@ export const useAuthStore = create<AuthState>()(
       error: null,
       playmat_texture: null,
       userSettings: null,
+      accessToken: null, // <-- add this
       setUser: (user) => {
         set({ user, isAuthenticated: !!user });
       },
@@ -68,56 +71,26 @@ export const useAuthStore = create<AuthState>()(
       login: async (credentials) => {
         set({ isLoading: true, error: null });
         try {
-          const apiClient = new ApiClient();
-          await apiClient.login(credentials);
-          const profileClient = new ApiClient();
-          const userProfile = await profileClient.getProfile() as User;
-          let userSettings: UserSettings | null = null;
-          try {
-            const settingsResp = await profileClient.getSettings() as { success: boolean; settings?: UserSettings };
-            if (settingsResp && settingsResp.success && settingsResp.settings) {
-              userSettings = settingsResp.settings;
-            }
-          } catch {
-            // Handle error silently
+          const resp = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(credentials),
+          });
+          if (!resp.ok) {
+            const err = await resp.json();
+            set({ error: err.error || 'Login failed', isLoading: false });
+            throw new Error(err.error || 'Login failed');
           }
-          let playmat_texture = userSettings?.playmat_texture || null;
-          if (!playmat_texture) {
-            let mats: string[] = [];
-            try {
-              const resp = await fetch('/api/playmats');
-              const data = await resp.json();
-              if (data.success && Array.isArray(data.files)) {
-                mats = data.files;
-              }
-            } catch {
-              // Error fetching playmat textures
-            }
-            if (mats.length > 0) {
-              playmat_texture = mats[Math.floor(Math.random() * mats.length)];
-              try {
-                await profileClient.updateSettings({ ...userSettings, playmat_texture });
-              } catch {
-                // Error updating playmat texture
-              }
-            }
-          }
+          const data = await resp.json();
           set({
-            user: userProfile,
+            user: data.user,
             isAuthenticated: true,
+            accessToken: data.access_token,
             isLoading: false,
-            playmat_texture,
-            userSettings,
+            error: null,
           });
-        } catch {
-          set({
-            error: 'Login failed',
-            isLoading: false,
-            isAuthenticated: false,
-            user: null,
-            playmat_texture: null,
-            userSettings: null,
-          });
+        } catch (err: any) {
+          set({ error: err?.message || 'Login failed', isLoading: false });
         }
       },
       setPlaymatTexture: async (texture) => {
@@ -149,24 +122,33 @@ export const useAuthStore = create<AuthState>()(
       register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
-          const apiClient = new ApiClient();
-          await apiClient.register(userData) as User;
-          await get().login({
-            email: userData.email,
-            password: userData.password,
+          const resp = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData),
           });
-        } catch {
+          if (!resp.ok) {
+            const err = await resp.json();
+            set({ error: err.error || 'Registration failed', isLoading: false });
+            throw new Error(err.error || 'Registration failed');
+          }
+          const data = await resp.json();
           set({
-            error: 'Registration failed',
+            user: data.user,
+            isAuthenticated: true,
+            accessToken: data.access_token,
             isLoading: false,
+            error: null,
           });
-          throw new Error('Registration failed');
+        } catch (err: any) {
+          set({ error: err?.message || 'Registration failed', isLoading: false });
         }
       },
       logout: () => {
         set({
           user: null,
           isAuthenticated: false,
+          accessToken: null,
           error: null,
         });
       },
@@ -174,29 +156,35 @@ export const useAuthStore = create<AuthState>()(
         set({ error: null });
       },
       checkAuth: async () => {
-        set({ isLoading: true });
+        const { accessToken } = get();
+        if (!accessToken) {
+          set({ user: null, isAuthenticated: false });
+          return;
+        }
         try {
-          const apiClient = new ApiClient();
-          const userProfile = await apiClient.getProfile() as User;
-          set({
-            user: userProfile,
-            isAuthenticated: true,
-            isLoading: false,
+          const resp = await fetch('/api/auth/me', {
+            headers: { Authorization: `Bearer ${accessToken}` },
           });
+          if (!resp.ok) {
+            set({ user: null, isAuthenticated: false });
+            return;
+          }
+          const user = await resp.json();
+          set({ user, isAuthenticated: true });
         } catch {
-          set({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false,
-            error: 'Session expired. Please log in again.',
-          });
+          set({ user: null, isAuthenticated: false });
         }
       },
       rehydrateUser: async () => {
-        const { user } = get();
-        if (!user) {
-          await get().checkAuth();
-        }
+        await get().checkAuth();
+      },
+      fetchWithAuth: async (input, init = {}) => {
+        const { accessToken } = get();
+        const headers = {
+          ...(init.headers || {}),
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        };
+        return fetch(input, { ...init, headers });
       },
     }),
     {
@@ -206,6 +194,7 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         playmat_texture: state.playmat_texture,
         userSettings: state.userSettings,
+        accessToken: state.accessToken, // <-- add this
       }),
     }
   )
