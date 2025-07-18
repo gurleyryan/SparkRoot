@@ -281,6 +281,7 @@ async def register_user(user_data: dict = Body(...)):
             return UserResponse(
                 id=user_response["id"],
                 email=user_response["email"],
+                username=user_response.get("username"),
                 full_name=user_response.get("full_name"),
                 created_at=user_response.get("created_at")
             )
@@ -340,6 +341,7 @@ async def get_current_user_info(current_user = Depends(get_user_from_token)):
     return UserResponse(
         id=current_user["id"],
         email=current_user["email"],
+        username=current_user.get("username"),
         full_name=current_user.get("full_name"),
         created_at=current_user.get("created_at")
     )

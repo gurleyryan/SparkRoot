@@ -37,6 +37,7 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: str  # UUID string (auth.users.id)
     email: str
+    username: Optional[str] = None
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
     created_at: Optional[str] = None
@@ -375,13 +376,12 @@ class UserManager:
             auth_user = await supabase_client.get_auth_user_by_email(email)
             if not auth_user:
                 return None
-            
             user_id = auth_user["id"]
             profile = await supabase_client.get_profile_by_user_id(user_id)
-            
             return {
                 "id": user_id,
                 "email": auth_user["email"],
+                "username": profile.get("username") if profile else None,
                 "full_name": profile.get("full_name") if profile else None,
                 "created_at": auth_user.get("created_at")
             }

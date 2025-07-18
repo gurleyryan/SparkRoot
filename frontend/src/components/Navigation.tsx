@@ -83,7 +83,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                   className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer"
                   title="Account settings"
                 >
-                  Welcome, {user?.username || 'User'}
+                  Welcome, {user?.username || user?.full_name || user?.email || 'User'}
                 </a>
                 <button
                   onClick={onLogout}
@@ -176,7 +176,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                   title="Account settings"
                   onClick={() => setDrawerOpen(false)}
                 >
-                  Welcome, {user?.username || 'User'}
+                  Welcome, {user?.username || user?.full_name || user?.email || 'User'}
                 </a>
                 <button
                   onClick={() => { setDrawerOpen(false); onLogout(); }}
