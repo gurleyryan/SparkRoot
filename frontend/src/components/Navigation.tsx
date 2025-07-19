@@ -13,8 +13,20 @@ import React, { useState } from 'react';
 
 export default function Navigation({ isAuthenticated, user, onLogin, onLogout }: NavigationProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // Use app_metadata.role for admin check
   const isAdmin = user?.app_metadata?.role === 'admin';
+
+  // Prevent scroll when drawer is open (mobile UX)
+  React.useEffect(() => {
+    if (drawerOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [drawerOpen]);
+
   return (
     <>
       {/* Skip to content link for accessibility */}
@@ -34,10 +46,11 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             {/* Hamburger for mobile */}
             <button
               className="md:hidden flex items-center px-3 py-2 border rounded text-mtg-white border-mtg-rarity-rare focus:outline-none"
-              onClick={() => setDrawerOpen(!drawerOpen)}
+              onClick={() => setDrawerOpen((open) => !open)}
               aria-label="Open navigation menu"
               aria-expanded={drawerOpen}
               aria-controls="mobile-nav-drawer"
+              type="button"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -46,6 +59,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
 
             {/* Navigation Links (desktop) */}
             <div className="hidden md:flex items-center space-x-6" role="menubar" aria-label="Main menu">
+              {/* ...existing code... */}
               <a href="/collection" className="group flex items-center transition-colors font-mtg-mono">
                 <i className="ms ms-counter-lore ms-2x mr-2 text-mtg-red group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Collection</span>
@@ -62,45 +76,46 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 <i className="ms ms-party-wizard ms-2x mr-2 text-mtg-green group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Help</span>
               </a>
-            {isAdmin && (
-              <a href="/admin" className="group flex items-center transition-colors font-mtg-mono">
-                <i className="ms ms-ability-dungeon ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
-                <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
-              </a>
-            )}
-          </div>
-
-          {/* User Actions (desktop) */}
-          <div className="hidden md:flex items-center space-x-4">
-            {isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                <a
-                  href="/account"
-                  className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer"
-                  title="Account"
-                >
-                  Welcome, {user?.username || user?.full_name || user?.email || 'User'}
+              {isAdmin && (
+                <a href="/admin" className="group flex items-center transition-colors font-mtg-mono">
+                  <i className="ms ms-ability-dungeon ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
+                  <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
                 </a>
+              )}
+            </div>
+
+            {/* User Actions (desktop) */}
+            <div className="hidden md:flex items-center space-x-4">
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-4">
+                  <a
+                    href="/account"
+                    className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer"
+                    title="Account"
+                  >
+                    Welcome, {user?.username || user?.full_name || user?.email || 'User'}
+                  </a>
+                  <button
+                    onClick={onLogout}
+                    className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
+                  ><i className="ms ms-b text-mtg-black mr-2"></i>
+                    Logout
+                  </button>
+                </div>
+              ) : (
                 <button
-                  onClick={onLogout}
-                  className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
-                ><i className="ms ms-b text-mtg-black mr-2"></i>
-                  Logout
+                  onClick={onLogin}
+                  className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-6 py-2 rounded-lg transition-colors font-mtg-mono"
+                ><i className="ms ms-w text-mtg-white mr-2"></i>
+                  Sign In
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={onLogin}
-                className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-6 py-2 rounded-lg transition-colors font-mtg-mono"
-              ><i className="ms ms-w text-mtg-white mr-2"></i>
-                Sign In
-              </button>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </nav>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Drawer (move outside nav for better event handling) */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 md:hidden" onClick={() => setDrawerOpen(false)}>
           <div
@@ -115,6 +130,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               className="self-end mb-4 text-mtg-white hover:text-mtg-blue"
               onClick={() => setDrawerOpen(false)}
               aria-label="Close navigation menu"
+              type="button"
             >
               <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -122,7 +138,6 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             </button>
             {/* Navigation Links */}
             {(() => {
-              // Use dynamic import to avoid SSR issues with next/navigation
               let pathname = '';
               try {
                 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -176,6 +191,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 <button
                   onClick={() => { setDrawerOpen(false); onLogout(); }}
                   className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono mt-2"
+                  type="button"
                 ><i className="ms ms-b text-mtg-black mr-2"></i>
                   Logout
                 </button>
@@ -184,6 +200,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               <button
                 onClick={() => { setDrawerOpen(false); onLogin(); }}
                 className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-6 py-2 rounded-lg transition-colors font-mtg-mono mt-2"
+                type="button"
               ><i className="ms ms-w text-mtg-white mr-2"></i>
                 Sign In
               </button>
@@ -191,7 +208,6 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
           </div>
         </div>
       )}
-    </nav>
     </>
   );
 }

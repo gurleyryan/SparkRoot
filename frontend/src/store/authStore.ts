@@ -74,6 +74,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
           const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+          // 1. Login to get access token
           const resp = await fetch(`${baseUrl}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -85,8 +86,17 @@ export const useAuthStore = create<AuthState>()(
             throw new Error(err.error || 'Login failed');
           }
           const data = await resp.json();
+          // 2. Fetch user profile with access token
+          const meResp = await fetch(`${baseUrl}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${data.access_token}` },
+          });
+          if (!meResp.ok) {
+            set({ error: 'Failed to fetch user profile', isLoading: false });
+            throw new Error('Failed to fetch user profile');
+          }
+          const user = await meResp.json();
           set({
-            user: data.user,
+            user,
             isAuthenticated: true,
             accessToken: data.access_token,
             isLoading: false,
@@ -127,6 +137,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
           const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+          // 1. Register to get access token
           const resp = await fetch(`${baseUrl}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -138,8 +149,17 @@ export const useAuthStore = create<AuthState>()(
             throw new Error(err.error || 'Registration failed');
           }
           const data = await resp.json();
+          // 2. Fetch user profile with access token (same as login)
+          const meResp = await fetch(`${baseUrl}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${data.access_token}` },
+          });
+          if (!meResp.ok) {
+            set({ error: 'Failed to fetch user profile', isLoading: false });
+            throw new Error('Failed to fetch user profile');
+          }
+          const user = await meResp.json();
           set({
-            user: data.user,
+            user,
             isAuthenticated: true,
             accessToken: data.access_token,
             isLoading: false,
