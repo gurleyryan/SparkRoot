@@ -36,19 +36,19 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     type: "website",
-    url: "https://mtgdeckoptimizer.com/",
+    url: "https://mtg-deck-optimizer.vercel.app/",
     title: "MTG Deck Optimizer",
     description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
     images: [
       {
-        url: "https://mtgdeckoptimizer.com/logo.png",
+        url: "https://mtg-deck-optimizer.vercel.app/logo.png",
         width: 512,
         height: 512,
         alt: "MTG Deck Optimizer Logo",
         type: "image/png",
       },
       {
-        url: "https://mtgdeckoptimizer.com/logo.svg",
+        url: "https://mtg-deck-optimizer.vercel.app/logo.svg",
         type: "image/svg+xml",
       },
     ],
@@ -57,10 +57,10 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "MTG Deck Optimizer",
     description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
-    images: ["https://mtgdeckoptimizer.com/logo.png"],
+    images: ["https://mtg-deck-optimizer.vercel.app/logo.png"],
     site: "@MTGDeckOptimizer",
   },
-  metadataBase: new URL("https://mtgdeckoptimizer.com/"),
+  metadataBase: new URL("https://mtg-deck-optimizer.vercel.app/"),
   themeColor: "#1a1a1a",
   viewport: "width=device-width, initial-scale=1",
   other: {
@@ -69,11 +69,11 @@ export const metadata: Metadata = {
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
       'name': 'MTG Deck Optimizer',
-      'url': 'https://mtgdeckoptimizer.com/',
+      'url': 'https://mtg-deck-optimizer.vercel.app/',
       'description': 'Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.',
       'applicationCategory': 'ProductivityApplication',
       'operatingSystem': 'All',
-      'image': 'https://mtgdeckoptimizer.com/logo.png',
+      'image': 'https://mtg-deck-optimizer.vercel.app/logo.png',
       'author': {
         '@type': 'Organization',
         'name': 'MTG Deck Optimizer'
