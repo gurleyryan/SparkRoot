@@ -60,7 +60,7 @@ export default function Home() {
         {/* Hero Section */}
         <div className="sleeve-morphism rounded-xl p-8 mb-12 border border-rarity-uncommon shadow-xl text-center" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
           <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="mx-auto mb-6 w-32 h-32" />
-          <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mtg font-bold text-mtg-white mb-4 drop-shadow-lg break-words whitespace-normal text-balance w-full leading-tight" style={{letterSpacing:'0.02em', lineHeight:'1.1', overflowWrap:'anywhere'}}>
+          <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mtg font-bold text-mtg-white mb-4 drop-shadow-lg break-words text-balance w-full leading-tight min-w-0 max-w-full overflow-hidden" style={{letterSpacing:'0.02em', lineHeight:'1.1', overflowWrap:'anywhere'}}>
             MTG Deck Optimizer
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8 font-mtg-display">
