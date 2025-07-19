@@ -1,8 +1,10 @@
+
 'use client';
 
 import type { User } from '@/types';
 import React, { useState } from 'react';
-import { usePathname } from 'next/navigation'; // <-- Import at top
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 interface NavigationProps {
   isAuthenticated: boolean;
@@ -37,7 +39,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
       <nav className="sleeve-morphism border-b-2 shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center h-16">
-            <a href="/" className="flex items-center gap-3 group min-w-0 flex-shrink flex-grow" aria-label="Go to home page">
+            <Link href="/" className="flex items-center gap-3 group min-w-0 flex-shrink flex-grow" aria-label="Go to home page">
               <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8 group-hover:scale-105 transition-transform flex-shrink-0" />
               <span
                 className="font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold break-words whitespace-normal text-balance max-w-full w-full text-left px-0 min-w-0 flex-grow"
@@ -45,7 +47,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               >
                 MTG Deck Optimizer
               </span>
-            </a>
+            </Link>
 
             {/* Hamburger for mobile */}
             <button
@@ -63,27 +65,27 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
 
             {/* Navigation Links (desktop) */}
             <div className="hidden md:flex items-center space-x-6" role="menubar" aria-label="Main menu">
-              <a href="/collection" className="group flex items-center transition-colors font-mtg-mono">
+              <Link href="/collection" className="group flex items-center transition-colors font-mtg-mono">
                 <i className="ms ms-counter-lore ms-2x mr-2 text-mtg-red group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Collection</span>
-              </a>
-              <a href="/deck-builder" className="group flex items-center transition-colors font-mtg-mono">
+              </Link>
+              <Link href="/deck-builder" className="group flex items-center transition-colors font-mtg-mono">
                 <i className="ms ms-commander ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Deck Builder</span>
-              </a>
-              <a href="/pricing" className="group flex items-center transition-colors font-mtg-mono">
+              </Link>
+              <Link href="/pricing" className="group flex items-center transition-colors font-mtg-mono">
                 <i className="ms ms-counter-gold ms-2x mr-2 text-rarity-rare group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Pricing</span>
-              </a>
-              <a href="/help" className="group flex items-center transition-colors font-mtg-mono">
+              </Link>
+              <Link href="/help" className="group flex items-center transition-colors font-mtg-mono">
                 <i className="ms ms-party-wizard ms-2x mr-2 text-mtg-green group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Help</span>
-              </a>
+              </Link>
               {isAdmin && (
-                <a href="/admin" className="group flex items-center transition-colors font-mtg-mono">
+                <Link href="/admin" className="group flex items-center transition-colors font-mtg-mono">
                   <i className="ms ms-ability-dungeon ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
                   <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
-                </a>
+                </Link>
               )}
             </div>
 
@@ -147,28 +149,29 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 { href: "/help", label: "Help", icon: "ms-party-wizard", iconColor: "text-mtg-green" },
                 ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: "ms-ability-dungeon", iconColor: "text-rarity-mythic" }] : []),
               ].map(link => (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
                   className={`group flex items-center transition-colors font-mtg-mono py-2 ${pathname === link.href ? "bg-mtg-blue/30 text-rarity-uncommon" : ""}`}
                   onClick={() => setDrawerOpen(false)}
+                  prefetch={false}
                 >
                   <i className={`ms ms-2x mr-2 ${link.icon} ${link.iconColor} group-hover:!text-rarity-uncommon min-w-[2rem]`}></i>
                   <span className="text-rarity-rare group-hover:!text-rarity-uncommon truncate block max-w-[70%]">{link.label}</span>
-                </a>
+                </Link>
               ))}
             <div className="border-t border-rarity-rare my-4" />
             {/* User Actions */}
             {isAuthenticated ? (
               <>
-                <a
+                <Link
                   href="/account"
                   className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer py-2"
                   title="Account"
                   onClick={() => setDrawerOpen(false)}
                 >
                   Welcome, {user?.username || user?.full_name || user?.email || 'User'}
-                </a>
+                </Link>
                 <button
                   onClick={() => { setDrawerOpen(false); onLogout(); }}
                   className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono mt-2"

@@ -25,7 +25,12 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           email: formData.email || formData.username,
           password: formData.password,
         });
-        showToast('Login successful!', 'success');
+        // Only show success if no error in authStore
+        if (!useAuthStore.getState().error) {
+          showToast('Login successful!', 'success');
+          setIsLoading(false);
+          onClose();
+        }
       } else {
         await register({
           username: formData.username,
@@ -33,10 +38,12 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           password: formData.password,
           full_name: formData.fullName,
         });
-        showToast('Registration successful! You are now logged in.', 'success');
+        if (!useAuthStore.getState().error) {
+          showToast('Registration successful! You are now logged in.', 'success');
+          setIsLoading(false);
+          onClose();
+        }
       }
-      setIsLoading(false);
-      onClose();
     } catch (error: any) {
       let msg = 'Authentication failed. Please try again.';
       if (error && typeof error === 'object' && error.message) {

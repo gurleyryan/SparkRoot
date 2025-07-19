@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import CollectionUpload from '@/components/CollectionUpload';
 import CollectionGrid from '@/components/CollectionGrid';
 import AuthModal from '@/components/AuthModal';
@@ -82,27 +83,27 @@ export default function Home() {
             <div className="sleeve-morphism rounded-xl p-8 max-w-2xl mx-auto border border-rarity-uncommon" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
               <h2 className="text-2xl font-mtg text-mtg-white mb-4">Welcome to MTG Deck Optimizer</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <a href="/collection" className="group text-center transition-colors">
+                <Link href="/collection" className="group text-center transition-colors">
                   <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                     <i className="ms ms-counter-lore ms-2x text-mtg-red group-hover:text-rarity-uncommon"></i>
                   </div>
                   <h3 className="font-semibold font-mtg-display text-mtg-white group-hover:text-rarity-uncommon">Collection</h3>
                   <p className="text-rarity-uncommon font-mtg-body text-sm">Upload and organize your cards with ease</p>
-                </a>
-                <a href="/deck-builder" className="group text-center transition-colors">
+                </Link>
+                <Link href="/deck-builder" className="group text-center transition-colors">
                   <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                     <i className="ms ms-commander ms-2x text-rarity-mythic group-hover:text-rarity-uncommon"></i>
                   </div>
                   <h3 className="font-semibold font-mtg-display text-mtg-white group-hover:text-rarity-uncommon">Deck Builder</h3>
                   <p className="text-rarity-uncommon font-mtg-body text-sm">Generate optimized Commander decks</p>
-                </a>
-                <a href="/pricing" className="group text-center transition-colors">
+                </Link>
+                <Link href="/pricing" className="group text-center transition-colors">
                   <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                     <i className="ms ms-counter-gold ms-2x text-rarity-rare group-hover:text-rarity-uncommon"></i>
                   </div>
                   <h3 className="font-semibold font-mtg-display text-mtg-white group-hover:text-rarity-uncommon">Pricing</h3>
                   <p className="text-rarity-uncommon font-mtg-body text-sm">Track card values and collection worth</p>
-                </a>
+                </Link>
               </div>
               <button
                 onClick={() => setShowAuthModal(true)}
