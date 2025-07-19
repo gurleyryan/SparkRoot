@@ -91,7 +91,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}> 
+    <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        <link rel="stylesheet" href="/fonts/mana-font/mana.min.css" />
+      </head>
       <body className="text-white antialiased font-mtg-body min-h-screen">
         <ToastProvider>
           <AuthHydrator />
