@@ -41,7 +41,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             {/* Title */}
             <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
               <Link href="/" className="flex items-center group min-w-0" aria-label="Go to home page">
-                <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8 md:w-8 md:h-8 sm:w-7 sm:h-7 xs:w-6 xs:h-6 group-hover:scale-105 transition-transform flex-shrink-0" />
+                <img src="/logo.svg" alt="SparkRoot Logo" className="w-8 h-8 md:w-8 md:h-8 sm:w-7 sm:h-7 xs:w-6 xs:h-6 group-hover:scale-105 transition-transform flex-shrink-0" />
                 <span
                   className="font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors font-bold break-words text-balance max-w-full w-full text-left whitespace-nowrap"
                   style={{
@@ -50,7 +50,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                     fontSize: 'clamp(1.5rem, 2.5vw, 3.2rem)',
                   }}
                 >
-                  MTG Deck Optimizer
+                  SparkRoot
                 </span>
               </Link>
             </div>

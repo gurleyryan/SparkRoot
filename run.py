@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Railway deployment runner for MTG Deck Optimizer
+Railway deployment runner for SparkRoot
 This file allows Railway to start the FastAPI app from the root directory
 """
 

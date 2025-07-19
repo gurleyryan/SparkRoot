@@ -26,7 +26,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 
 export const metadata: Metadata = {
-  title: "MTG Deck Optimizer",
+  title: "SparkRoot",
   description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
   icons: [
     { rel: "icon", url: "/favicon.ico", type: "image/x-icon" },
@@ -36,31 +36,31 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     type: "website",
-    url: "https://mtg-deck-optimizer.vercel.app/",
-    title: "MTG Deck Optimizer",
+    url: "https://www.sparkroot.cards/",
+    title: "SparkRoot",
     description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
     images: [
       {
-        url: "https://mtg-deck-optimizer.vercel.app/logo.png",
+        url: "https://www.sparkroot.cards/logo.png",
         width: 512,
         height: 512,
-        alt: "MTG Deck Optimizer Logo",
+        alt: "SparkRoot Logo",
         type: "image/png",
       },
       {
-        url: "https://mtg-deck-optimizer.vercel.app/logo.svg",
+        url: "https://www.sparkroot.cards/logo.svg",
         type: "image/svg+xml",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MTG Deck Optimizer",
+    title: "SparkRoot",
     description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
-    images: ["https://mtg-deck-optimizer.vercel.app/logo.png"],
-    site: "@MTGDeckOptimizer",
+    images: ["https://www.sparkroot.cards/logo.png"],
+    site: "@SparkRoot",
   },
-  metadataBase: new URL("https://mtg-deck-optimizer.vercel.app/"),
+  metadataBase: new URL("https://www.sparkroot.cards/"),
   themeColor: "#1a1a1a",
   viewport: "width=device-width, initial-scale=1",
   other: {
@@ -68,15 +68,15 @@ export const metadata: Metadata = {
     'ld+json': JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
-      'name': 'MTG Deck Optimizer',
-      'url': 'https://mtg-deck-optimizer.vercel.app/',
+      'name': 'SparkRoot',
+      'url': 'https://www.sparkroot.cards/',
       'description': 'Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.',
       'applicationCategory': 'ProductivityApplication',
       'operatingSystem': 'All',
-      'image': 'https://mtg-deck-optimizer.vercel.app/logo.png',
+      'image': 'https://www.sparkroot.cards/logo.png',
       'author': {
         '@type': 'Organization',
-        'name': 'MTG Deck Optimizer'
+        'name': 'SparkRoot'
       },
       'offers': {
         '@type': 'Offer',
@@ -104,7 +104,7 @@ export default function RootLayout({
             className="bg-mtg-black/50 font-mtg-body w-full text-center text-xs text-mtg-white py-4 mt-8"
             style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb), 0.5)" }}
           >
-            Magic: The Gathering® and all related logos, fonts, and trademarks are property of Wizards of the Coast. This is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
+            Magic: The Gathering® and all related logos, fonts, and trademarks are property of Wizards of the Coast. SparkRoot is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
           </footer>
         </ToastProvider>
       </body>

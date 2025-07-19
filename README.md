@@ -1,4 +1,4 @@
-# 🃏 MTG Deck Optimizer
+# 🃏 SparkRoot
 
 **A comprehensive Magic: The Gathering collection management and deck optimization platform with real-time pricing, advanced filtering, and powerful deck building tools.**
 
@@ -8,11 +8,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green.svg)](https://fastapi.tiangolo.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-BUSL--1.1-yellow.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Deployed-brightgreen.svg)](https://mtg-deck-optimizer.vercel.app/)
+[![Status](https://img.shields.io/badge/Status-Deployed-brightgreen.svg)](https://sparkroot.cards/)
 
 > **Professional-grade MTG deck building and collection management** - Transform your physical collection into optimized Commander decks through an intuitive, beautifully designed web interface with powerful Python algorithms for complex deck generation tasks.
 
-## 🚀 **Current Status: [Deployed](https://mtg-deck-optimizer.vercel.app/)**
+## 🚀 **Current Status: [Deployed](https://sparkroot.cards/)**
 
 ## 📢 Disclaimer
 

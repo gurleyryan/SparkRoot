@@ -84,7 +84,7 @@ def convert_numpy_types(collection):
                     card[key] = str(value)
     return collection
 
-app = FastAPI(title="MTG Deck Optimizer API", version="1.0.0")
+app = FastAPI(title="SparkRoot API", version="1.0.0")
 @app.get("/sentry-debug")
 async def trigger_error():
     division_by_zero = 1 / 0
@@ -190,8 +190,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://mtg-deck-optimizer.vercel.app",
-        "https://mtg-deck-optimizer-gurleyryan.vercel.app",
-        "https://mtg.up.railway.app"
+        "https://mtg.up.railway.app",
+        "https://sparkroot.cards",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -212,11 +212,11 @@ class DeckAnalysisRequest(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "MTG Deck Optimizer API is running!"}
+    return {"message": "SparkRoot API is running!"}
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "MTG Deck Optimizer API"}
+    return {"status": "healthy", "service": "SparkRoot API"}
 
 from fastapi import Query
 # Authentication endpoints

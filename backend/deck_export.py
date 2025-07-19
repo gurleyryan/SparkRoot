@@ -1,5 +1,5 @@
 """
-Deck export utilities for MTG Deck Optimizer
+Deck export utilities for SparkRoot
 Handles exporting generated decks to various formats
 """
 import json
@@ -25,7 +25,7 @@ def export_deck_to_txt(deck_data, filename=None):
     
     # Build the deck text
     lines = []
-    lines.append("// MTG Deck Optimizer - Generated Commander Deck")
+    lines.append("// SparkRoot - Generated Commander Deck")
     lines.append(f"// Commander: {deck_data['commander']['name']}")
     lines.append(f"// Color Identity: {', '.join(deck_data['commander'].get('color_identity', ['Colorless']))}")
     lines.append(f"// Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -81,7 +81,7 @@ def export_deck_to_json(deck_data, filename=None):
         "deck_size": deck_data["deck_size"],
         "total_cards": deck_data["total_cards"],
         "metadata": {
-            "tool": "MTG Deck Optimizer",
+            "tool": "SparkRoot",
             "version": "1.0"
         }
     }

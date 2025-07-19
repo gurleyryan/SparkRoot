@@ -1,8 +1,8 @@
 {
-  "name": "mtg-collection-optimizer-frontend",
+  "name": "sparkroot-frontend",
   "version": "1.0.0",
   "private": true,
-  "description": "MTG Collection Optimizer - Modern React Frontend",
+  "description": "SparkRoot - Modern React Frontend",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",

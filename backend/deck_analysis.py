@@ -1,5 +1,5 @@
 """
-Deck analysis and scoring system for MTG Deck Optimizer
+Deck analysis and scoring system for SparkRoot
 Evaluates deck quality, balance, and optimization potential
 """
 from collections import Counter

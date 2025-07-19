@@ -60,7 +60,7 @@ export default function HelpModal({ open, onClose }: HelpModalProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        <h2 id="help-modal-title" className="text-2xl font-bold mb-4 text-mtg-white">Welcome to MTG Deck Optimizer</h2>
+        <h2 id="help-modal-title" className="text-2xl font-bold mb-4 text-mtg-white">Welcome to SparkRoot</h2>
         <ol className="list-decimal list-inside text-mtg-white space-y-2 mb-4">
           <li>Sign up or log in to save your collection and decks.</li>
           <li>Upload your card collection (CSV from ManaBox, Moxfield, etc.).</li>

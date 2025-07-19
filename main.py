@@ -32,7 +32,7 @@ if __name__ == "__main__":
     # Import the app from backend.main
     from backend.main import app
     
-    print(f"🚀 Starting MTG Deck Optimizer on port {port}")
+    print(f"🚀 Starting SparkRoot on port {port}")
     print(f"📂 Current directory: {os.getcwd()}")
     
     try:

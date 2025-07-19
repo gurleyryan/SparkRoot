@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Supabase Setup Script for MTG Deck Optimizer
+Supabase Setup Script for SparkRoot
 Helps configure the environment for Supabase deployment
 """
 
@@ -156,7 +156,7 @@ def print_next_steps():
 
 def main():
     """Main setup function"""
-    print_header("MTG Deck Optimizer - Supabase Setup")
+    print_header("SparkRoot - Supabase Setup")
     
     if not check_requirements():
         print_error("Requirements check failed")

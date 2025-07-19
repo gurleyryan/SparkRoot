@@ -1,4 +1,4 @@
-# Audit Script for MTG Deck Optimizer
+# Audit Script for SparkRoot
 # This script checks for common security, dependency, and configuration issues in the repo.
 
 import os
@@ -47,7 +47,7 @@ def check_dependencies():
         print(f"Frontend dependency issue: {e}")
 
 def main():
-    print("--- MTG Deck Optimizer Audit ---")
+    print("--- SparkRoot Audit ---")
     check_files()
     check_env()
     check_dependencies()
