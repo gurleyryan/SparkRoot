@@ -26,7 +26,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
           <div className="flex justify-between items-center h-16">
             <a href="/" className="flex items-center gap-3 group" aria-label="Go to home page">
               <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8 group-hover:scale-105 transition-transform" />
-              <span className="text-5xl font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors">
+              <span className="text-3xl font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors">
                 MTG Deck Optimizer
               </span>
             </a>
