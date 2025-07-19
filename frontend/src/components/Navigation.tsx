@@ -1,6 +1,8 @@
 'use client';
 
 import type { User } from '@/types';
+import React, { useState } from 'react';
+import { usePathname } from 'next/navigation'; // <-- Import at top
 
 interface NavigationProps {
   isAuthenticated: boolean;
@@ -9,11 +11,10 @@ interface NavigationProps {
   onLogout: () => void;
 }
 
-import React, { useState } from 'react';
-
 export default function Navigation({ isAuthenticated, user, onLogin, onLogout }: NavigationProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isAdmin = user?.app_metadata?.role === 'admin';
+  const pathname = usePathname(); // <-- Use hook at top level
 
   // Prevent scroll when drawer is open (mobile UX)
   React.useEffect(() => {
@@ -36,9 +37,12 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
       <nav className="sleeve-morphism border-b-2 shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center h-16">
-            <a href="/" className="flex items-center gap-3 group" aria-label="Go to home page">
-              <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8 group-hover:scale-105 transition-transform" />
-              <span className="text-3xl font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors">
+            <a href="/" className="flex items-center gap-3 group min-w-0 flex-shrink flex-grow" aria-label="Go to home page">
+              <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8 group-hover:scale-105 transition-transform flex-shrink-0" />
+              <span
+                className="font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold break-words whitespace-normal text-balance max-w-full w-full text-left px-0 min-w-0 flex-grow"
+                style={{ lineHeight: '1.1', letterSpacing: '0.02em' }}
+              >
                 MTG Deck Optimizer
               </span>
             </a>
@@ -59,7 +63,6 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
 
             {/* Navigation Links (desktop) */}
             <div className="hidden md:flex items-center space-x-6" role="menubar" aria-label="Main menu">
-              {/* ...existing code... */}
               <a href="/collection" className="group flex items-center transition-colors font-mtg-mono">
                 <i className="ms ms-counter-lore ms-2x mr-2 text-mtg-red group-hover:!text-rarity-uncommon"></i>
                 <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Collection</span>
@@ -137,45 +140,23 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               </svg>
             </button>
             {/* Navigation Links */}
-            {(() => {
-              let pathname = '';
-              try {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const { usePathname } = require('next/navigation');
-                pathname = usePathname();
-              } catch {}
-              const navLinks = [
+            {[
                 { href: "/collection", label: "Collection", icon: "ms-counter-lore", iconColor: "text-mtg-red" },
                 { href: "/deck-builder", label: "Deck Builder", icon: "ms-commander", iconColor: "text-rarity-mythic" },
                 { href: "/pricing", label: "Pricing", icon: "ms-counter-gold", iconColor: "text-rarity-rare" },
-                { href: "/help", label: "Help", icon: "ms-question", iconColor: "text-mtg-green" },
-              ];
-              return (
-                <>
-                  {navLinks.map(link => (
-                    <a
-                      key={link.href}
-                      href={link.href}
-                      className={`group flex items-center transition-colors font-mtg-mono py-2 ${pathname === link.href ? "bg-mtg-blue/30 text-rarity-uncommon" : ""}`}
-                      onClick={() => setDrawerOpen(false)}
-                    >
-                      <i className={`ms ms-2x mr-2 ${link.icon} ${link.iconColor} group-hover:!text-rarity-uncommon`}></i>
-                      <span className="text-rarity-rare group-hover:!text-rarity-uncommon">{link.label}</span>
-                    </a>
-                  ))}
-                  {isAdmin && (
-                    <a
-                      href="/admin"
-                      className={`group flex items-center transition-colors font-mtg-mono py-2 ${pathname === "/admin" ? "bg-mtg-blue/30 text-rarity-uncommon" : ""}`}
-                      onClick={() => setDrawerOpen(false)}
-                    >
-                      <i className="ms ms-crown ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
-                      <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
-                    </a>
-                  )}
-                </>
-              );
-            })()}
+                { href: "/help", label: "Help", icon: "ms-party-wizard", iconColor: "text-mtg-green" },
+                ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: "ms-ability-dungeon", iconColor: "text-rarity-mythic" }] : []),
+              ].map(link => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className={`group flex items-center transition-colors font-mtg-mono py-2 ${pathname === link.href ? "bg-mtg-blue/30 text-rarity-uncommon" : ""}`}
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  <i className={`ms ms-2x mr-2 ${link.icon} ${link.iconColor} group-hover:!text-rarity-uncommon min-w-[2rem]`}></i>
+                  <span className="text-rarity-rare group-hover:!text-rarity-uncommon truncate block max-w-[70%]">{link.label}</span>
+                </a>
+              ))}
             <div className="border-t border-rarity-rare my-4" />
             {/* User Actions */}
             {isAuthenticated ? (
