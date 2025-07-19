@@ -1,4 +1,3 @@
-
 # User Authentication and Data Management API - Supabase Version
 
 from fastapi import Depends, HTTPException, status
@@ -304,6 +303,10 @@ async def get_profile(credentials: HTTPAuthorizationCredentials = Depends(securi
     user = await db.execute_query_one("SELECT * FROM users WHERE id = %s", (user_id,))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    # Extract role from JWT app_metadata
+    app_metadata = payload.get("app_metadata", {})
+    role = app_metadata.get("role", "user")
+    user["app_metadata"] = {"role": role}
     return user
 
 @router.get("/api/collections")
