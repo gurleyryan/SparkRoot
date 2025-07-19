@@ -38,16 +38,23 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
       </a>
       <nav className="sleeve-morphism border-b-2 shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
         <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center gap-3 group min-w-0 flex-shrink flex-grow" aria-label="Go to home page">
-              <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8 group-hover:scale-105 transition-transform flex-shrink-0" />
-              <span
-                className="font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold break-words whitespace-normal text-balance max-w-full w-full text-left px-0 min-w-0 flex-grow"
-                style={{ lineHeight: '1.1', letterSpacing: '0.02em' }}
-              >
-                MTG Deck Optimizer
-              </span>
-            </Link>
+          <div className="flex items-center h-16 gap-4 md:gap-8">
+            {/* Title (50%) */}
+            <div className="flex items-center gap-3 min-w-0 flex-shrink flex-grow basis-0" style={{ flexBasis: 0, flexGrow: 1, minWidth: 0 }}>
+              <Link href="/" className="flex items-center group min-w-0" aria-label="Go to home page">
+                <img src="/logo.svg" alt="MTG Deck Optimizer Logo" className="w-8 h-8 md:w-8 md:h-8 sm:w-7 sm:h-7 xs:w-6 xs:h-6 group-hover:scale-105 transition-transform flex-shrink-0" />
+                <span
+                  className="font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors font-bold break-words whitespace-nowrap text-balance max-w-full w-full text-left"
+                  style={{
+                    lineHeight: '1.1',
+                    letterSpacing: '0.02em',
+                    fontSize: 'clamp(1.5rem, 3.5vw, 3.2rem)',
+                  }}
+                >
+                  MTG Deck Optimizer
+                </span>
+              </Link>
+            </div>
 
             {/* Hamburger for mobile */}
             <button
@@ -63,58 +70,63 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               </svg>
             </button>
 
-            {/* Navigation Links (desktop) */}
-            <div className="hidden md:flex items-center space-x-6" role="menubar" aria-label="Main menu">
-              <Link href="/collection" className="group flex items-center transition-colors font-mtg-mono">
-                <i className="ms ms-counter-lore ms-2x mr-2 text-mtg-red group-hover:!text-rarity-uncommon"></i>
-                <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Collection</span>
-              </Link>
-              <Link href="/deck-builder" className="group flex items-center transition-colors font-mtg-mono">
-                <i className="ms ms-commander ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
-                <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Deck Builder</span>
-              </Link>
-              <Link href="/pricing" className="group flex items-center transition-colors font-mtg-mono">
-                <i className="ms ms-counter-gold ms-2x mr-2 text-rarity-rare group-hover:!text-rarity-uncommon"></i>
-                <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Pricing</span>
-              </Link>
-              <Link href="/help" className="group flex items-center transition-colors font-mtg-mono">
-                <i className="ms ms-party-wizard ms-2x mr-2 text-mtg-green group-hover:!text-rarity-uncommon"></i>
-                <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Help</span>
-              </Link>
-              {isAdmin && (
-                <Link href="/admin" className="group flex items-center transition-colors font-mtg-mono">
-                  <i className="ms ms-ability-dungeon ms-2x mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
-                  <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
+            {/* Nav links + user actions (50%) */}
+            <div className="hidden md:flex items-center justify-end min-w-0 flex-shrink flex-grow basis-0" style={{ flexBasis: 0, flexGrow: 1, minWidth: 0 }}>
+              <div className="flex items-center space-x-4 md:space-x-6" role="menubar" aria-label="Main menu">
+                <Link href="/collection" className="group flex items-center transition-colors font-mtg-mono whitespace-nowrap" style={{ fontSize: 'clamp(1rem, 2vw, 1.25rem)' }}>
+                  <i className="ms ms-counter-lore mr-2 text-mtg-red group-hover:!text-rarity-uncommon" style={{ fontSize: 'clamp(1.2rem, 2vw, 1.7rem)' }}></i>
+                  <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Collection</span>
                 </Link>
-              )}
-            </div>
-
-            {/* User Actions (desktop) */}
-            <div className="hidden md:flex items-center space-x-4">
-              {isAuthenticated ? (
-                <div className="flex items-center space-x-4">
-                  <a
-                    href="/account"
-                    className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer"
-                    title="Account"
-                  >
-                    Welcome, {user?.username || user?.full_name || user?.email || 'User'}
-                  </a>
+                <Link href="/deck-builder" className="group flex items-center transition-colors font-mtg-mono whitespace-nowrap" style={{ fontSize: 'clamp(1rem, 2vw, 1.25rem)' }}>
+                  <i className="ms ms-commander mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon" style={{ fontSize: 'clamp(1.2rem, 2vw, 1.7rem)' }}></i>
+                  <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Deck Builder</span>
+                </Link>
+                <Link href="/pricing" className="group flex items-center transition-colors font-mtg-mono whitespace-nowrap" style={{ fontSize: 'clamp(1rem, 2vw, 1.25rem)' }}>
+                  <i className="ms ms-counter-gold mr-2 text-rarity-rare group-hover:!text-rarity-uncommon" style={{ fontSize: 'clamp(1.2rem, 2vw, 1.7rem)' }}></i>
+                  <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Pricing</span>
+                </Link>
+                <Link href="/help" className="group flex items-center transition-colors font-mtg-mono whitespace-nowrap" style={{ fontSize: 'clamp(1rem, 2vw, 1.25rem)' }}>
+                  <i className="ms ms-party-wizard mr-2 text-mtg-green group-hover:!text-rarity-uncommon" style={{ fontSize: 'clamp(1.2rem, 2vw, 1.7rem)' }}></i>
+                  <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Help</span>
+                </Link>
+                {isAdmin && (
+                  <Link href="/admin" className="group flex items-center transition-colors font-mtg-mono whitespace-nowrap" style={{ fontSize: 'clamp(1rem, 2vw, 1.25rem)' }}>
+                    <i className="ms ms-ability-dungeon mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon" style={{ fontSize: 'clamp(1.2rem, 2vw, 1.7rem)' }}></i>
+                    <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
+                  </Link>
+                )}
+              </div>
+              {/* Spacer to keep user actions at a fixed distance from nav links */}
+              <div className="hidden md:block" style={{ width: '2rem' }} aria-hidden="true"></div>
+              {/* User Actions (desktop) */}
+              <div className="flex items-center space-x-4">
+                {isAuthenticated ? (
+                  <div className="flex items-center space-x-4">
+                    <a
+                      href="/account"
+                      className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer"
+                      title="Account"
+                    >
+                      Welcome, {user?.username || user?.full_name || user?.email || 'User'}
+                    </a>
+                    <button
+                      onClick={onLogout}
+                      className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
+                    ><i className="ms ms-b text-mtg-black mr-2"></i>
+                      Logout
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    onClick={onLogout}
-                    className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono"
-                  ><i className="ms ms-b text-mtg-black mr-2"></i>
-                    Logout
+                    onClick={onLogin}
+                    className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-4 py-2 rounded-lg transition-colors font-mtg-mono w-auto min-w-0"
+                    style={{maxWidth:'160px', width:'auto', whiteSpace:'nowrap'}}
+                  >
+                    <i className="ms ms-w text-mtg-white mr-2"></i>
+                    Sign In
                   </button>
-                </div>
-              ) : (
-                <button
-                  onClick={onLogin}
-                  className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-6 py-2 rounded-lg transition-colors font-mtg-mono"
-                ><i className="ms ms-w text-mtg-white mr-2"></i>
-                  Sign In
-                </button>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -183,9 +195,11 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             ) : (
               <button
                 onClick={() => { setDrawerOpen(false); onLogin(); }}
-                className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-6 py-2 rounded-lg transition-colors font-mtg-mono mt-2"
+                className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-4 py-2 rounded-lg transition-colors font-mtg-mono mt-2 w-auto min-w-0"
+                style={{maxWidth:'160px', width:'auto', whiteSpace:'nowrap'}}
                 type="button"
-              ><i className="ms ms-w text-mtg-white mr-2"></i>
+              >
+                <i className="ms ms-w text-mtg-white mr-2"></i>
                 Sign In
               </button>
             )}
