@@ -4,12 +4,6 @@ import BracketPicker from '@/components/BracketPicker';
 import { ApiClient } from '@/lib/api';
 import { useCollectionStore } from '@/store/collectionStore';
 
-interface DeckResult {
-  deck: Record<string, unknown>;
-  bracket: number;
-  [key: string]: unknown;
-}
-
 export interface DeckBuilderProps {
   onDeckGenerated: (cards: any[]) => void;
   onShowGameChangers: () => void;

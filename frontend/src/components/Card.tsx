@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 
 export interface CardProps {
   card: any;
@@ -59,11 +60,15 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
         aria-expanded={expanded}
       >
         {card.image ? (
-          <img
+          <Image
             src={card.image}
             alt={card.name}
+            width={488}
+            height={680}
             className="rounded w-full mb-2 shadow group-hover:scale-105 transition-transform"
             style={{ aspectRatio: "3/4", objectFit: "cover" }}
+            sizes="(max-width: 768px) 100vw, 300px"
+            priority={false}
           />
         ) : (
           <div className="w-full h-32 flex items-center justify-center bg-slate-800 rounded mb-2 text-xs text-slate-500">
@@ -102,11 +107,15 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
           </button>
           <div className="flex gap-4">
             {card.image && (
-              <img
+              <Image
                 src={card.image}
                 alt={card.name}
+                width={80}
+                height={112}
                 className="rounded w-20 h-auto self-center shadow"
                 style={{ maxHeight: "140px" }}
+                sizes="80px"
+                priority={false}
               />
             )}
             <div className="flex-1 min-w-0">

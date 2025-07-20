@@ -8,7 +8,7 @@ export default function CollectionPage() {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const logout = useAuthStore((s) => s.logout);
-  const [showAuthModal, setShowAuthModal] = React.useState(false);
+  const [, setShowAuthModal] = React.useState(false);
   return (
     <div className="min-h-screen">
       <Navigation

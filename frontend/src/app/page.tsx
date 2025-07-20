@@ -24,7 +24,7 @@ export default function Home() {
   // DeckBuilder dashboard state
   const [cardGridType, setCardGridType] = useState<null | 'deck' | 'gamechangers'>(null);
   const [deckCards, setDeckCards] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   // Handler for DeckBuilder to call when deck is generated
   const handleDeckGenerated = (cards: any[]) => {

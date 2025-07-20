@@ -1,5 +1,14 @@
+import os
+import json
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+from .tcgcsv_price_lookup import get_tcgcsv_price_for_card, load_tcgcsv_products_csv
+
+router = APIRouter()
+
 # --- Collection Pricing Helpers ---
-import asyncio
 
 async def enrich_collection_with_prices(collection: list, source: str = "tcgplayer") -> list:
     """
@@ -59,21 +68,6 @@ def calculate_collection_value(collection: list) -> dict:
         'by_set': by_set,
         'by_color': by_color
     }
-
-import os
-import json
-import asyncio
-import aiohttp
-import requests
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
-from typing import Any, Dict, List, Optional
-from datetime import datetime, timedelta
-from dataclasses import dataclass, field
-from collections import defaultdict
-from .tcgcsv_price_lookup import get_tcgcsv_price_for_card, load_tcgcsv_products_csv
-
-router = APIRouter()
 
 # --- Data Models ---
 @dataclass

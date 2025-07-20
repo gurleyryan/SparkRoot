@@ -7,7 +7,7 @@ export default function AdminPage() {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const logout = useAuthStore((s) => s.logout);
-  const [showAuthModal, setShowAuthModal] = React.useState(false);
+  const [, setShowAuthModal] = React.useState(false);
   // Use app_metadata.role for admin check
   const isAdmin = user?.app_metadata?.role === 'admin';
 

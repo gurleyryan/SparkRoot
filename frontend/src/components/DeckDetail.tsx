@@ -4,7 +4,7 @@ import ConfirmModal from "./ConfirmModal";
 import DetailModal from "./DetailModal";
 import { ApiClient } from "@/lib/api";
 import { useToast } from "./ToastProvider";
-import type { Deck, MTGCard } from "@/types";
+import type { Deck } from "@/types";
 
 interface DeckDetailProps {
   deckId: string;
