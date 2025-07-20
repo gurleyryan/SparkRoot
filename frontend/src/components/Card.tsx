@@ -138,7 +138,7 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
           }}
         >
           <div
-            className="bg-mtg-black border-4 border-rarity-mythic rounded-[25px] shadow-2xl p-6 text-left flex gap-4 animate-fade-in-up"
+            className={`bg-mtg-black border-4 ${borderClass} rounded-[25px] shadow-2xl p-6 text-left flex gap-4 animate-fade-in-up`}
             style={{
               boxShadow: '0 0 32px 8px rgba(248,153,28,0.25), 0 0 0 8px rgba(248,153,28,0.10)',
               filter: 'drop-shadow(0 0 32px #F8991C88)',
@@ -162,7 +162,7 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
                 alt={faces[faceIndex].name}
                 width={120}
                 height={168}
-                className="rounded-[8px] w-24 h-auto self-center shadow-lg border-2 border-rarity-mythic"
+                className={`rounded-[8px] w-24 h-auto self-center shadow-lg border-2 ${borderClass}`}
                 style={{ maxHeight: "180px" }}
                 sizes="120px"
                 priority={false}
@@ -173,7 +173,7 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
                 alt={card.name}
                 width={120}
                 height={168}
-                className="rounded-[8px] w-24 h-auto self-center shadow-lg border-2 border-rarity-mythic"
+                className={`rounded-[8px] w-24 h-auto self-center shadow-lg border-2 ${borderClass}`}
                 style={{ maxHeight: "180px" }}
                 sizes="120px"
                 priority={false}
@@ -184,7 +184,7 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
                 alt={card.name}
                 width={120}
                 height={168}
-                className="rounded-[8px] w-24 h-auto self-center shadow-lg border-2 border-rarity-mythic"
+                className={`rounded-[8px] w-24 h-auto self-center shadow-lg border-2 ${borderClass}`}
                 style={{ maxHeight: "180px" }}
                 sizes="120px"
                 priority={false}
