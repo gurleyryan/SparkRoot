@@ -114,7 +114,8 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
             No image
           </div>
         )}
-        {isDoubleFaced && (
+        {/* Only show face label if there is no image for this face */}
+        {isDoubleFaced && !imageUrl && (
           <div className="absolute bottom-2 right-2 bg-mtg-black/80 text-xs text-amber-300 px-2 py-1 rounded shadow pointer-events-none select-none">
             {faceIndex === 0 ? faces[0]?.name || 'Front' : faces[1]?.name || 'Back'}
           </div>
@@ -149,7 +150,30 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
             >
               ×
             </button>
-            {card.image && (
+            {/* Show correct image for DFCs in popover */}
+            {isDoubleFaced && faces[faceIndex]?.image_uris ? (
+              <Image
+                src={faces[faceIndex].image_uris.normal || faces[faceIndex].image_uris.large}
+                alt={faces[faceIndex].name}
+                width={120}
+                height={168}
+                className="rounded-[8px] w-24 h-auto self-center shadow-lg border-2 border-rarity-mythic"
+                style={{ maxHeight: "180px" }}
+                sizes="120px"
+                priority={false}
+              />
+            ) : card.image_uris ? (
+              <Image
+                src={card.image_uris.normal || card.image_uris.large}
+                alt={card.name}
+                width={120}
+                height={168}
+                className="rounded-[8px] w-24 h-auto self-center shadow-lg border-2 border-rarity-mythic"
+                style={{ maxHeight: "180px" }}
+                sizes="120px"
+                priority={false}
+              />
+            ) : card.image ? (
               <Image
                 src={card.image}
                 alt={card.name}
@@ -160,11 +184,22 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
                 sizes="120px"
                 priority={false}
               />
+            ) : (
+              <div className="w-24 h-32 flex items-center justify-center bg-slate-800 rounded-[8px] text-xs text-slate-500">
+                No image
+              </div>
             )}
             <div className="flex-1 min-w-0">
-              <div className="font-bold text-amber-300 mb-1 text-lg drop-shadow">{card.name}</div>
-              <div className="text-xs text-slate-300 mb-1 truncate" title={card.type_line}>{card.type_line}</div>
-              <div className="text-xs text-slate-100 whitespace-pre-line mb-1 line-clamp-4" title={card.oracle_text}>{card.oracle_text}</div>
+              {/* Show correct name for DFCs in popover */}
+              <div className="font-bold text-amber-300 mb-1 text-lg drop-shadow">
+                {isDoubleFaced ? faces[faceIndex]?.name || card.name : card.name}
+              </div>
+              <div className="text-xs text-slate-300 mb-1 truncate" title={isDoubleFaced ? faces[faceIndex]?.type_line || card.type_line : card.type_line}>
+                {isDoubleFaced ? faces[faceIndex]?.type_line || card.type_line : card.type_line}
+              </div>
+              <div className="text-xs text-slate-100 whitespace-pre-line mb-1 line-clamp-4" title={isDoubleFaced ? faces[faceIndex]?.oracle_text || card.oracle_text : card.oracle_text}>
+                {isDoubleFaced ? faces[faceIndex]?.oracle_text || card.oracle_text : card.oracle_text}
+              </div>
               {card.flavor_text && (
                 <div className="text-xs text-slate-400 mb-1 italic">{card.flavor_text}</div>
               )}
