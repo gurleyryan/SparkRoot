@@ -1,7 +1,5 @@
 "use client";
-import Navigation from "@/components/Navigation";
 import React from "react";
-import { useAuthStore } from "@/store/authStore";
 
 export default function HelpPage() {
   // FAQPage JSON-LD schema for Google rich results
@@ -51,18 +49,8 @@ export default function HelpPage() {
       }
     ]
   };
-  const user = useAuthStore((s) => s.user);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const logout = useAuthStore((s) => s.logout);
-  const [, setShowAuthModal] = React.useState(false);
   return (
     <div className="min-h-screen">
-      <Navigation
-        isAuthenticated={isAuthenticated}
-        user={user}
-        onLogin={() => setShowAuthModal(true)}
-        onLogout={logout}
-      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}

@@ -70,11 +70,13 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
           msg = (err as { message: string }).message || msg;
         }
         setError(msg);
-        showToast(msg, 'error');
+        // Only show toast if user is authenticated or attempted a protected action
+        // (Do not show on mount for unauthenticated users)
+        // Optionally, check isAuthenticated here if available
       }
     }
     fetchCollections();
-  }, [setCollections, setActiveCollection, showToast]);
+  }, [setCollections, setActiveCollection]);
 
   // Sort collections
   const sortedCollections = [...collections].sort((a, b) => {

@@ -1,9 +1,4 @@
 import React from 'react';
-import AuthHydrator from '../components/AuthHydrator';
-import PlaymatHydrator from '../components/PlaymatHydrator';
-import { ToastProvider } from '../components/ToastProvider';
-import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Analytics } from "@vercel/analytics/next"
 import type { Metadata } from "next";
 import { Cinzel, Source_Sans_3, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
@@ -89,28 +84,21 @@ export const metadata: Metadata = {
   }
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+// ClientShell: all client-only logic/components go here
+
+
+import ClientShell from './ClientShell';
+
+
+// Server Component RootLayout
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
       <head>
         <link rel="stylesheet" href="/fonts/mana-font/mana.min.css" />
       </head>
       <body className="text-white antialiased font-mtg-body min-h-screen">
-        <ToastProvider>
-          <AuthHydrator />
-          <PlaymatHydrator />
-          {children}
-          <Analytics />
-          <SpeedInsights />
-          <footer
-            className="bg-mtg-black/50 font-mtg-body w-full text-center text-xs text-mtg-white py-4 mt-8"
-            style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb), 0.5)" }}
-          >
-            Magic: The Gathering® and all related logos, fonts, and trademarks are property of Wizards of the Coast. SparkRoot is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
-          </footer>
-        </ToastProvider>
+        <ClientShell>{children}</ClientShell>
       </body>
     </html>
   );

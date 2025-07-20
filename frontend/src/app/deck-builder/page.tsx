@@ -1,16 +1,10 @@
 "use client";
 import DeckBuilder from "@/components/DeckBuilder";
-import Navigation from "@/components/Navigation";
 import CardGrid from "@/components/CardGrid";
 import GameChangers from "@/components/GameChangers";
-import { useAuthStore } from "@/store/authStore";
 import React, { useState } from "react";
 
 export default function DeckBuilderPage() {
-  const user = useAuthStore((s) => s.user);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const logout = useAuthStore((s) => s.logout);
-  const [, setShowAuthModal] = useState(false);
 
   // CardGrid state
   const [cardGridType, setCardGridType] = useState<null | 'deck' | 'gamechangers'>(null);
@@ -42,12 +36,6 @@ export default function DeckBuilderPage() {
 
   return (
     <div className="min-h-screen">
-      <Navigation
-        isAuthenticated={isAuthenticated}
-        user={user}
-        onLogin={() => setShowAuthModal(true)}
-        onLogout={logout}
-      />
       <DeckBuilder
         onDeckGenerated={handleDeckGenerated}
         onShowGameChangers={handleShowGameChangers}

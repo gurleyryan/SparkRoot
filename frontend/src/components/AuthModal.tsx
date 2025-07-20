@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useRef, useState } from "react";
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from "./ToastProvider";
