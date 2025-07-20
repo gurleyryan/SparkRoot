@@ -140,8 +140,6 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
           <div
             className={`bg-mtg-black border-4 ${borderClass} rounded-[25px] shadow-2xl p-6 text-left flex gap-4 animate-fade-in-up`}
             style={{
-              boxShadow: '0 0 32px 8px rgba(248,153,28,0.25), 0 0 0 8px rgba(248,153,28,0.10)',
-              filter: 'drop-shadow(0 0 32px #F8991C88)',
               position: 'relative',
             }}
             onClick={e => e.stopPropagation()}
