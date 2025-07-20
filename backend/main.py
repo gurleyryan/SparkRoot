@@ -56,7 +56,7 @@ from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_
 from backend.auth_supabase_rest import (
     UserResponse, CollectionSave, UserSettings,
     UserManager, get_user_from_token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
-    get_collection_by_id, update_collection, delete_collection
+    get_collection_by_id, update_collection, delete_collection, security
 )
 from backend.pricing import enrich_collection_with_prices, calculate_collection_value
 
@@ -391,15 +391,78 @@ async def delete_collection_endpoint(collection_id: str, current_user = Depends(
         raise HTTPException(status_code=500, detail="Failed to delete collection")
     return {"success": True, "message": "Collection deleted"}
 
+
+# --- Robust CSV upload, enrichment, and Supabase save for collections ---
+import pandas as pd
+import io
+from fastapi import Request
+
 @app.post("/api/collections")
-async def save_collection(
-    collection_data: CollectionSave,
-    current_user = Depends(get_user_from_token)
+async def upload_collection(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    """Save a collection for the current user"""
+    """
+    Accepts raw CSV (text/csv) in body, parses, enriches, and saves collection for authenticated user.
+    Returns the full saved collection (including cards).
+    """
+    # --- Auth ---
+    current_user = await get_user_from_token(credentials)
     user_id = current_user["id"]
-    collection_id = UserManager.save_collection(user_id, collection_data)
-    return {"success": True, "collection_id": collection_id}
+
+    # --- Read CSV from body ---
+    try:
+        csv_bytes = await request.body()
+        csv_text = csv_bytes.decode("utf-8")
+        df = pd.read_csv(io.StringIO(csv_text))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid CSV: {e}")
+
+    # --- Normalize and enrich ---
+    try:
+        from backend.utils import normalize_csv_format, enrich_collection_with_scryfall, load_scryfall_cards
+        df = normalize_csv_format(df)
+        scryfall_data = load_scryfall_cards()
+        enriched = enrich_collection_with_scryfall(df, scryfall_data)
+        # Convert to list of dicts for storage
+        cards = enriched.to_dict(orient="records")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Enrichment failed: {e}")
+
+    # --- Save to Supabase (collections table) ---
+    import httpx
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    payload = {
+        "user_id": user_id,
+        "name": "My Collection",  # Optionally parse from CSV or request
+        "description": None,
+        "collection_data": cards,
+        "is_public": False
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(f"{SUPABASE_URL}/rest/v1/collections", headers=headers, json=payload)
+            if resp.status_code not in (200, 201):
+                raise HTTPException(status_code=500, detail=f"Supabase error: {resp.text}")
+            data = resp.json()
+            if isinstance(data, list) and data:
+                collection = data[0]
+            elif isinstance(data, dict):
+                collection = data
+            else:
+                raise HTTPException(status_code=500, detail="Supabase returned no collection data")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save collection: {e}")
+
+    # --- Return the saved collection (including cards) ---
+    return {"success": True, "collection": collection}
 
 # Settings endpoints
 @app.get("/api/settings")

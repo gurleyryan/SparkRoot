@@ -45,6 +45,36 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     setIsUploading(true);
     setError(null);
     const file = acceptedFiles[0];
+    if (!file) {
+      setIsUploading(false);
+      setError('No file selected.');
+      return;
+    }
+    try {
+      // Read file as text
+      const text = await file.text();
+      // Use fetch directly since ApiClient.request is private
+      const res = await fetch('/api/collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/csv' },
+        body: text,
+        credentials: 'include', // session cookie
+      });
+      const data = await res.json();
+      if (data && data.collection) {
+        addCollection(data.collection);
+        if (onCollectionUploaded) onCollectionUploaded(data.collection.cards || []);
+        showToast('Collection uploaded and saved!', 'success');
+      } else {
+        setError('Failed to save collection.');
+        showToast('Failed to save collection.', 'error');
+      }
+    } catch (err: any) {
+      setError('Upload failed.');
+      showToast('Upload failed.', 'error');
+    } finally {
+    setIsUploading(false);
+    }
 
     // No token check needed; session is cookie-based
 
