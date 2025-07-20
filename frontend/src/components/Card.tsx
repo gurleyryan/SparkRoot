@@ -93,33 +93,38 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
     <div ref={cardRef} className={`relative ${className}`} tabIndex={0}>
       <button
         type="button"
-        className={`block rounded-[28px] border-4 ${borderClass} hover:bg-card-black transition group text-left w-full focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-lg`}
+        className={`block rounded-[28px] hover:bg-card-black transition-colors transition-transform duration-200 group text-left w-full focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-lg`}
         title={card.name}
         onClick={handleCardClick}
         onDoubleClick={handleCardDoubleClick}
         aria-expanded={expanded}
       >
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={card.name}
-            width={488}
-            height={680}
-            className="rounded-[25px] w-full shadow group-hover:scale-105 transition-transform"
-            sizes="(max-width: 768px) 100vw, 300px"
-            priority={false}
-          />
-        ) : (
-          <div className="w-full h-32 flex items-center justify-center bg-slate-800 rounded-[25px] text-xs text-slate-500">
-            No image
-          </div>
-        )}
-        {/* Only show face label if there is no image for this face */}
-        {isDoubleFaced && !imageUrl && (
-          <div className="absolute bottom-2 right-2 bg-mtg-black/80 text-xs text-amber-300 px-2 py-1 rounded shadow pointer-events-none select-none">
-            {faceIndex === 0 ? faces[0]?.name || 'Front' : faces[1]?.name || 'Back'}
-          </div>
-        )}
+        <div
+          className={`relative rounded-[25px] border-4 ${borderClass} transition-all duration-200 w-full group-hover:scale-105 group-hover:border-8`}
+          style={{ boxSizing: 'border-box' }}
+        >
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={card.name}
+              width={488}
+              height={680}
+              className="rounded-[21px] w-full shadow transition-transform duration-200"
+              sizes="(max-width: 768px) 100vw, 300px"
+              priority={false}
+            />
+          ) : (
+            <div className="w-full h-32 flex items-center justify-center bg-slate-800 rounded-[21px] text-xs text-slate-500">
+              No image
+            </div>
+          )}
+          {/* Only show face label if there is no image for this face */}
+          {isDoubleFaced && !imageUrl && (
+            <div className="absolute bottom-2 right-2 bg-mtg-black/80 text-xs text-amber-300 px-2 py-1 rounded shadow pointer-events-none select-none">
+              {faceIndex === 0 ? faces[0]?.name || 'Front' : faces[1]?.name || 'Back'}
+            </div>
+          )}
+        </div>
       </button>
       {expanded && (
         <div
