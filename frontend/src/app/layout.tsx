@@ -2,6 +2,7 @@ import React from 'react';
 import AuthHydrator from '../components/AuthHydrator';
 import PlaymatHydrator from '../components/PlaymatHydrator';
 import { ToastProvider } from '../components/ToastProvider';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import type { Metadata } from "next";
 import { Cinzel, Source_Sans_3, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
@@ -100,6 +101,7 @@ export default function RootLayout({
           <AuthHydrator />
           <PlaymatHydrator />
           {children}
+          <SpeedInsights />
           <footer
             className="bg-mtg-black/50 font-mtg-body w-full text-center text-xs text-mtg-white py-4 mt-8"
             style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb), 0.5)" }}
