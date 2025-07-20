@@ -190,7 +190,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://mtg-deck-optimizer.vercel.app",
+        "https://mtg-deck-optimizer-gurleyco.vercel.app/",
+        "https://mtg-deck-optimizer-git-main-gurleyco.vercel.app/",
         "https://mtg.up.railway.app",
+        "https://www.sparkroot.cards",
         "https://sparkroot.cards",
     ],
     allow_credentials=True,
