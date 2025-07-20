@@ -35,27 +35,9 @@ const GameChangers: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             const resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
             if (!resp.ok) throw new Error('Not found');
             const data = await resp.json();
-            return {
-              name: data.name,
-              image: data.image_uris?.normal || data.image_uris?.small || '',
-              oracle_text: data.oracle_text || '',
-              scryfall_uri: data.scryfall_uri,
-              mana_cost: data.mana_cost || '',
-              type_line: data.type_line || '',
-              color_identity: data.color_identity || [],
-              flavor_text: data.flavor_text || '',
-              artist: data.artist || '',
-              reserved: !!data.reserved,
-              legalities: data.legalities || {},
-              set_name: data.set_name || '',
-              collector_number: data.collector_number || '',
-              illustration_id: data.illustration_id || '',
-              prices: data.prices || {},
-              rarity: data.rarity || '',
-              released_at: data.released_at || '',
-            };
+            return data; // Return full Scryfall card object for DFC support
           } catch {
-            return { name, image: '', oracle_text: 'Not found', scryfall_uri: '', mana_cost: '', type_line: '', color_identity: [], flavor_text: '', artist: '', reserved: false, legalities: {}, set_name: '', collector_number: '', illustration_id: '', prices: {}, rarity: '', released_at: '' };
+            return { name, oracle_text: 'Not found' };
           }
         })
       ).then(setGameChangerCards)
