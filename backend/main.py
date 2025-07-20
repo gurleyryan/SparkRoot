@@ -367,6 +367,45 @@ async def get_collection(collection_id: str, current_user = Depends(get_user_fro
         raise HTTPException(status_code=404, detail="Collection not found or not owned by user")
     return {"success": True, "collection": collection}
 
+# --- Export collection as CSV or JSON ---
+from fastapi.responses import StreamingResponse
+import csv
+import io
+
+@app.get("/api/collections/{collection_id}/export")
+async def export_collection(collection_id: str, format: str = "json"):
+    """Export a public or owned collection as CSV or JSON."""
+    # Try to get collection as public first
+    collection = get_collection_by_id(None, collection_id, allow_public=True)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found or not public")
+    cards = collection.get("cards", [])
+    if format == "csv":
+        if not cards:
+            output = io.StringIO()
+            writer = csv.writer(output)
+            writer.writerow(["No cards"])
+            output.seek(0)
+            return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=collection_{collection_id}.csv"})
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=cards[0].keys())
+        writer.writeheader()
+        for card in cards:
+            writer.writerow(card)
+        output.seek(0)
+        return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=collection_{collection_id}.csv"})
+    else:
+        return JSONResponse(content=cards, headers={"Content-Disposition": f"attachment; filename=collection_{collection_id}.json"})
+
+# --- Public collection viewing endpoint ---
+@app.get("/api/collections/public/{collection_id}")
+async def get_public_collection(collection_id: str):
+    """Get a public collection by ID (no auth required)"""
+    collection = get_collection_by_id(None, collection_id, allow_public=True)
+    if not collection or not collection.get("is_public"):
+        raise HTTPException(status_code=404, detail="Collection not found or not public")
+    return {"success": True, "collection": collection}
+
 @app.put("/api/collections/{collection_id}")
 async def update_collection_endpoint(collection_id: str, data: dict, current_user = Depends(get_user_from_token)):
     """Update a collection for the current user"""
