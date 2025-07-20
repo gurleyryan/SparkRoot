@@ -24,25 +24,41 @@ const GameChangers: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [loadingCards, setLoadingCards] = React.useState(false);
   const [errorCards, setErrorCards] = React.useState<string | null>(null);
 
-  // Fetch Scryfall data for all Game Changers on mount
+  // Fetch Scryfall data for all Game Changers on mount, and attach set_icon_svg_uri
   React.useEffect(() => {
     if (gameChangerCards.length === 0 && !loadingCards) {
       setLoadingCards(true);
       setErrorCards(null);
-      Promise.all(
-        GAME_CHANGERS.map(async (name) => {
-          try {
-            const resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
-            if (!resp.ok) throw new Error('Not found');
-            const data = await resp.json();
-            return data; // Return full Scryfall card object for DFC support
-          } catch {
-            return { name, oracle_text: 'Not found' };
-          }
+      // Fetch set metadata first
+      fetch('https://api.scryfall.com/sets')
+        .then(res => res.json())
+        .then(setData => {
+          const setIconLookup: Record<string, string> = {};
+          (setData.data || []).forEach((setObj: any) => {
+            setIconLookup[setObj.code.toLowerCase()] = setObj.icon_svg_uri;
+          });
+          // Now fetch all cards
+          Promise.all(
+            GAME_CHANGERS.map(async (name) => {
+              try {
+                const resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+                if (!resp.ok) throw new Error('Not found');
+                const data = await resp.json();
+                // Attach set_icon_svg_uri for overlay support
+                const setCode = (data.set || '').toLowerCase();
+                return { ...data, set_icon_svg_uri: setIconLookup[setCode] };
+              } catch {
+                return { name, oracle_text: 'Not found' };
+              }
+            })
+          ).then(setGameChangerCards)
+            .catch(() => setErrorCards('Failed to load card data.'))
+            .finally(() => setLoadingCards(false));
         })
-      ).then(setGameChangerCards)
-        .catch(() => setErrorCards('Failed to load card data.'))
-        .finally(() => setLoadingCards(false));
+        .catch(() => {
+          setErrorCards('Failed to load set metadata.');
+          setLoadingCards(false);
+        });
     }
   }, [gameChangerCards.length, loadingCards]);
 

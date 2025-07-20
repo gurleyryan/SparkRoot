@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import AuraFrame from "./AuraFrame";
+import ExpandedCardInfo from "./ExpandedCardInfo";
 
 export interface CardProps {
   card: any;
@@ -17,40 +19,26 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
   const [expanded, setExpanded] = useState(false);
   const [faceIndex, setFaceIndex] = useState(0); // 0 = front, 1 = back (for DFCs)
   const cardRef = useRef<HTMLDivElement>(null);
-  const [popoverShift, setPopoverShift] = useState(0);
+  const [cardRect, setCardRect] = useState<DOMRect | null>(null);
 
-  // Calculate popover horizontal shift to keep it in viewport
+  // When expanded, capture the card's bounding rect for overlay positioning
   useEffect(() => {
     if (expanded && cardRef.current) {
-      const rect = cardRef.current.getBoundingClientRect();
-      const popoverWidth = 360; // maxWidth of popover
-      const padding = 16; // px from edge
-      let shift = 0;
-      if (rect.left + popoverWidth / 2 > window.innerWidth - padding) {
-        shift = rect.left + popoverWidth / 2 - (window.innerWidth - padding);
-      } else if (rect.left + rect.width / 2 - popoverWidth / 2 < padding) {
-        shift = rect.left + rect.width / 2 - popoverWidth / 2 - padding;
-      }
-      setPopoverShift(shift);
+      setCardRect(cardRef.current.getBoundingClientRect());
+    } else {
+      setCardRect(null);
     }
   }, [expanded]);
 
-  // Close on Escape or outside click
+  // Close on Escape
   useEffect(() => {
     if (!expanded) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setExpanded(false);
     };
-    const handleClick = (e: MouseEvent) => {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        setExpanded(false);
-      }
-    };
     window.addEventListener("keydown", handleKey);
-    window.addEventListener("mousedown", handleClick);
     return () => {
       window.removeEventListener("keydown", handleKey);
-      window.removeEventListener("mousedown", handleClick);
     };
   }, [expanded]);
 
@@ -75,19 +63,26 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
     imageUrl = card.image;
   }
 
-  // Handle click: flip for DFC, expand for normal
+  // Single click: expand/collapse for single-faced, flip for DFC (even when expanded)
   const handleCardClick = (e: React.MouseEvent) => {
     if (isDoubleFaced) {
+      // If expanded, only flip face, do not close overlay
       setFaceIndex((prev) => (prev === 0 ? 1 : 0));
     } else {
       setExpanded((v) => !v);
     }
   };
 
-  // Double click always expands (for both types)
+  // Double click: expand/collapse for DFC
   const handleCardDoubleClick = (e: React.MouseEvent) => {
-    setExpanded((v) => !v);
+    if (isDoubleFaced) {
+      setExpanded((v) => !v);
+    }
+    // For single-faced, do nothing (single click already handles expand/collapse)
   };
+
+  // Compute classes for the card image wrapper: pop out if hovered or expanded
+  const popOutClass = expanded ? 'scale-105 border-8' : '';
 
   return (
     <div ref={cardRef} className={`relative ${className}`} tabIndex={0}>
@@ -100,8 +95,8 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
         aria-expanded={expanded}
       >
         <div
-          className={`relative rounded-[25px] border-4 ${borderClass} transition-all duration-200 w-full group-hover:scale-105 group-hover:border-8`}
-          style={{ boxSizing: 'border-box' }}
+          className={`relative rounded-[25px] border-4 ${borderClass} transition-all duration-200 w-full group-hover:scale-105 group-hover:border-8 ${popOutClass}`}
+          style={{ boxSizing: 'border-box', cursor: isDoubleFaced ? 'pointer' : undefined }}
         >
           {imageUrl ? (
             <Image
@@ -126,96 +121,22 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
           )}
         </div>
       </button>
-      {expanded && (
-        <div
-          className="absolute left-1/2 top-1/2 z-40"
-          style={{
-            transform: `translate(-50%, -50%) translateX(${-popoverShift}px)`,
-            minWidth: 320,
-            maxWidth: 360,
-            width: 'max-content',
-            pointerEvents: 'auto',
-          }}
-        >
-          <div
-            className={`bg-mtg-black border-4 ${borderClass} rounded-[25px] shadow-2xl p-6 text-left flex gap-4 animate-fade-in-up`}
-            style={{
-              position: 'relative',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setExpanded(false)}
-              className="absolute top-2 right-2 text-slate-400 hover:text-amber-400 text-xl font-bold"
-              aria-label="Close"
-              tabIndex={-1}
-              style={{ pointerEvents: 'auto' }}
-            >
-              ×
-            </button>
-            {/* Show correct image for DFCs in popover */}
-            {isDoubleFaced && faces[faceIndex]?.image_uris ? (
-              <Image
-                src={faces[faceIndex].image_uris.normal || faces[faceIndex].image_uris.large}
-                alt={faces[faceIndex].name}
-                width={120}
-                height={168}
-                className={`rounded-[8px] w-24 h-auto self-center shadow-lg border-2 ${borderClass}`}
-                style={{ maxHeight: "180px" }}
-                sizes="120px"
-                priority={false}
-              />
-            ) : card.image_uris ? (
-              <Image
-                src={card.image_uris.normal || card.image_uris.large}
-                alt={card.name}
-                width={120}
-                height={168}
-                className={`rounded-[8px] w-24 h-auto self-center shadow-lg border-2 ${borderClass}`}
-                style={{ maxHeight: "180px" }}
-                sizes="120px"
-                priority={false}
-              />
-            ) : card.image ? (
-              <Image
-                src={card.image}
-                alt={card.name}
-                width={120}
-                height={168}
-                className={`rounded-[8px] w-24 h-auto self-center shadow-lg border-2 ${borderClass}`}
-                style={{ maxHeight: "180px" }}
-                sizes="120px"
-                priority={false}
-              />
-            ) : (
-              <div className="w-24 h-32 flex items-center justify-center bg-slate-800 rounded-[8px] text-xs text-slate-500">
-                No image
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              {/* Show correct name for DFCs in popover */}
-              <div className="font-bold text-amber-300 mb-1 text-lg drop-shadow">
-                {isDoubleFaced ? faces[faceIndex]?.name || card.name : card.name}
-              </div>
-              <div className="text-xs text-slate-300 mb-1 truncate" title={isDoubleFaced ? faces[faceIndex]?.type_line || card.type_line : card.type_line}>
-                {isDoubleFaced ? faces[faceIndex]?.type_line || card.type_line : card.type_line}
-              </div>
-              <div className="text-xs text-slate-100 whitespace-pre-line mb-1 line-clamp-4" title={isDoubleFaced ? faces[faceIndex]?.oracle_text || card.oracle_text : card.oracle_text}>
-                {isDoubleFaced ? faces[faceIndex]?.oracle_text || card.oracle_text : card.oracle_text}
-              </div>
-              {card.flavor_text && (
-                <div className="text-xs text-slate-400 mb-1 italic">{card.flavor_text}</div>
-              )}
-              {card.artist && (
-                <div className="text-xs text-slate-400 mb-1 truncate">Illustrated by {card.artist}</div>
-              )}
-              {card.reserved && (
-                <div className="text-xs text-slate-400 mb-1 truncate">Reserved List</div>
-              )}
-              {/* Add more details as needed */}
-            </div>
-          </div>
-        </div>
+      {/* Aura and expanded info overlays (no card image, only info around the card) */}
+      {expanded && cardRect && (
+        <>
+          <AuraFrame cardRect={cardRect} borderClass={borderClass} />
+          <ExpandedCardInfo
+            card={card}
+            faces={faces}
+            faceIndex={faceIndex}
+            isDoubleFaced={isDoubleFaced}
+            cardRect={cardRect}
+            borderClass={borderClass}
+            onClose={() => setExpanded(false)}
+            // New prop to indicate "frame only" mode (no art)
+            frameOnly={true}
+          />
+        </>
       )}
     </div>
   );

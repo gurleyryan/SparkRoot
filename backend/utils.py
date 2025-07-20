@@ -201,7 +201,7 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
     
     # Build lookups from Scryfall data
     scryfall_lookup = {card["id"]: card for card in scryfall_data}
-    
+
     # Build name + set lookup for when Scryfall ID isn't available
     name_set_lookup = {}
     for card in scryfall_data:
@@ -211,23 +211,44 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
         if key not in name_set_lookup:  # Prefer first match
             name_set_lookup[key] = card
 
+    # --- Scryfall set icon SVG enrichment ---
+    # Download Scryfall set data (if not already cached)
+    import requests
+    SETS_CACHE_PATH = "data/data/scryfall_sets.json"
+    if os.path.exists(SETS_CACHE_PATH):
+        with open(SETS_CACHE_PATH, "r", encoding="utf-8") as f:
+            scryfall_sets = json.load(f)["data"] if "data" in json.load(f) else json.load(f)
+    else:
+        print("Downloading Scryfall set metadata...")
+        sets_resp = requests.get("https://api.scryfall.com/sets")
+        scryfall_sets = sets_resp.json()["data"]
+        os.makedirs(os.path.dirname(SETS_CACHE_PATH), exist_ok=True)
+        with open(SETS_CACHE_PATH, "w", encoding="utf-8") as f:
+            json.dump({"data": scryfall_sets}, f)
+    # Build set code to icon_svg_uri lookup
+    set_icon_lookup = {s["code"].lower(): s.get("icon_svg_uri") for s in scryfall_sets}
+
     enriched = []
 
     for _, row in expanded_df.iterrows():
         card_data = None
-        
+
         # Try Scryfall ID lookup first
         if "Scryfall ID" in row and pd.notna(row["Scryfall ID"]):
             card_id = str(row["Scryfall ID"]).strip()
             card_data = scryfall_lookup.get(card_id)
-        
+
         # Fall back to name + set lookup
         if not card_data and "Name" in row and "Set code" in row:
             name = str(row["Name"]).lower().strip()
             set_code = str(row["Set code"]).lower().strip()
             lookup_key = f"{name}|{set_code}"
             card_data = name_set_lookup.get(lookup_key)
-        
+
+        # Get set icon SVG URI if possible
+        set_code = (card_data.get("set") if card_data else row.get("Set code"))
+        set_icon_svg_uri = set_icon_lookup.get(str(set_code).lower()) if set_code else None
+
         if card_data:
             # Create enriched card entry - start with essential CSV data
             enriched_card = {
@@ -238,7 +259,7 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
                 "collector_number": row.get("Collector number"),
                 "quantity": row.get("Quantity", 1),
                 "card_instance": row.get("card_instance", 1),
-                
+
                 # Card condition and physical properties
                 "condition": row.get("Condition"),
                 "language": row.get("Language"),
@@ -246,20 +267,20 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
                 "altered": row.get("Altered"),
                 "proxy": row.get("Proxy"),
                 "misprint": row.get("Misprint"),
-                
+
                 # Platform-specific data
                 "manabox_id": row.get("ManaBox ID"),
                 "tradelist_count": row.get("Tradelist count"),
                 "tags": row.get("Tags"),
                 "last_modified": row.get("Last modified"),
-                
+
                 # Financial data
                 "purchase_price": row.get("Purchase price"),
                 "purchase_price_currency": row.get("Purchase price currency"),
-                
+
                 # Original CSV rarity (to avoid conflict with Scryfall)
                 "rarity_csv": row.get("Rarity"),
-                
+
                 # Scryfall enriched data
                 "name": card_data.get("name"),
                 "oracle_text": card_data.get("oracle_text"),
@@ -278,7 +299,9 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
                 "set": card_data.get("set"),
                 "scryfall_set_name": card_data.get("set_name"),
                 "rarity": card_data.get("rarity"),
-                "scryfall_id": card_data.get("id")
+                "scryfall_id": card_data.get("id"),
+                # Set icon SVG URI
+                "set_icon_svg_uri": set_icon_svg_uri
             }
             enriched.append(enriched_card)
         else:
@@ -304,7 +327,9 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
                 "purchase_price": row.get("Purchase price"),
                 "purchase_price_currency": row.get("Purchase price currency"),
                 "rarity": row.get("Rarity"),
-                "scryfall_id": row.get("Scryfall ID")
+                "scryfall_id": row.get("Scryfall ID"),
+                # Set icon SVG URI (fallback, may be None)
+                "set_icon_svg_uri": set_icon_svg_uri
             }
             enriched_card["name"] = row.get("Name", "Unknown")
             enriched.append(enriched_card)
