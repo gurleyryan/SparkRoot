@@ -67,7 +67,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-rarity-rare">Import Collection</h2>
               <button
-                className="btn-secondary text-white px-3 py-1 rounded"
+                className="btn-secondary text-white px-3 rounded"
                 onClick={() => setShowImportModal(false)}
               >
                 Close
@@ -79,29 +79,31 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
       )}
 
       {/* Main grid UI */}
-      <div className="sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
-        <div className="container mx-auto w-full shadow-md px-0 sm:px-0 py-0 flex flex-col">
-          <h2 className="text-3xl font-mtg pt-4 pb-2 text-rarity-rare">Collection</h2>
+      <div className="sleeve-morphism mx-auto flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+        <div className="container mx-auto shadow-md px-0 sm:px-0 flex flex-col">
           <div className="flex flex-col md:flex-row gap-4 pb-4 items-start">
             {/* Left column: buttons and collection dropdown */}
-            <div className="flex-1 min-w-[260px] flex flex-col gap-4">
-              <div className="flex gap-2 flex-wrap mb-2">
-                <button className="btn-secondary" onClick={() => setShowImportModal(true)}>Import</button>
-                <button className="btn-secondary" onClick={() => setShowExportModal(true)} disabled={!activeCollection}>Export</button>
-                <button className="btn-secondary" onClick={() => setShowRenameModal(true)} disabled={!activeCollection}>Rename/Edit</button>
-                <button
-                  className="btn-secondary text-red-500 border-red-500"
-                  onClick={() => {
-                    selectedIds.forEach(id => {
-                      deleteCollection(id);
-                      showToast('Collection deleted', 'success');
-                    });
-                    setSelectedIds([]);
-                  }}
-                  disabled={selectedIds.length === 0}
-                >
-                  Delete Selected
-                </button>
+            <div className="flex-1 flex flex-col">
+              <div className="flex flex-row items-end justify-between mb-4">
+                <h2 className="text-3xl font-mtg pt-4 text-rarity-rare">Collection</h2>
+                <div className="flex gap-2 flex-wrap">
+                  <button className="btn-secondary" onClick={() => setShowImportModal(true)}>Import</button>
+                  <button className="btn-secondary" onClick={() => setShowExportModal(true)} disabled={!activeCollection}>Export</button>
+                  <button className="btn-secondary" onClick={() => setShowRenameModal(true)} disabled={!activeCollection}>Rename/Edit</button>
+                  <button
+                    className="btn-secondary text-red-500 border-red-500"
+                    onClick={() => {
+                      selectedIds.forEach(id => {
+                        deleteCollection(id);
+                        showToast('Collection deleted', 'success');
+                      });
+                      setSelectedIds([]);
+                    }}
+                    disabled={selectedIds.length === 0}
+                  >
+                    Delete Selected
+                  </button>
+                </div>
               </div>
               <select
                 value={activeCollection?.id || ''}
@@ -109,7 +111,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                   const selected = collections.find(c => c.id === e.target.value);
                   if (selected) setActiveCollection(selected);
                 }}
-                className="w-full px-4 py-2 bg-mtg-black border border-mtg-blue rounded-lg text-white focus:border-rarity-mythic focus:outline-none mb-2 cursor-pointer"
+                className="form-input px-2 py-2 bg-mtg-black border border-mtg-blue rounded-lg text-white focus:border-rarity-mythic focus:outline-none cursor-pointer"
               >
                 <option value="">Select a collection...</option>
                 {collections.map(col => (
@@ -118,36 +120,36 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
               </select>
             </div>
             {/* Right column: controls and main content */}
-            <div className="flex-[2] w-full">
-              <div className="rounded-xl shadow-lg p-4 mb-6 flex flex-col md:flex-row gap-4 items-start flex-shrink-0">
+            <div className="flex-[1]">
+              <div className="rounded-xl shadow-lg flex flex-col md:flex-row gap-4 py-3 items-start flex-shrink-0">
                 <div className="flex-1 min-w-[260px] flex flex-col gap-2">
-                  <div className="flex gap-2 items-center mb-2">
+                  <div className="flex gap-2 items-center">
                     <label className="text-rarity-uncommon text-sm">Sort by:</label>
-                    <select className="form-input px-2 py-1 rounded border border-mtg-blue bg-mtg-black text-white cursor-pointer" value={sortField} onChange={e => setSortField(e.target.value as 'name' | 'created_at')}>
+                    <select className="form-input px-2 py-2 rounded border border-mtg-blue bg-mtg-black text-white cursor-pointer" value={sortField} onChange={e => setSortField(e.target.value as 'name' | 'created_at')}>
                       <option value="name">Name</option>
                       <option value="created_at">Created</option>
                     </select>
-                    <select className="form-input px-2 py-1 rounded border border-mtg-blue bg-mtg-black text-white cursor-pointer" value={sortDir} onChange={e => setSortDir(e.target.value as 'asc' | 'desc')}>
+                    <select className="form-input px-2 py-2 rounded border border-mtg-blue bg-mtg-black text-white cursor-pointer" value={sortDir} onChange={e => setSortDir(e.target.value as 'asc' | 'desc')}>
                       <option value="asc">Asc</option>
                       <option value="desc">Desc</option>
                     </select>
-                    <div className="flex gap-2 items-center ml-4">
+                    <div className="flex gap-2 items-center">
                       <label className="text-rarity-uncommon text-sm">View:</label>
                       <button
                         type="button"
-                        className={`btn-secondary px-2 py-1 ${viewMode === 'grid' ? 'bg-mtg-blue text-white' : ''}`}
+                        className={`btn-secondary px-2 py-2 ${viewMode === 'grid' ? 'bg-mtg-blue text-white' : ''}`}
                         onClick={() => setViewMode('grid')}
                       >Grid</button>
                       <button
                         type="button"
-                        className={`btn-secondary px-2 py-1 ${viewMode === 'list' ? 'bg-mtg-blue text-white' : ''}`}
+                        className={`btn-secondary px-2 py-2 ${viewMode === 'list' ? 'bg-mtg-blue text-white' : ''}`}
                         onClick={() => setViewMode('list')}
                       >List</button>
                     </div>
                   </div>
                   <input
                     type="text"
-                    className="form-input px-2 py-1 rounded border border-mtg-blue bg-mtg-black text-white"
+                    className="form-input px-2 py-2 rounded border border-mtg-blue bg-mtg-black text-white"
                     placeholder="Search collections..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}

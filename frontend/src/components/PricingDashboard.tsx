@@ -22,7 +22,7 @@ export default function PricingDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   // Advanced analytics state
-  const [activeTab, setActiveTab] = useState<'trends' | 'cei' | 'deck' | 'invest' | 'roi'>('trends');
+  const [activeTab, setActiveTab] = useState<'trends' | 'cei' | 'deck' | 'card' | 'collection'>('trends');
   const [cei, setCei] = useState<any[]>([]);
   const [deckCostToWin, setDeckCostToWin] = useState<any[]>([]);
   const [investmentWatch, setInvestmentWatch] = useState<any[]>([]);
@@ -84,17 +84,27 @@ export default function PricingDashboard() {
   return (
     <div className="sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
       <div className="container mx-auto w-full shadow-md px-0 sm:px-0 py-0 flex flex-col">
-        <h2 className="text-3xl font-mtg pt-4 pb-2 text-rarity-rare">Pricing Dashboard</h2>
-        <div className="flex gap-4 mb-6 flex-wrap">
-          <button className={activeTab === 'trends' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('trends')}>Trends</button>
-          <button className={activeTab === 'cei' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('cei')}>Card Efficiency Index</button>
-          <button className={activeTab === 'deck' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('deck')}>Deck Cost-to-Win</button>
-          <button className={activeTab === 'invest' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('invest')}>Investment Watch</button>
-          <button className={activeTab === 'roi' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('roi')}>Collection ROI</button>
+        <div className="flex flex-row justify-between mb-4">
+          <div className="flex flex-row items-start gap-4">
+            <h2 className="text-3xl font-mtg pt-4 pb-4 text-rarity-rare">Pricing Dashboard</h2>
+            <div className="flex flex-col">
+              {error && <div className="text-red-500 whitespace-nowrap">{error}</div>}
+              {!activeCollection && <div className="text-slate-400 whitespace-nowrap">No collection selected.</div>}
+              <div className="h-6">
+                {(loading || analyticsLoading) && (
+                  <div className="text-mtg-blue whitespace-nowrap">Loading pricing data...</div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-4 items-center flex-nowrap">
+            <button className={activeTab === 'trends' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('trends')}>Trends</button>
+            <button className={activeTab === 'cei' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('cei')}>Card Efficiency Index</button>
+            <button className={activeTab === 'deck' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('deck')}>Deck Price-performance</button>
+            <button className={activeTab === 'card' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('card')}>Card Price</button>
+            <button className={activeTab === 'collection' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('collection')}>Collection Price</button>
+          </div>
         </div>
-        {(loading || analyticsLoading) && <div className="text-mtg-blue">Loading pricing data...</div>}
-        {error && <div className="text-red-500">{error}</div>}
-        {!activeCollection && <div className="text-slate-400">No collection selected.</div>}
 
         {/* Trends Tab */}
         {activeTab === 'trends' && (
@@ -170,10 +180,10 @@ export default function PricingDashboard() {
           </div>
         )}
 
-        {/* Deck Cost-to-Win Tab */}
+        {/* Deck Price-performance Tab */}
         {activeTab === 'deck' && (
           <div>
-            <h3 className="text-xl font-bold mb-4 text-mtg-white">Deck Cost-to-Win Ratio</h3>
+            <h3 className="text-xl font-bold mb-4 text-mtg-white">Deck Price-performance</h3>
             <table className="min-w-full bg-slate-900/80 rounded-xl">
               <thead>
                 <tr className="text-mtg-blue">
@@ -197,10 +207,10 @@ export default function PricingDashboard() {
           </div>
         )}
 
-        {/* Investment Watch Tab */}
-        {activeTab === 'invest' && (
+        {/* Card Price Tab */}
+        {activeTab === 'card' && (
           <div>
-            <h3 className="text-xl font-bold mb-4 text-mtg-white">Investment Watch (Volatility/Spikes)</h3>
+            <h3 className="text-xl font-bold mb-4 text-mtg-white">Card Price (Volatility/Spikes)</h3>
             <table className="min-w-full bg-slate-900/80 rounded-xl">
               <thead>
                 <tr className="text-mtg-blue">
@@ -224,10 +234,10 @@ export default function PricingDashboard() {
           </div>
         )}
 
-        {/* Collection ROI Tab */}
-        {activeTab === 'roi' && roi && (
+        {/* Collection Price Tab */}
+        {activeTab === 'collection' && roi && (
           <div>
-            <h3 className="text-xl font-bold mb-4 text-mtg-white">Collection ROI</h3>
+            <h3 className="text-xl font-bold mb-4 text-mtg-white">Collection Price</h3>
             <div className="mb-4 text-mtg-white">
               <div>Total Spent: <span className="font-bold text-rarity-uncommon">${roi.total_spent}</span></div>
               <div>Current Value: <span className="font-bold text-rarity-rare">${roi.current_value}</span></div>
