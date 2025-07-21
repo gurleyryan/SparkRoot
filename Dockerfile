@@ -9,10 +9,10 @@ COPY . .
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Create data directory if it doesn't exist
-RUN mkdir -p data
+RUN mkdir -p data/data
 
 # Download initial data
-RUN python data/download_scryfall_data.py
+RUN python data/download_scryfall_data.py && mv data/scryfall_all_cards.json data/data/scryfall_all_cards.json
 
 # Expose port
 EXPOSE 8000
