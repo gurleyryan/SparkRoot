@@ -101,7 +101,7 @@ export default function PricingDashboard() {
               </div>
             </div>
           </div>
-          <div className="flex gap-4 items-center flex-wrap max-w-full">
+          <div className="flex gap-4 mt-4 items-center flex-wrap max-w-full">
             <button className={activeTab === 'trends' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('trends')}>Trends</button>
             <button className={activeTab === 'cei' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('cei')}>Card Efficiency Index</button>
             <button className={activeTab === 'deck' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('deck')}>Deck Price-performance</button>
