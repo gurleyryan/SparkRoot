@@ -1,4 +1,8 @@
-# 🃏 SparkRoot
+<p align="center">
+  <img src="frontend/public/logocropped.png" alt="SparkRoot Logo" width="512" />
+</p>
+
+# <img src="frontend/public/logocropped.png" alt="SparkRoot Logo" width="32"/> SparkRoot
 
 **A comprehensive Magic: The Gathering collection management and deck optimization platform with real-time pricing, advanced filtering, and powerful deck building tools.**
 
