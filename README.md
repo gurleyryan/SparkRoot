@@ -174,12 +174,8 @@ MTG-Deck-Optimizer/
 │   ├── data/            # Scryfall card database
 │   └── requirements.txt # Python dependencies
 │
-├── data/                # Shared data files
-│   └── scryfall_all_cards.json
-│
-└── scripts/             # Development utilities
-    ├── dev.bat         # Windows development script
-    └── dev.sh          # Unix development script
+└── data/                # Shared data files
+    └── scryfall_all_cards.json # Complete MTG card database
 ```
 
 ## 📦 Data Files for Deployment
