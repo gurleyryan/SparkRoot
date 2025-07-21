@@ -9,6 +9,7 @@ import CardGrid from '@/components/CardGrid';
 import GameChangers from '@/components/GameChangers';
 import { useCollectionStore } from '@/store/collectionStore';
 import { useAuthStore } from '@/store/authStore';
+import Image from 'next/image';
 
 
 
@@ -53,6 +54,7 @@ export default function HomePage() {
     <div className="min-h-screen">
       {/* Hero Section */}
       <div className="sleeve-morphism rounded-xl p-8 mb-12 border shadow-xl text-center" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+        <Image src="/logo.png" alt="SparkRoot Logo" className="mx-auto mb-4 h-64 w-64" width={640} height={640} />
         <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mtg font-bold text-mtg-white mb-4 drop-shadow-lg break-words text-balance w-full leading-tight min-w-0 max-w-full overflow-hidden" style={{letterSpacing:'0.02em', lineHeight:'1.1', overflowWrap:'anywhere'}}>
           SparkRoot
         </h1>
