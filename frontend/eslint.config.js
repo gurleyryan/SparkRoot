@@ -1,5 +1,4 @@
 // Minimal ESLint Flat Config for Next.js, TypeScript, React, and Jest
-// ...existing code...
 
 /** @type {import('eslint').FlatConfig[]} */
 module.exports = [
