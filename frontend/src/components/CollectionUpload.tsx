@@ -205,7 +205,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   });
 
   if (!hasHydrated) {
-    return <div className="text-center text-slate-400 py-12">Loading authentication state...</div>;
+    return <div className="text-center text-mtg-white py-12">Loading authentication state...</div>;
   }
 
   return (
@@ -215,8 +215,8 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
         className={`
           relative border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-300
           ${isDragActive
-            ? 'border-rarity-mythic bg-amber-400/10'
-            : 'border-rarity-uncommon hover:border-rarity-mythic/50 bg-slate-800/30'
+            ? 'border-rarity-mythic bg-rarity-mythic/10'
+            : 'border-rarity-uncommon hover:border-rarity-mythic/50 bg-mtg-black/30'
           }
           ${isUploading ? 'pointer-events-none opacity-50' : ''}
         `}
@@ -225,8 +225,8 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
         
         <div className="space-y-6">
           {/* Upload Icon */}
-          <div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-            <svg className="w-10 h-10 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mx-auto w-20 h-20 rounded-full bg-rarity-mythic flex items-center justify-center">
+            <svg className="w-10 h-10 text-rarity-common" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
           </div>
@@ -236,13 +236,13 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
             <h3 className="text-2xl font-bold text-white mb-2">
               {isUploading ? 'Parsing Collection...' : 'Upload Your Collection'}
             </h3>
-            <p className="text-slate-300 mb-4">
+            <p className="text-rarity-rare mb-4">
               {isDragActive 
                 ? 'Drop your CSV file here...'
                 : 'Drag & drop your collection CSV file here, or click to browse'
               }
             </p>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-rarity-uncommon">
               Supports ManaBox, Moxfield, and other CSV formats
             </p>
           </div>
@@ -323,7 +323,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                 }
               }
             }}
-            className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors font-semibold"
+            className="px-6 py-2 bg-rarity-mythic hover:bg-rarity-rare text-white rounded-lg transition-colors font-semibold"
           >
             Load Sample Collection (or your uploaded collection)
           </button>
@@ -332,15 +332,15 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
 
       {/* Error Message */}
       {error && (
-        <div className="mt-4 p-4 bg-red-900/50 border border-mtg-red rounded-lg">
-          <p className="text-red-200">{error}</p>
+        <div className="mt-4 p-4 bg-mtg-red/50 border border-mtg-red rounded-lg">
+          <p className="text-mtg-red">{error}</p>
         </div>
       )}
 
       {/* Instructions */}
-      <div className="mt-8 bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-rarity-uncommon">
-        <h4 className="text-lg font-semibold text-amber-400 mb-3">Supported Formats</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-300">
+      <div className="mt-8 backdrop-blur-sm rounded-xl p-6">
+        <h4 className="text-lg font-semibold text-rarity-rare mb-3">Supported Formats</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-rarity-uncommon">
           <div>
             <h5 className="font-medium text-white mb-2">ManaBox Export</h5>
             <p>Export your collection as CSV from ManaBox mobile app</p>
