@@ -84,20 +84,24 @@ export default function PricingDashboard() {
   return (
     <div className="sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
       <div className="container mx-auto w-full shadow-md px-0 sm:px-0 py-0 flex flex-col">
-        <div className="flex flex-row justify-between mb-4">
-          <div className="flex flex-row items-start gap-4">
+        <div className="flex flex-row flex-wrap items-start justify-between mb-4">
+          <div className="flex flex-row items-center gap-4">
             <h2 className="text-3xl font-mtg pt-4 pb-4 text-rarity-rare">Pricing Dashboard</h2>
-            <div className="flex flex-col">
-              {error && <div className="text-red-500 whitespace-nowrap">{error}</div>}
-              {!activeCollection && <div className="text-slate-400 whitespace-nowrap">No collection selected.</div>}
-              <div className="h-6">
-                {(loading || analyticsLoading) && (
-                  <div className="text-mtg-blue whitespace-nowrap">Loading pricing data...</div>
-                )}
+            <div className="flex flex-col min-w-[180px] px-4">
+              {!activeCollection && !error && (
+                <div className="text-rarity-common">No collection selected.</div>
+              )}
+              <div className="h-6 flex items-center">
+                {error
+                  ? <div className="text-mtg-red">{error}</div>
+                  : (loading || analyticsLoading) && (
+                    <div className="text-mtg-blue">Loading pricing data...</div>
+                  )
+                }
               </div>
             </div>
           </div>
-          <div className="flex gap-4 items-center flex-nowrap">
+          <div className="flex gap-4 items-center flex-wrap max-w-full">
             <button className={activeTab === 'trends' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('trends')}>Trends</button>
             <button className={activeTab === 'cei' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('cei')}>Card Efficiency Index</button>
             <button className={activeTab === 'deck' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('deck')}>Deck Price-performance</button>
