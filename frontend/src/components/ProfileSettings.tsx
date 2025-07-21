@@ -59,36 +59,43 @@ export default function ProfileSettings() {
   };
 
   return (
-    <div className="max-w-xl mx-auto bg-slate-900/80 p-8 rounded-xl border border-rarity-uncommon mt-8">
-      <h2 className="text-2xl font-mtg text-mtg-white mb-6">Account Settings</h2>
+    <div className="container mx-auto flex flex-col backdrop-blur-sm" >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-mtg-white font-semibold mb-1">Username</label>
-          <input name="username" value={form.username} onChange={handleChange} className="form-input w-full" />
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Left column */}
+          <div className="flex-1 flex flex-col space-y-4">
+            <div>
+              <label className="block text-mtg-white font-semibold mb-1">Username</label>
+              <input name="username" value={form.username} onChange={handleChange} className="form-input w-full" />
+            </div>
+            <div>
+              <label className="block text-mtg-white font-semibold mb-1">Email</label>
+              <input name="email" type="email" value={form.email} onChange={handleChange} className="form-input w-full" />
+            </div>
+            <div>
+              <label className="block text-mtg-white font-semibold mb-1">Full Name</label>
+              <input name="fullName" value={form.fullName} onChange={handleChange} className="form-input w-full" />
+            </div>
+          </div>
+          {/* Right column */}
+          <div className="flex-1 flex flex-col space-y-4">
+            <div>
+              <label className="block text-mtg-white font-semibold mb-1">Current Password</label>
+              <input name="password" type="password" value={form.password} onChange={handleChange} className="form-input w-full" placeholder="Required to change email or password" />
+            </div>
+            <div>
+              <label className="block text-mtg-white font-semibold mb-1">New Password</label>
+              <input name="newPassword" type="password" value={form.newPassword} onChange={handleChange} className="form-input w-full" />
+            </div>
+            <div>
+              <label className="block text-mtg-white font-semibold mb-1">Confirm New Password</label>
+              <input name="confirmNewPassword" type="password" value={form.confirmNewPassword} onChange={handleChange} className="form-input w-full" />
+            </div>
+          </div>
         </div>
-        <div>
-          <label className="block text-mtg-white font-semibold mb-1">Email</label>
-          <input name="email" type="email" value={form.email} onChange={handleChange} className="form-input w-full" />
-        </div>
-        <div>
-          <label className="block text-mtg-white font-semibold mb-1">Full Name</label>
-          <input name="fullName" value={form.fullName} onChange={handleChange} className="form-input w-full" />
-        </div>
-        <div>
-          <label className="block text-mtg-white font-semibold mb-1">Current Password</label>
-          <input name="password" type="password" value={form.password} onChange={handleChange} className="form-input w-full" placeholder="Required to change email or password" />
-        </div>
-        <div>
-          <label className="block text-mtg-white font-semibold mb-1">New Password</label>
-          <input name="newPassword" type="password" value={form.newPassword} onChange={handleChange} className="form-input w-full" />
-        </div>
-        <div>
-          <label className="block text-mtg-white font-semibold mb-1">Confirm New Password</label>
-          <input name="confirmNewPassword" type="password" value={form.confirmNewPassword} onChange={handleChange} className="form-input w-full" />
-        </div>
-        {error && <div className="text-red-400 font-mtg-body">{error}</div>}
-        {message && <div className="text-green-400 font-mtg-body">{message}</div>}
-        <button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-6 py-2 font-semibold transition-colors" disabled={loading}>
+        {error && <div className="text-mtg-red font-mtg-body">{error}</div>}
+        {message && <div className="text-mtg-green font-mtg-body">{message}</div>}
+        <button type="submit" className="bg-rarity-mythic hover:bg-rarity-rare text-white rounded-lg px-6 py-2 font-semibold transition-colors" disabled={loading}>
           {loading ? 'Saving...' : 'Save Changes'}
         </button>
       </form>

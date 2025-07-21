@@ -59,8 +59,8 @@ export default function Help({ className = "" }: HelpProps) {
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
             />
-            <div className="sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
-                <div className="container mx-auto w-full shadow-md px-0 sm:px-0 py-0 flex flex-col">
+            <div className="container mx-auto sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+                <div className="container mx-auto w-full shadow-md px-4 py-0 flex flex-col">
                     <h2 className="text-3xl font-mtg pt-4 pb-2 text-rarity-rare">Help & FAQ</h2>
                     <ul className="space-y-4 text-lg mb-6">
                         <li><span className="font-bold text-rarity-rare">How do I upload my collection?</span></li>

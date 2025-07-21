@@ -79,8 +79,8 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
       )}
 
       {/* Main grid UI */}
-      <div className="sleeve-morphism mx-auto flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
-        <div className="container mx-auto shadow-md px-0 sm:px-0 flex flex-col">
+      <div className="container sleeve-morphism mx-auto flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+        <div className="container mx-auto shadow-md px-4 flex flex-col">
           <div className="flex flex-col md:flex-row gap-4 pb-4 items-start">
             {/* Left column: buttons and collection dropdown */}
             <div className="flex-1 flex flex-col">

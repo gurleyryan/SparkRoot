@@ -35,7 +35,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
       <a href="#main-content" className="sr-only focus:not-sr-only absolute left-2 top-2 bg-mtg-blue text-white px-4 py-2 rounded z-50" tabIndex={0}>
         Skip to main content
       </a>
-      <nav className="sleeve-morphism mx-auto backdrop-blur-sm border-b-2 shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
+      <nav className="container sleeve-morphism mx-auto backdrop-blur-sm border-b-2 shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
         <div className="container mx-auto px-4">
           <div className="flex items-center h-16 gap-4 md:gap-8">
             {/* Title */}

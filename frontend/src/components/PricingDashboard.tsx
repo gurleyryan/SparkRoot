@@ -82,8 +82,8 @@ export default function PricingDashboard() {
   }, [activeCollection, api]);
 
   return (
-    <div className="sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
-      <div className="container mx-auto w-full shadow-md px-0 sm:px-0 py-0 flex flex-col">
+    <div className="container mx-auto sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+      <div className="container mx-auto w-full shadow-md px-4 py-0 flex flex-col">
         <div className="flex flex-row flex-wrap items-start justify-between mb-4">
           <div className="flex flex-row items-center gap-4">
             <h2 className="text-3xl font-mtg pt-4 pb-4 text-rarity-rare">Pricing Dashboard</h2>
