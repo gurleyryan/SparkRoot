@@ -103,10 +103,10 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                   <div className="flex items-center space-x-4">
                     <a
                       href="/account"
-                      className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer"
+                      className="text-rarity-uncommon font-mtg-mono hover:text-rarity-mythic transition-colors underline cursor-pointer"
                       title="Account"
                     >
-                      Welcome, {user?.username || user?.full_name || user?.email || 'User'}
+                      {user?.username || user?.full_name || user?.email || 'User'}
                     </a>
                     <button
                       onClick={onLogout}
