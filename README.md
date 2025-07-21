@@ -108,10 +108,6 @@ The application automatically detects and handles various CSV formats:
 ### 🧪 Proven Results
 *From our test collection of 635 cards (343 unique cards):*
 - ✅ **7 legal commanders** found automatically
-- ✅ **Complete 100-card deck** generated (Lavinia of the Tenth)
-- ✅ **Perfect distribution**: 24 creatures, 10 instants, 53 lands
-- ✅ **All export formats** working flawlessly
-- ✅ **Sub-2 second** load times with 108K+ card database
 
 ## 🔧 Technical Details
 
