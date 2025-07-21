@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/logocropped.png" alt="SparkRoot Logo" width="512" />
+  <img src="frontend/public/logocropped.png" alt="SparkRoot Logo" width="256" />
 </p>
 
 # <img src="frontend/public/logocropped.png" alt="SparkRoot Logo" width="32"/> SparkRoot
