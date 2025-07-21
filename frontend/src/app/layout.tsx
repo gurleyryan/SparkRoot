@@ -58,8 +58,6 @@ export const metadata: Metadata = {
     site: "@SparkRoot",
   },
   metadataBase: new URL("https://www.sparkroot.cards/"),
-  themeColor: "#1a1a1a",
-  viewport: "width=device-width, initial-scale=1",
   other: {
     // Schema.org JSON-LD for rich results
     'ld+json': JSON.stringify({
@@ -83,6 +81,13 @@ export const metadata: Metadata = {
     })
   }
 };
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
+export const themeColor = "#DCBF7D";
 
 // ClientShell: all client-only logic/components go here
 

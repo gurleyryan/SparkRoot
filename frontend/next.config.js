@@ -9,15 +9,6 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   images: {
-    domains: [
-      'c1.scryfall.com',
-      'c2.scryfall.com',
-      'c3.scryfall.com',
-      'c4.scryfall.com',
-      'img.scryfall.com',
-      'cards.scryfall.io',
-      'api.scryfall.com',
-    ],
     remotePatterns: [
       {
         protocol: 'https',
