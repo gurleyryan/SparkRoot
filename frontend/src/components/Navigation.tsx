@@ -1,9 +1,9 @@
 'use client';
-
 import type { User } from '@/types';
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface NavigationProps {
   isAuthenticated: boolean;
@@ -35,13 +35,13 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
       <a href="#main-content" className="sr-only focus:not-sr-only absolute left-2 top-2 bg-mtg-blue text-white px-4 py-2 rounded z-50" tabIndex={0}>
         Skip to main content
       </a>
-      <nav className="sleeve-morphism backdrop-blur-sm border-b-2 shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
+      <nav className="sleeve-morphism mx-auto backdrop-blur-sm border-b-2 shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
         <div className="container mx-auto px-4">
           <div className="flex items-center h-16 gap-4 md:gap-8">
             {/* Title */}
             <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
               <Link href="/" className="flex items-center group min-w-0" aria-label="Go to home page">
-                <img src="/logo.svg" alt="SparkRoot Logo" className="w-8 h-8 md:w-8 md:h-8 sm:w-7 sm:h-7 xs:w-6 xs:h-6 group-hover:scale-105 transition-transform flex-shrink-0" />
+                <Image src="/logo.svg" alt="SparkRoot Logo" className="w-12 h-12 md:w-12 md:h-12 sm:w-7 sm:h-7 xs:w-6 xs:h-6 group-hover:scale-105 transition-transform flex-shrink-0" width={32} height={32} />
                 <span
                   className="font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors font-bold break-words text-balance max-w-full w-full text-left whitespace-nowrap"
                   style={{
