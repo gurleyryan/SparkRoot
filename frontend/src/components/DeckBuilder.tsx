@@ -93,10 +93,10 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
   }, [gameChangersOpen]);
 
   return (
-    <div className="sleeve-morphism w-full flex flex-col" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}}>
+    <div className="sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}}>
       <div className="container mx-auto w-full shadow-md px-0 sm:px-0 py-0 flex flex-col">
-        <h2 className="text-2xl font-mtg px-4 pt-4 pb-2 text-mtg-white">Deck Builder</h2>
-        <div className="flex flex-col md:flex-row gap-4 px-4 pb-4 items-start">
+        <h2 className="text-3xl font-mtg pt-4 pb-2 text-rarity-rare">Deck Builder</h2>
+        <div className="flex flex-col md:flex-row gap-4 pb-4 items-start">
           <div className="flex-1 min-w-[260px] flex flex-col gap-4">
             <BracketPicker value={bracket} onChange={setBracket} className="mb-2" onlyButtons />
             <div className="flex flex-col gap-2">
