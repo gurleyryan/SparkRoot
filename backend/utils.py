@@ -217,7 +217,11 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
     SETS_CACHE_PATH = "data/data/scryfall_sets.json"
     if os.path.exists(SETS_CACHE_PATH):
         with open(SETS_CACHE_PATH, "r", encoding="utf-8") as f:
-            scryfall_sets = json.load(f)["data"] if "data" in json.load(f) else json.load(f)
+            sets_json = json.load(f)
+        if isinstance(sets_json, dict) and "data" in sets_json:
+            scryfall_sets = sets_json["data"]
+        else:
+            scryfall_sets = sets_json
     else:
         print("Downloading Scryfall set metadata...")
         sets_resp = requests.get("https://api.scryfall.com/sets")

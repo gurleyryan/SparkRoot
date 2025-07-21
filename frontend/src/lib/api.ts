@@ -112,6 +112,15 @@ export class ApiClient {
 
   constructor(token?: string) {
     this.baseURL = API_CONFIG.baseURL;
+    // Always get the latest accessToken from Zustand store if not provided
+    if (!token && typeof window !== 'undefined') {
+      try {
+        // Dynamically import to avoid circular deps
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const zustand = require('../store/authStore');
+        token = zustand.useAuthStore.getState().accessToken;
+      } catch {}
+    }
     this.defaultHeaders = getAuthHeaders(token);
   }
 
@@ -127,7 +136,7 @@ export class ApiClient {
         ...this.defaultHeaders,
         ...options.headers,
       },
-      credentials: 'include',
+      // Do not include credentials for Bearer token auth (prevents legacy cookie fallback)
     };
 
     try {

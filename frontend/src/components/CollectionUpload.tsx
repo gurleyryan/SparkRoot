@@ -1,7 +1,11 @@
-
 import { useToast } from './ToastProvider';
-
 import { useState, useCallback, useEffect } from 'react';
+import { useDropzone } from 'react-dropzone';
+import type { MTGCard, Collection } from '@/types';
+import { ApiClient } from '@/lib/api';
+import { useAuthStore } from '../store/authStore';
+import { useCollectionStore } from '@/store/collectionStore';
+
 // Hydration-safe Zustand hook
 function useHasHydrated() {
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -10,25 +14,20 @@ function useHasHydrated() {
   }, []);
   return hasHydrated;
 }
-import { useDropzone } from 'react-dropzone';
-import type { MTGCard } from '@/types';
-import { ApiClient } from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
-import { useCollectionStore } from '@/store/collectionStore';
 
 interface CollectionUploadProps {
   onCollectionUploaded?: (data: MTGCard[]) => void;
 }
 
-
 export default function CollectionUpload({ onCollectionUploaded }: CollectionUploadProps) {
   const showToast = useToast();
-  const hasHydrated = useHasHydrated();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasHydrated = useHasHydrated();
   // Removed: token (secure session via cookie)
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const checkAuth = useAuthStore((state) => state.checkAuth);
   const addCollection = useCollectionStore((state) => state.addCollection);
 
@@ -53,114 +52,31 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     try {
       // Read file as text
       const text = await file.text();
-      // Use fetch directly since ApiClient.request is private
-      const res = await fetch('/api/collections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/csv' },
-        body: text,
-        credentials: 'include', // session cookie
+      // Prepare payload (adjust as needed for your API)
+      const payload = { csv: text };
+      // Use ApiClient with Bearer token
+      const api = new ApiClient(accessToken || undefined);
+      const data = await api["request"]("/api/collections", {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
       });
-      const data = await res.json();
-      if (data && data.collection) {
-        addCollection(data.collection);
-        if (onCollectionUploaded) onCollectionUploaded(data.collection.cards || []);
-        showToast('Collection uploaded and saved!', 'success');
+      // Add to collection store and callback
+      // Type guard to ensure data is a Collection
+      if (
+        data &&
+        typeof data === 'object' &&
+        'id' in data &&
+        'name' in data &&
+        'cards' in data &&
+        Array.isArray((data as any).cards)
+      ) {
+        addCollection(data as Collection);
+        if (onCollectionUploaded) onCollectionUploaded((data as any).cards || []);
+        showToast('Collection uploaded successfully!', 'success');
       } else {
-        setError('Failed to save collection.');
-        showToast('Failed to save collection.', 'error');
-      }
-    } catch (err: any) {
-      setError('Upload failed.');
-      showToast('Upload failed.', 'error');
-    } finally {
-    setIsUploading(false);
-    }
-
-    // No token check needed; session is cookie-based
-
-    // Optionally, check token validity with backend
-    try {
-      await checkAuth();
-      if (!useAuthStore.getState().isAuthenticated) {
-        setError('Session expired or invalid. Please log in again.');
-        showToast('Session expired or invalid. Please log in again.', 'error');
-        setIsUploading(false);
-        return;
-      }
-    } catch {
-      setError('Session expired or invalid. Please log in again.');
-      showToast('Session expired or invalid. Please log in again.', 'error');
-      setIsUploading(false);
-      return;
-    }
-
-    try {
-      const apiClient = new ApiClient();
-      // Parse the collection file
-      const parsed = await apiClient.parseCollection(file);
-      // ...existing code for handling parsed collection...
-      if (parsed && typeof parsed === 'object' && 'success' in parsed && parsed.success && 'collection' in parsed) {
-        const collectionObj = (parsed as { collection: unknown }).collection;
-        // Type guard for collectionObj
-        if (collectionObj && typeof collectionObj === 'object' && 'cards' in collectionObj && Array.isArray((collectionObj as { cards: unknown }).cards)) {
-          const cards = (collectionObj as { cards: MTGCard[] }).cards;
-          const name = (collectionObj as { name?: string }).name || 'My Collection';
-          const description = (collectionObj as { description?: string }).description || '';
-          // Save the collection to backend
-          const saveResult = await apiClient.saveCollection({
-            description,
-            collection_data: cards,
-            is_public: false,
-          });
-          if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
-            addCollection({
-              id: String((saveResult as { id: string }).id),
-              user_id: '',
-              name,
-              description,
-              cards,
-              created_at: '',
-              updated_at: '',
-            });
-          }
-          if (typeof onCollectionUploaded === 'function') {
-            onCollectionUploaded(cards);
-          }
-        } else if (Array.isArray(collectionObj)) {
-          // Fallback: treat as array of cards
-          const cards = collectionObj as MTGCard[];
-          const name = 'My Collection';
-          const description = '';
-          const saveResult = await apiClient.saveCollection({
-            description,
-            collection_data: cards,
-            is_public: false,
-          });
-          if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
-            addCollection({
-              id: String((saveResult as { id: string }).id),
-              user_id: '',
-              name,
-              description,
-              cards,
-              created_at: '',
-              updated_at: '',
-            });
-          }
-          if (typeof onCollectionUploaded === 'function') {
-            onCollectionUploaded(cards);
-          }
-        } else {
-          setError('Parsed collection format is invalid.');
-          showToast('Parsed collection format is invalid.', 'error');
-        }
-      } else if (parsed && typeof parsed === 'object' && 'error' in parsed) {
-        const msg = (parsed as { error?: string }).error || 'Failed to parse collection';
-        setError(msg);
-        showToast(msg, 'error');
-      } else {
-        setError('Failed to parse collection');
-        showToast('Failed to parse collection', 'error');
+        setError('Invalid collection data returned from server.');
+        showToast('Invalid collection data returned from server.', 'error');
       }
     } catch (err: any) {
       // Try to extract backend error message if available
@@ -175,7 +91,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
             } else if (data && typeof data === 'string') {
               errorMessage = data;
             }
-          } catch {}
+          } catch { }
         } else if (typeof err === 'object' && err !== null) {
           if ('error' in err && typeof err.error === 'string') {
             errorMessage = err.error;
@@ -194,7 +110,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
         showToast('Collection uploaded successfully!', 'success');
       }
     }
-  }, [addCollection, onCollectionUploaded, checkAuth]);
+  }, [addCollection, onCollectionUploaded, checkAuth, accessToken, showToast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -222,7 +138,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
         `}
       >
         <input {...getInputProps()} />
-        
+
         <div className="space-y-6">
           {/* Upload Icon */}
           <div className="mx-auto w-20 h-20 rounded-full bg-rarity-mythic flex items-center justify-center">
@@ -237,7 +153,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
               {isUploading ? 'Parsing Collection...' : 'Upload Your Collection'}
             </h3>
             <p className="text-rarity-rare mb-4">
-              {isDragActive 
+              {isDragActive
                 ? 'Drop your CSV file here...'
                 : 'Drag & drop your collection CSV file here, or click to browse'
               }
@@ -268,15 +184,15 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                       is_public: false,
                     });
                     if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
-        addCollection({
-          id: String((saveResult as { id: string }).id),
-          user_id: '',
-          name,
-          description,
-          cards,
-          created_at: '',
-          updated_at: '',
-        });
+                      addCollection({
+                        id: String((saveResult as { id: string }).id),
+                        user_id: '',
+                        name,
+                        description,
+                        cards,
+                        created_at: '',
+                        updated_at: '',
+                      });
                     }
                     if (typeof onCollectionUploaded === 'function') {
                       onCollectionUploaded(cards);
