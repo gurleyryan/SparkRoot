@@ -16,8 +16,8 @@ class SupabaseDB:
         return await self.pool.acquire()
     
     async def init_pool(self):
-        """Initialize connection pool"""
-        self.pool = await asyncpg.create_pool(self.database_url)
+        """Initialize connection pool with statement_cache_size=0 for PgBouncer compatibility"""
+        self.pool = await asyncpg.create_pool(self.database_url, statement_cache_size=0)
     
 
     
