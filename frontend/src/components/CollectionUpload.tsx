@@ -1,5 +1,5 @@
 import { useToast } from './ToastProvider';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import type { MTGCard, Collection } from '@/types';
 import { ApiClient } from '@/lib/api';
@@ -19,12 +19,15 @@ interface CollectionUploadProps {
   onCollectionUploaded?: (data: MTGCard[]) => void;
 }
 
+
 export default function CollectionUpload({ onCollectionUploaded }: CollectionUploadProps) {
   const showToast = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0); // 0-100
+  const [statusText, setStatusText] = useState<string>('');
+  const [parsedPreview, setParsedPreview] = useState<string>('');
   const hasHydrated = useHasHydrated();
-  // Removed: token (secure session via cookie)
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -40,77 +43,113 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     }
   }, [user, isAuthenticated]);
 
+  // SSE upload with live progress and preview
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const [liveCards, setLiveCards] = useState<MTGCard[]>([]);
+  const [livePreview, setLivePreview] = useState<any>(null);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsUploading(true);
     setError(null);
+    setProgress(5);
+    setStatusText('Reading file...');
+    setParsedPreview('');
+    setLiveCards([]);
+    setLivePreview(null);
     const file = acceptedFiles[0];
     if (!file) {
       setIsUploading(false);
+      setProgress(0);
+      setStatusText('');
       setError('No file selected.');
       return;
     }
     try {
       // Read file as text
       const text = await file.text();
-      // Prepare payload (adjust as needed for your API)
-      const payload = { csv: text };
-      // Use ApiClient with Bearer token
-      const api = new ApiClient(accessToken || undefined);
-      const data = await api["request"]("/api/collections", {
-        method: "POST",
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' },
-      });
-      // Add to collection store and callback
-      // Type guard to ensure data is a Collection
-      if (
-        data &&
-        typeof data === 'object' &&
-        'id' in data &&
-        'name' in data &&
-        'cards' in data &&
-        Array.isArray((data as any).cards)
-      ) {
-        addCollection(data as Collection);
-        if (onCollectionUploaded) onCollectionUploaded((data as any).cards || []);
-        showToast('Collection uploaded successfully!', 'success');
-      } else {
-        setError('Invalid collection data returned from server.');
-        showToast('Invalid collection data returned from server.', 'error');
+      setProgress(20);
+      setStatusText('Parsing CSV...');
+      setParsedPreview(text.split('\n').slice(0, 3).join('\n'));
+      setProgress(30);
+      setStatusText('Uploading to server (streaming)...');
+
+      // Prepare a FormData for file upload (SSE endpoint expects file upload)
+      const formData = new FormData();
+      formData.append('file', new Blob([text], { type: 'text/csv' }), file.name);
+
+      // Use fetch to POST the file, then open EventSource to /api/collections/progress-upload
+      // We'll use a custom EventSource polyfill for POST if needed, but for now, use a two-step: upload file to temp, then stream progress
+      // For simplicity, we POST the file to /api/collections/progress-upload and listen for SSE events
+
+      // Use XMLHttpRequest to POST and get the SSE stream
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/collections/progress-upload', true);
+      if (accessToken) {
+        xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
       }
-    } catch (err: any) {
-      // Try to extract backend error message if available
-      let errorMessage = 'Failed to upload collection. Make sure the backend is running.';
-      if (err) {
-        // If error is a Response object (fetch error)
-        if (err instanceof Response) {
-          try {
-            const data = await err.json();
-            if (data && typeof data === 'object' && 'error' in data) {
-              errorMessage = data.error || errorMessage;
-            } else if (data && typeof data === 'string') {
-              errorMessage = data;
+      xhr.responseType = 'text';
+
+      let received = '';
+      let cards: MTGCard[] = [];
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 3 || xhr.readyState === 4) {
+          // Parse SSE events from responseText
+          const chunk = xhr.responseText.substring(received.length);
+          received = xhr.responseText;
+          const events = chunk.split(/\n\n/).filter(Boolean);
+          for (const event of events) {
+            const lines = event.split('\n');
+            let dataLine = lines.find(l => l.startsWith('data:'));
+            if (dataLine) {
+              try {
+                const payload = JSON.parse(dataLine.replace('data:', '').trim());
+                if (payload.progress) {
+                  setProgress(Math.round(payload.progress * 100));
+                  setStatusText(payload.status || 'Processing...');
+                }
+                if (payload.card) {
+                  cards.push(payload.card);
+                  setLiveCards([...cards]);
+                  setLivePreview(payload.card);
+                }
+                if (payload.done) {
+                  setProgress(100);
+                  setStatusText('Collection uploaded and enriched!');
+                  addCollection({
+                    id: payload.collection_id || '',
+                    user_id: '', // or payload.user_id if available
+                    name: payload.collection_name || file.name,
+                    description: '', // or payload.description if available
+                    cards,
+                    created_at: '',
+                    updated_at: '',
+                  });
+                  if (onCollectionUploaded) onCollectionUploaded(cards);
+                  showToast('Collection uploaded successfully!', 'success');
+                  setIsUploading(false);
+                }
+              } catch (e) {
+                // Ignore parse errors
+              }
             }
-          } catch { }
-        } else if (typeof err === 'object' && err !== null) {
-          if ('error' in err && typeof err.error === 'string') {
-            errorMessage = err.error;
-          } else if ('message' in err && typeof err.message === 'string') {
-            errorMessage = err.message;
           }
-        } else if (typeof err === 'string') {
-          errorMessage = err;
         }
-      }
-      setError(errorMessage);
-      showToast(errorMessage, 'error');
-    } finally {
+      };
+      xhr.onerror = function () {
+        setError('Failed to upload collection (streaming).');
+        setIsUploading(false);
+        setProgress(0);
+        setStatusText('');
+      };
+      xhr.send(formData);
+    } catch (err: any) {
+      setProgress(0);
+      setStatusText('');
+      setError('Failed to upload collection. Make sure the backend is running.');
+      showToast('Failed to upload collection. Make sure the backend is running.', 'error');
       setIsUploading(false);
-      if (!error && !setError) {
-        showToast('Collection uploaded successfully!', 'success');
-      }
     }
-  }, [addCollection, onCollectionUploaded, checkAuth, accessToken, showToast]);
+  }, [addCollection, onCollectionUploaded, accessToken, showToast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -147,6 +186,36 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
             </svg>
           </div>
 
+          {/* Progress Bar and Status */}
+          {isUploading && (
+            <div className="w-full mx-auto">
+              <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-2 bg-rarity-mythic transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="text-sm text-rarity-rare mb-2">{statusText}</div>
+              {parsedPreview && (
+                <pre className="bg-mtg-black/60 text-xs text-left p-2 rounded mb-2 max-h-24 overflow-auto border border-rarity-uncommon">
+                  {parsedPreview}
+                </pre>
+              )}
+              {/* Live card preview */}
+              {livePreview && (
+                <div className="mt-2 p-2 bg-mtg-black/40 border border-rarity-mythic rounded text-xs text-left">
+                  <div className="font-bold text-rarity-mythic">Card Preview:</div>
+                  <div>Name: {livePreview.name || livePreview.original_name}</div>
+                  <div>Set: {livePreview.set_code}</div>
+                  <div>Quantity: {livePreview.quantity}</div>
+                  {livePreview.image_uris && livePreview.image_uris.normal && (
+                    <img src={livePreview.image_uris.normal} alt={livePreview.name} className="mt-1 max-h-32" />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Text */}
           <div>
             <h3 className="text-2xl font-bold text-white mb-2">
@@ -168,9 +237,13 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
             onClick={async () => {
               setIsUploading(true);
               setError(null);
+              setProgress(10);
+              setStatusText('Loading sample collection...');
               try {
                 const apiClient = new ApiClient();
                 const result = await apiClient.loadSampleCollection();
+                setProgress(40);
+                setStatusText('Saving sample collection...');
                 if (result && typeof result === 'object' && 'success' in result && result.success && 'collection' in result) {
                   const collectionObj = (result as { collection: unknown }).collection;
                   if (collectionObj && typeof collectionObj === 'object' && 'cards' in collectionObj && Array.isArray((collectionObj as { cards: unknown }).cards)) {
@@ -183,6 +256,8 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                       collection_data: cards,
                       is_public: false,
                     });
+                    setProgress(80);
+                    setStatusText('Finalizing...');
                     if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
                       addCollection({
                         id: String((saveResult as { id: string }).id),
@@ -207,6 +282,8 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                       collection_data: cards,
                       is_public: false,
                     });
+                    setProgress(80);
+                    setStatusText('Finalizing...');
                     if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
                       addCollection({
                         id: String((saveResult as { id: string }).id),
@@ -229,14 +306,15 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                 } else {
                   setError('Failed to load collection');
                 }
+                setProgress(100);
+                setStatusText('Sample collection loaded!');
               } catch {
+                setProgress(0);
+                setStatusText('');
                 setError('Failed to load collection. Make sure the backend is running.');
                 showToast('Failed to load collection. Make sure the backend is running.', 'error');
               } finally {
                 setIsUploading(false);
-                if (!error && !setError) {
-                  showToast('Sample collection loaded!', 'success');
-                }
               }
             }}
             className="px-6 py-2 bg-rarity-mythic hover:bg-rarity-rare text-white rounded-lg transition-colors font-semibold"

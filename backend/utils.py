@@ -21,8 +21,10 @@ def download_scryfall_bulk():
 
     print("Saved full card database to data/")
 
+
 def load_scryfall_cards():
     import os, psutil
+
     scryfall_path = "data/data/scryfall_all_cards.json"
     if not os.path.exists(scryfall_path):
         raise FileNotFoundError(f"Scryfall file not found: {scryfall_path}")
@@ -34,7 +36,9 @@ def load_scryfall_cards():
     with open(scryfall_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     mem_after = process.memory_info().rss / 1024 / 1024
-    print(f"[Scryfall] Memory usage after loading: {mem_after:.2f} MB (delta: {mem_after-mem_before:.2f} MB)")
+    print(
+        f"[Scryfall] Memory usage after loading: {mem_after:.2f} MB (delta: {mem_after-mem_before:.2f} MB)"
+    )
     # Check for Scryfall List object
     if isinstance(data, dict) and "data" in data:
         cards = data["data"]
@@ -44,161 +48,175 @@ def load_scryfall_cards():
         print(f"[Scryfall] Loaded {len(data)} cards (list at top level).")
         return data
     else:
-        print("[Scryfall] WARNING: Unexpected Scryfall JSON structure! Returning raw data.")
+        print(
+            "[Scryfall] WARNING: Unexpected Scryfall JSON structure! Returning raw data."
+        )
         return data
+
 
 def normalize_csv_format(df):
     """Normalize different CSV formats (ManaBox, Moxfield, etc.) to a standard format"""
     # Create a copy to avoid modifying the original
     normalized_df = df.copy()
-    
+
     print(f"Input columns: {list(df.columns)}")
-    
+
     # Enhanced column mapping with flexible alternatives
     column_mapping = {
         # Quantity/Count columns (multiple possible names)
-        'Count': 'Quantity',
-        'Qty': 'Quantity', 
-        'Amount': 'Quantity',
-        'Number': 'Quantity',
-        'Total': 'Quantity',
-        
+        "Count": "Quantity",
+        "Qty": "Quantity",
+        "Amount": "Quantity",
+        "Number": "Quantity",
+        "Total": "Quantity",
         # Card name columns
-        'Card Name': 'Name',
-        'Card': 'Name',
-        'Title': 'Name',
-        
+        "Card Name": "Name",
+        "Card": "Name",
+        "Title": "Name",
         # Set/Edition columns
-        'Edition': 'Set code',
-        'Set': 'Set code',
-        'Set Code': 'Set code',
-        'Expansion': 'Set code',
-        'Release': 'Set code',
-        
+        "Edition": "Set code",
+        "Set": "Set code",
+        "Set Code": "Set code",
+        "Expansion": "Set code",
+        "Release": "Set code",
         # Collector number columns
-        'Collector Number': 'Collector number',
-        'Card Number': 'Collector number',
-        'Number': 'Collector number',
-        '#': 'Collector number',
-        
+        "Collector Number": "Collector number",
+        "Card Number": "Collector number",
+        "Number": "Collector number",
+        "#": "Collector number",
         # Moxfield specific mappings
-        'Tradelist Count': 'Tradelist count',
-        'Tags': 'Tags',
-        'Last Modified': 'Last modified',
-        'Alter': 'Altered',
-        'Proxy': 'Proxy',
-        'Purchase Price': 'Purchase price',
-        
+        "Tradelist Count": "Tradelist count",
+        "Tags": "Tags",
+        "Last Modified": "Last modified",
+        "Alter": "Altered",
+        "Proxy": "Proxy",
+        "Purchase Price": "Purchase price",
         # ManaBox specific mappings
-        'Set name': 'Set name',
-        'Scryfall ID': 'Scryfall ID',
-        'ManaBox ID': 'ManaBox ID',
-        'Purchase price': 'Purchase price',
-        'Purchase price currency': 'Purchase price currency',
-        'Misprint': 'Misprint',
-        'Altered': 'Altered',
-        
+        "Set name": "Set name",
+        "Scryfall ID": "Scryfall ID",
+        "ManaBox ID": "ManaBox ID",
+        "Purchase price": "Purchase price",
+        "Purchase price currency": "Purchase price currency",
+        "Misprint": "Misprint",
+        "Altered": "Altered",
         # Common columns that might appear in various formats
-        'Condition': 'Condition',
-        'Language': 'Language',
-        'Foil': 'Foil',
-        'Rarity': 'Rarity'
+        "Condition": "Condition",
+        "Language": "Language",
+        "Foil": "Foil",
+        "Rarity": "Rarity",
     }
-    
+
     # Apply column mapping
     columns_mapped = []
     for old_name, new_name in column_mapping.items():
         if old_name in normalized_df.columns:
             normalized_df = normalized_df.rename(columns={old_name: new_name})
             columns_mapped.append(f"{old_name} → {new_name}")
-    
+
     if columns_mapped:
         print(f"Mapped columns: {columns_mapped}")
-    
+
     # Auto-detect format based on available columns
     detected_format = "Unknown"
-    if 'Count' in df.columns and 'Edition' in df.columns:
+    if "Count" in df.columns and "Edition" in df.columns:
         detected_format = "Moxfield"
-    elif 'Quantity' in df.columns and 'Set code' in df.columns:
+    elif "Quantity" in df.columns and "Set code" in df.columns:
         detected_format = "ManaBox"
-    elif 'Quantity' in normalized_df.columns and 'Name' in normalized_df.columns:
+    elif "Quantity" in normalized_df.columns and "Name" in normalized_df.columns:
         detected_format = "Generic MTG Collection"
-    
+
     print(f"Detected format: {detected_format}")
-    
+
     # Ensure we have required columns
-    required_columns = ['Name', 'Quantity']
+    required_columns = ["Name", "Quantity"]
     missing_columns = []
-    
+
     # Try to find Name column with flexible matching
-    if 'Name' not in normalized_df.columns:
-        name_candidates = [col for col in normalized_df.columns if 'name' in col.lower() or 'card' in col.lower()]
+    if "Name" not in normalized_df.columns:
+        name_candidates = [
+            col
+            for col in normalized_df.columns
+            if "name" in col.lower() or "card" in col.lower()
+        ]
         if name_candidates:
-            normalized_df = normalized_df.rename(columns={name_candidates[0]: 'Name'})
+            normalized_df = normalized_df.rename(columns={name_candidates[0]: "Name"})
             print(f"Auto-mapped name column: {name_candidates[0]} → Name")
-    
-    # Try to find Set code column with flexible matching  
-    if 'Set code' not in normalized_df.columns:
-        set_candidates = [col for col in normalized_df.columns if any(term in col.lower() for term in ['set', 'edition', 'expansion'])]
+
+    # Try to find Set code column with flexible matching
+    if "Set code" not in normalized_df.columns:
+        set_candidates = [
+            col
+            for col in normalized_df.columns
+            if any(term in col.lower() for term in ["set", "edition", "expansion"])
+        ]
         if set_candidates:
-            normalized_df = normalized_df.rename(columns={set_candidates[0]: 'Set code'})
+            normalized_df = normalized_df.rename(
+                columns={set_candidates[0]: "Set code"}
+            )
             print(f"Auto-mapped set column: {set_candidates[0]} → Set code")
         else:
             # If no set column found, create a placeholder
-            normalized_df['Set code'] = 'unknown'
+            normalized_df["Set code"] = "unknown"
             print("No set column found, created placeholder")
-    
+
     # Check for required columns
     for col in required_columns:
         if col not in normalized_df.columns:
             missing_columns.append(col)
-    
+
     if missing_columns:
         print(f"Warning: Missing required columns: {missing_columns}")
         # Create default values for missing required columns
-        if 'Quantity' not in normalized_df.columns:
-            normalized_df['Quantity'] = 1
+        if "Quantity" not in normalized_df.columns:
+            normalized_df["Quantity"] = 1
             print("Created default Quantity column with value 1")
-    
+
     print(f"Final columns: {list(normalized_df.columns)}")
     return normalized_df
-    
+
     # Convert quantity to int and filter out zero quantities
-    if 'Quantity' in normalized_df.columns:
-        normalized_df['Quantity'] = pd.to_numeric(normalized_df['Quantity'], errors='coerce').fillna(0).astype(int)
-        normalized_df = normalized_df[normalized_df['Quantity'] > 0].copy()
-    
+    if "Quantity" in normalized_df.columns:
+        normalized_df["Quantity"] = (
+            pd.to_numeric(normalized_df["Quantity"], errors="coerce")
+            .fillna(0)
+            .astype(int)
+        )
+        normalized_df = normalized_df[normalized_df["Quantity"] > 0].copy()
+
     return normalized_df
+
 
 def expand_collection_by_quantity(df):
     """Expand collection dataframe to include one row per individual card (accounting for quantities)"""
     expanded_rows = []
-    
+
     for _, row in df.iterrows():
-        quantity = int(row.get('Quantity', 1))
+        quantity = int(row.get("Quantity", 1))
         for i in range(quantity):
             # Create a copy of the row for each card
             card_row = row.to_dict()
-            card_row['card_instance'] = i + 1  # Track which instance this is
+            card_row["card_instance"] = i + 1  # Track which instance this is
             expanded_rows.append(card_row)
-    
+
     return pd.DataFrame(expanded_rows)
+
 
 def load_collection(filepath):
     df = pd.read_csv(filepath)
-    
+
     # Normalize format
     df = normalize_csv_format(df)
-    
+
     return df
+
 
 def enrich_collection_with_scryfall(collection_df, scryfall_data):
     # Normalize the collection format first
     normalized_df = normalize_csv_format(collection_df)
-    
+
     # Expand by quantity to get individual card instances
     expanded_df = expand_collection_by_quantity(normalized_df)
-    
+
     # Build lookups from Scryfall data
     scryfall_lookup = {card["id"]: card for card in scryfall_data}
 
@@ -214,6 +232,7 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
     # --- Scryfall set icon SVG enrichment ---
     # Download Scryfall set data (if not already cached)
     import requests
+
     SETS_CACHE_PATH = "data/data/scryfall_sets.json"
     if os.path.exists(SETS_CACHE_PATH):
         with open(SETS_CACHE_PATH, "r", encoding="utf-8") as f:
@@ -250,8 +269,10 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
             card_data = name_set_lookup.get(lookup_key)
 
         # Get set icon SVG URI if possible
-        set_code = (card_data.get("set") if card_data else row.get("Set code"))
-        set_icon_svg_uri = set_icon_lookup.get(str(set_code).lower()) if set_code else None
+        set_code = card_data.get("set") if card_data else row.get("Set code")
+        set_icon_svg_uri = (
+            set_icon_lookup.get(str(set_code).lower()) if set_code else None
+        )
 
         if card_data:
             # Create enriched card entry - start with essential CSV data
@@ -263,7 +284,6 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
                 "collector_number": row.get("Collector number"),
                 "quantity": row.get("Quantity", 1),
                 "card_instance": row.get("card_instance", 1),
-
                 # Card condition and physical properties
                 "condition": row.get("Condition"),
                 "language": row.get("Language"),
@@ -271,20 +291,16 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
                 "altered": row.get("Altered"),
                 "proxy": row.get("Proxy"),
                 "misprint": row.get("Misprint"),
-
                 # Platform-specific data
                 "manabox_id": row.get("ManaBox ID"),
                 "tradelist_count": row.get("Tradelist count"),
                 "tags": row.get("Tags"),
                 "last_modified": row.get("Last modified"),
-
                 # Financial data
                 "purchase_price": row.get("Purchase price"),
                 "purchase_price_currency": row.get("Purchase price currency"),
-
                 # Original CSV rarity (to avoid conflict with Scryfall)
                 "rarity_csv": row.get("Rarity"),
-
                 # Scryfall enriched data
                 "name": card_data.get("name"),
                 "oracle_text": card_data.get("oracle_text"),
@@ -305,7 +321,7 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
                 "rarity": card_data.get("rarity"),
                 "scryfall_id": card_data.get("id"),
                 # Set icon SVG URI
-                "set_icon_svg_uri": set_icon_svg_uri
+                "set_icon_svg_uri": set_icon_svg_uri,
             }
             enriched.append(enriched_card)
         else:
@@ -333,17 +349,141 @@ def enrich_collection_with_scryfall(collection_df, scryfall_data):
                 "rarity": row.get("Rarity"),
                 "scryfall_id": row.get("Scryfall ID"),
                 # Set icon SVG URI (fallback, may be None)
-                "set_icon_svg_uri": set_icon_svg_uri
+                "set_icon_svg_uri": set_icon_svg_uri,
             }
             enriched_card["name"] = row.get("Name", "Unknown")
             enriched.append(enriched_card)
-            print(f"Card not found in Scryfall: {row.get('Name', 'Unknown')} ({row.get('Set code', 'Unknown set')})")
+            print(
+                f"Card not found in Scryfall: {row.get('Name', 'Unknown')} ({row.get('Set code', 'Unknown set')})"
+            )
 
     enriched_df = pd.DataFrame(enriched)
-    
+
     # Expand by quantity to get individual card instances
-    if 'Quantity' in enriched_df.columns:
+    if "Quantity" in enriched_df.columns:
         expanded_df = expand_collection_by_quantity(enriched_df)
         return expanded_df
-    
+
     return enriched_df
+
+
+def enrich_single_row_with_scryfall(row, scryfall_data, set_icon_lookup=None):
+    """
+    Enrich a single collection row (dict) with Scryfall data. Used for streaming progress.
+    set_icon_lookup: optional, pass if already built for efficiency.
+    Returns: enriched card dict
+    """
+    import pandas as pd
+
+    # Build lookups (reuse if possible)
+    scryfall_lookup = {card["id"]: card for card in scryfall_data}
+    name_set_lookup = {}
+    for card in scryfall_data:
+        name = card.get("name", "").lower()
+        set_code = card.get("set", "").lower()
+        key = f"{name}|{set_code}"
+        if key not in name_set_lookup:
+            name_set_lookup[key] = card
+    # Set icon lookup (reuse if possible)
+    if set_icon_lookup is None:
+        set_icon_lookup = {}
+        # Try to load from Scryfall sets cache if available
+        SETS_CACHE_PATH = "data/data/scryfall_sets.json"
+        import os, json
+
+        if os.path.exists(SETS_CACHE_PATH):
+            with open(SETS_CACHE_PATH, "r", encoding="utf-8") as f:
+                sets_json = json.load(f)
+            if isinstance(sets_json, dict) and "data" in sets_json:
+                scryfall_sets = sets_json["data"]
+            else:
+                scryfall_sets = sets_json
+            set_icon_lookup = {
+                s["code"].lower(): s.get("icon_svg_uri") for s in scryfall_sets
+            }
+    # Try Scryfall ID lookup first
+    card_data = None
+    if "Scryfall ID" in row and pd.notna(row["Scryfall ID"]):
+        card_id = str(row["Scryfall ID"]).strip()
+        card_data = scryfall_lookup.get(card_id)
+    # Fall back to name + set lookup
+    if not card_data and "Name" in row and "Set code" in row:
+        name = str(row["Name"]).lower().strip()
+        set_code = str(row["Set code"]).lower().strip()
+        lookup_key = f"{name}|{set_code}"
+        card_data = name_set_lookup.get(lookup_key)
+    # Get set icon SVG URI if possible
+    set_code = card_data.get("set") if card_data else row.get("Set code")
+    set_icon_svg_uri = (
+        set_icon_lookup.get(str(set_code).lower())
+        if set_code and set_icon_lookup
+        else None
+    )
+    if card_data:
+        enriched_card = {
+            "original_name": row.get("Name"),
+            "set_code": row.get("Set code"),
+            "set_name": row.get("Set name"),
+            "collector_number": row.get("Collector number"),
+            "quantity": row.get("Quantity", 1),
+            "card_instance": row.get("card_instance", 1),
+            "condition": row.get("Condition"),
+            "language": row.get("Language"),
+            "foil": row.get("Foil"),
+            "altered": row.get("Altered"),
+            "proxy": row.get("Proxy"),
+            "misprint": row.get("Misprint"),
+            "manabox_id": row.get("ManaBox ID"),
+            "tradelist_count": row.get("Tradelist count"),
+            "tags": row.get("Tags"),
+            "last_modified": row.get("Last modified"),
+            "purchase_price": row.get("Purchase price"),
+            "purchase_price_currency": row.get("Purchase price currency"),
+            "rarity_csv": row.get("Rarity"),
+            "name": card_data.get("name"),
+            "oracle_text": card_data.get("oracle_text"),
+            "type_line": card_data.get("type_line"),
+            "mana_cost": card_data.get("mana_cost"),
+            "cmc": card_data.get("cmc"),
+            "colors": card_data.get("colors"),
+            "color_identity": card_data.get("color_identity"),
+            "legalities": card_data.get("legalities"),
+            "layout": card_data.get("layout"),
+            "power": card_data.get("power"),
+            "toughness": card_data.get("toughness"),
+            "keywords": card_data.get("keywords"),
+            "image_uris": card_data.get("image_uris"),
+            "card_faces": card_data.get("card_faces"),
+            "set": card_data.get("set"),
+            "scryfall_set_name": card_data.get("set_name"),
+            "rarity": card_data.get("rarity"),
+            "scryfall_id": card_data.get("id"),
+            "set_icon_svg_uri": set_icon_svg_uri,
+        }
+        return enriched_card
+    else:
+        enriched_card = {
+            "original_name": row.get("Name"),
+            "name": row.get("Name"),
+            "set_code": row.get("Set code"),
+            "set_name": row.get("Set name"),
+            "collector_number": row.get("Collector number"),
+            "quantity": row.get("Quantity", 1),
+            "card_instance": row.get("card_instance", 1),
+            "condition": row.get("Condition"),
+            "language": row.get("Language"),
+            "foil": row.get("Foil"),
+            "altered": row.get("Altered"),
+            "proxy": row.get("Proxy"),
+            "misprint": row.get("Misprint"),
+            "manabox_id": row.get("ManaBox ID"),
+            "tradelist_count": row.get("Tradelist count"),
+            "tags": row.get("Tags"),
+            "last_modified": row.get("Last modified"),
+            "purchase_price": row.get("Purchase price"),
+            "purchase_price_currency": row.get("Purchase price currency"),
+            "rarity": row.get("Rarity"),
+            "scryfall_id": row.get("Scryfall ID"),
+            "set_icon_svg_uri": set_icon_svg_uri,
+        }
+        return enriched_card
