@@ -155,8 +155,6 @@ async def upsert_user_card(
     card_id: Union[int, str],
     quantity: int,
     condition: Any,
-    foil: Any,
-    language: Any,
     policy: str = "add"
 ) -> Any:
     """
@@ -165,23 +163,23 @@ async def upsert_user_card(
     """
     if policy == "add":
         query = """
-        INSERT INTO user_cards (user_id, card_id, quantity, condition, foil, language)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (user_id, card_id, condition, foil, language)
+        INSERT INTO user_cards (user_id, card_id, quantity, condition)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (user_id, card_id, condition)
         DO UPDATE SET quantity = user_cards.quantity + EXCLUDED.quantity
         RETURNING id, quantity
         """
     elif policy == "replace":
         query = """
-        INSERT INTO user_cards (user_id, card_id, quantity, condition, foil, language)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (user_id, card_id, condition, foil, language)
+        INSERT INTO user_cards (user_id, card_id, quantity, condition)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (user_id, card_id, condition)
         DO UPDATE SET quantity = EXCLUDED.quantity
         RETURNING id, quantity
         """
     else:
         raise ValueError("Unknown policy: must be 'add' or 'replace'")
-    row: Dict[str, Any] | None = await db.execute_query_one(query, (user_id, card_id, quantity, condition, foil, language))  # type: ignore
+    row: Dict[str, Any] | None = await db.execute_query_one(query, (user_id, card_id, quantity, condition))  # type: ignore
     if row is None:
         raise RuntimeError("Database returned None for upsert_user_card query.")
     return row['id']
@@ -281,15 +279,11 @@ async def upload_collection_from_csv(
         except Exception:
             quantity = 1
         condition = cast(str, row.get("Condition", ""))  # type: ignore
-        foil = cast(str, row.get("Foil", ""))  # type: ignore
-        language = cast(str, row.get("Language", ""))  # type: ignore
         user_card_id = await upsert_user_card(
             user_id,
             cast(Union[int, str], card_id),  # type: ignore
             quantity,
             condition,
-            foil,
-            language,
             policy=inventory_policy
         )  # type: ignore
         await link_collection_card(collection_id, user_card_id)  # type: ignore

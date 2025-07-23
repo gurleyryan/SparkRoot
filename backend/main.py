@@ -8,6 +8,7 @@ import numpy as np
 import traceback
 import glob
 import uvicorn
+import sys
 from datetime import timedelta
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Body, status, Form
 from fastapi.security import HTTPAuthorizationCredentials
@@ -682,43 +683,64 @@ async def upload_collection_progress(
     current_user: Dict[str, Any] = Depends(get_user_from_token)
 ) -> EventSourceResponse:
   
-    async def event_generator() -> AsyncGenerator[dict[str, Any], None]:
+    # Read and decode file outside the generator
+    content = await file.read()
+    print(f"[progress-upload] Read file content, size: {len(content)}", file=sys.stderr)
+    decoded = content.decode(errors="replace")
+    print(f"[progress-upload] Decoded file, first 100 chars: {decoded[:100]}", file=sys.stderr)
+
+    async def event_generator(
+        decoded: str,
+        name: str,
+        description: str,
+        isPublic: bool,
+        inventoryPolicy: str,
+        collectionAction: str,
+        collectionId: Optional[str],
+        current_user: Dict[str, Any]
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        print("[progress-upload] Starting event_generator", file=sys.stderr)
         try:
-            # Read file content
-            content = await file.read()
-            decoded = content.decode(errors="replace")
-            # Parse CSV to DataFrame
+            import pandas as pd, io
             df: pd.DataFrame = pd.read_csv(io.StringIO(decoded))  # type: ignore
+            print(f"[progress-upload] Parsed CSV, shape: {df.shape}", file=sys.stderr)
             df = normalize_csv_format(df)
+            print(f"[progress-upload] Normalized CSV, shape: {df.shape}", file=sys.stderr)
             df = expand_collection_by_quantity(df)
+            print(f"[progress-upload] Expanded by quantity, shape: {df.shape}", file=sys.stderr)
             rows: List[Dict[str, Any]] = df.to_dict("records")  # type: ignore
             total = len(rows)
+            print(f"[progress-upload] Total rows: {total}", file=sys.stderr)
             if total == 0:
+                print("[progress-upload] No rows found in CSV.", file=sys.stderr)
                 yield {"event": "error", "data": {"error": "No rows found in CSV."}}
                 return
 
             user_id = current_user["id"]
-            # Create or update collection
+            print(f"[progress-upload] User ID: {user_id}", file=sys.stderr)
             if collectionAction == "new":
+                print(f"[progress-upload] Creating new collection: {name}", file=sys.stderr)
                 collection_id = await create_collection(user_id, name, description, isPublic)
+                print(f"[progress-upload] Created collection ID: {collection_id}", file=sys.stderr)
             elif collectionAction == "update" and collectionId:
+                print(f"[progress-upload] Updating collection: {collectionId}", file=sys.stderr)
                 await update_collection(collectionId, name, description, isPublic)
                 collection_id = collectionId
+                print(f"[progress-upload] Updated collection ID: {collection_id}", file=sys.stderr)
             else:
+                print("[progress-upload] Invalid collection action or missing collectionId.", file=sys.stderr)
                 yield {"event": "error", "data": {"error": "Invalid collection action or missing collectionId."}}
                 return
 
             user_card_ids: List[Any] = []
             enriched_cards: List[Dict[str, Any]] = []
             for idx, row in enumerate(rows):
-                # Find card_id from public.cards
+                print(f"[progress-upload] Processing row {idx+1}/{total}", file=sys.stderr)
                 card_id = None
-                # Try Scryfall ID, then set+collector_number, then name+set
                 scryfall_id = row.get("Scryfall ID")
                 set_code = row.get("Set code")
                 collector_number = row.get("Collector number")
                 name_val = row.get("Name")
-                # Query for card_id
                 query = None
                 params = None
                 if scryfall_id:
@@ -733,35 +755,45 @@ async def upload_collection_progress(
                 if query and params:
                     from backend.supabase_db import db
                     card_row = await db.execute_query_one(query, params)
+                    print(f"[progress-upload] Card query: {query}, params: {params}, result: {card_row}", file=sys.stderr)
                     if card_row:
                         card_id = card_row["id"]
                 if not card_id:
-                    # Could not find card, skip
+                    print(f"[progress-upload] Card not found for row {idx+1}", file=sys.stderr)
                     preview: Dict[str, Any] = {"name": name_val, "set_code": set_code, "idx": idx, "total": total, "error": "Card not found"}
                     yield {"event": "progress", "data": {"current": idx+1, "total": total, "percent": int(100*(idx+1)/total), "preview": preview}}
                     continue
 
-                # Upsert user_card
                 quantity = int(row.get("Quantity", 1))
                 condition = row.get("Condition", "Near Mint")
-                foil = bool(row.get("Foil", False))
-                language = row.get("Language", "en")
-                user_card_id = await upsert_user_card(user_id, card_id, quantity, condition, foil, language, inventoryPolicy)
+                print(f"[progress-upload] Upserting user_card: card_id={card_id}, quantity={quantity}", file=sys.stderr)
+                user_card_id = await upsert_user_card(user_id, card_id, quantity, condition, inventoryPolicy)
+                print(f"[progress-upload] Upserted user_card_id: {user_card_id}", file=sys.stderr)
                 user_card_ids.append(user_card_id)
 
-                # Link user_card to collection
+                print(f"[progress-upload] Linking user_card_id {user_card_id} to collection_id {collection_id}", file=sys.stderr)
                 await link_collection_card(collection_id, user_card_id)
 
                 preview = {"name": name_val, "set_code": set_code, "idx": idx, "total": total}
                 yield {"event": "progress", "data": {"current": idx+1, "total": total, "percent": int(100*(idx+1)/total), "preview": preview}}
                 enriched_cards.append({"user_card_id": user_card_id, "card_id": card_id, "name": name_val, "set_code": set_code, "quantity": quantity})
 
-            # After all cards, send the full enriched collection as a final event
+            print(f"[progress-upload] Done processing all rows. Sending final event.", file=sys.stderr)
             yield {"event": "done", "data": {"collection": enriched_cards, "total": total, "collection_id": collection_id}}
         except Exception as e:
+            print(f"[progress-upload] Exception: {e}\n{traceback.format_exc()}", file=sys.stderr)
             yield {"event": "error", "data": {"error": str(e), "details": traceback.format_exc()}}
 
-    return EventSourceResponse(event_generator())
+    return EventSourceResponse(event_generator(
+        decoded,
+        name,
+        description,
+        isPublic,
+        inventoryPolicy,
+        collectionAction,
+        collectionId,
+        current_user
+    ))
 
 # Entry point for running the FastAPI app with Uvicorn
 if __name__ == "__main__":
