@@ -1,10 +1,5 @@
-"""
-Deck analysis and scoring system for SparkRoot
-Evaluates deck quality, balance, and optimization potential
-"""
 from collections import Counter
 from typing import Dict, List, Any
-
 
 def analyze_deck_quality(deck_data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -46,7 +41,7 @@ def analyze_deck_quality(deck_data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def analyze_mana_curve(deck: List[Dict]) -> Dict[str, Any]:
+def analyze_mana_curve(deck: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Analyze mana curve and calculate curve quality score
     
@@ -54,18 +49,18 @@ def analyze_mana_curve(deck: List[Dict]) -> Dict[str, Any]:
         dict: Mana curve analysis with score and recommendations
     """
     # Extract CMC values
-    cmc_values = []
+    cmc_values: list[int] = []
     for card in deck:
         cmc = card.get('cmc', 0)
         if cmc is not None:
             cmc_values.append(int(cmc))
     
     # Count distribution
-    cmc_distribution = Counter(cmc_values)
+    cmc_distribution: Counter[int] = Counter(cmc_values)
     total_nonland_cards = len([c for c in deck if 'land' not in c.get('type_line', '').lower()])
     
     # Calculate percentages
-    cmc_percentages = {}
+    cmc_percentages: dict[int, float] = {}
     for cmc in range(0, 8):  # 0-7+ CMC
         count = cmc_distribution.get(cmc, 0)
         if cmc == 7:  # Combine 7+ CMC
@@ -91,24 +86,27 @@ def analyze_mana_curve(deck: List[Dict]) -> Dict[str, Any]:
     # Average CMC
     avg_cmc = sum(cmc_values) / len(cmc_values) if cmc_values else 0
     
+    # Convert all values to float for type compatibility
+    cmc_percentages_float = {k: float(v) for k, v in cmc_percentages.items()}
+    ideal_curve_float = {k: float(v) for k, v in ideal_curve.items()}
     return {
         'score': round(curve_score, 1),
         'average_cmc': round(avg_cmc, 2),
-        'distribution': cmc_percentages,
-        'ideal_distribution': ideal_curve,
+        'distribution': cmc_percentages_float,
+        'ideal_distribution': ideal_curve_float,
         'total_nonland_cards': total_nonland_cards,
-        'recommendations': get_curve_recommendations(cmc_percentages, ideal_curve, avg_cmc)
+        'recommendations': get_curve_recommendations(cmc_percentages_float, ideal_curve_float, avg_cmc)
     }
 
 
-def analyze_card_types(deck: List[Dict]) -> Dict[str, Any]:
+def analyze_card_types(deck: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Analyze card type distribution and balance
     
     Returns:
         dict: Card type analysis with balance score
     """
-    type_counts = {
+    type_counts: dict[str, int] = {
         'creatures': 0,
         'instants': 0,
         'sorceries': 0,
@@ -137,7 +135,7 @@ def analyze_card_types(deck: List[Dict]) -> Dict[str, Any]:
             type_counts['lands'] += 1
     
     total_cards = len(deck)
-    type_percentages = {k: (v / total_cards * 100) for k, v in type_counts.items()}
+    type_percentages: dict[str, float] = {k: float(v / total_cards * 100) for k, v in type_counts.items()}
     
     # Ideal type distribution for balanced Commander deck
     ideal_types = {
@@ -154,16 +152,17 @@ def analyze_card_types(deck: List[Dict]) -> Dict[str, Any]:
     total_deviation = sum(abs(type_percentages[t] - ideal_types[t]) for t in ideal_types)
     balance_score = max(0, 100 - (total_deviation / 3))  # Scale deviation
     
+    ideal_types_float = {k: float(v) for k, v in ideal_types.items()}
     return {
         'score': round(balance_score, 1),
         'distribution': type_counts,
         'percentages': type_percentages,
-        'ideal_percentages': ideal_types,
-        'recommendations': get_type_recommendations(type_percentages, ideal_types)
+        'ideal_percentages': ideal_types_float,
+        'recommendations': get_type_recommendations(type_percentages, ideal_types_float)
     }
 
 
-def analyze_synergies(deck: List[Dict], commander: Dict[str, Any]) -> Dict[str, Any]:
+def analyze_synergies(deck: List[Dict[str, Any]], commander: Dict[str, Any]) -> Dict[str, Any]:
     """
     Analyze tribal synergies, themes, and commander compatibility
     
@@ -171,9 +170,8 @@ def analyze_synergies(deck: List[Dict], commander: Dict[str, Any]) -> Dict[str, 
         dict: Synergy analysis with theme detection
     """
     # Extract creature types for tribal analysis
-    creature_types = []
-    keywords = []
-    themes = {
+    creature_types: list[str] = []
+    themes: dict[str, int] = {
         'tribal': 0,
         'tokens': 0,
         'graveyard': 0,
@@ -216,12 +214,11 @@ def analyze_synergies(deck: List[Dict], commander: Dict[str, Any]) -> Dict[str, 
             themes['removal'] += 1
     
     # Find most common creature type
-    creature_type_counts = Counter(creature_types)
+    creature_type_counts: Counter[str] = Counter(creature_types)
     primary_tribe = creature_type_counts.most_common(1)[0] if creature_type_counts else (None, 0)
     
     # Calculate synergy score based on theme consistency
-    theme_scores = {}
-    max_theme_count = max(themes.values()) if themes.values() else 1
+    theme_scores: dict[str, float] = {}
     
     for theme, count in themes.items():
         theme_scores[theme] = (count / len(deck)) * 100
@@ -239,14 +236,14 @@ def analyze_synergies(deck: List[Dict], commander: Dict[str, Any]) -> Dict[str, 
     }
 
 
-def analyze_deck_balance(deck: List[Dict]) -> Dict[str, Any]:
+def analyze_deck_balance(deck: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Analyze deck balance (ramp, draw, removal, win conditions)
     
     Returns:
         dict: Balance analysis with recommendations
     """
-    balance_categories = {
+    balance_categories: dict[str, int] = {
         'ramp': 0,
         'card_draw': 0,
         'removal': 0,
@@ -257,7 +254,6 @@ def analyze_deck_balance(deck: List[Dict]) -> Dict[str, Any]:
     
     for card in deck:
         oracle_text = card.get('oracle_text', '').lower()
-        type_line = card.get('type_line', '').lower()
         cmc = card.get('cmc', 0)
         
         # Ramp detection
@@ -285,7 +281,7 @@ def analyze_deck_balance(deck: List[Dict]) -> Dict[str, Any]:
             balance_categories['win_conditions'] += 1
     
     # Calculate balance score based on having enough of each category
-    ideal_balance = {
+    ideal_balance: dict[str, int] = {
         'ramp': 10,           # ~10 ramp spells
         'card_draw': 8,       # ~8 draw spells
         'removal': 6,         # ~6 removal spells
@@ -350,9 +346,9 @@ def get_score_grade(score: float) -> str:
     else: return "D"
 
 
-def generate_recommendations(deck: List[Dict], commander: Dict[str, Any], overall_score: float) -> List[str]:
+def generate_recommendations(deck: List[Dict[str, Any]], commander: Dict[str, Any], overall_score: float) -> List[str]:
     """Generate actionable recommendations for deck improvement"""
-    recommendations = []
+    recommendations: list[str] = []
     
     if overall_score < 70:
         recommendations.append("Consider adding more ramp and card draw for consistency")
@@ -366,19 +362,19 @@ def generate_recommendations(deck: List[Dict], commander: Dict[str, Any], overal
     return recommendations
 
 
-def identify_strengths(deck: List[Dict], commander: Dict[str, Any]) -> List[str]:
+def identify_strengths(deck: List[Dict[str, Any]], commander: Dict[str, Any]) -> List[str]:
     """Identify deck's main strengths"""
     return ["Strong creature base", "Good mana curve", "Clear strategy"]
 
 
-def identify_weaknesses(deck: List[Dict], commander: Dict[str, Any]) -> List[str]:
+def identify_weaknesses(deck: List[Dict[str, Any]], commander: Dict[str, Any]) -> List[str]:
     """Identify deck's main weaknesses"""
     return ["Needs more removal", "Could use more card draw"]
 
 
-def get_curve_recommendations(actual: Dict, ideal: Dict, avg_cmc: float) -> List[str]:
+def get_curve_recommendations(actual: Dict[int, float], ideal: Dict[int, float], avg_cmc: float) -> List[str]:
     """Generate mana curve specific recommendations"""
-    recommendations = []
+    recommendations: list[str] = []
     
     if avg_cmc > 3.5:
         recommendations.append("Average CMC too high - add more low-cost cards")
@@ -388,9 +384,9 @@ def get_curve_recommendations(actual: Dict, ideal: Dict, avg_cmc: float) -> List
     return recommendations
 
 
-def get_type_recommendations(actual: Dict, ideal: Dict) -> List[str]:
+def get_type_recommendations(actual: Dict[str, float], ideal: Dict[str, float]) -> List[str]:
     """Generate card type balance recommendations"""
-    recommendations = []
+    recommendations: list[str] = []
     
     if actual['creatures'] < 15:
         recommendations.append("Add more creatures for board presence")
@@ -400,9 +396,9 @@ def get_type_recommendations(actual: Dict, ideal: Dict) -> List[str]:
     return recommendations
 
 
-def get_balance_recommendations(actual: Dict, ideal: Dict) -> List[str]:
+def get_balance_recommendations(actual: Dict[str, int], ideal: Dict[str, int]) -> List[str]:
     """Generate deck balance recommendations"""
-    recommendations = []
+    recommendations: list[str] = []
     
     if actual['ramp'] < 8:
         recommendations.append("Add more ramp spells for mana acceleration")

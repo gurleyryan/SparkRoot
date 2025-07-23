@@ -1,13 +1,9 @@
-"""
-Deck export utilities for SparkRoot
-Handles exporting generated decks to various formats
-"""
 import json
 import os
 from datetime import datetime
+from typing import Dict, Any, Optional, Tuple
 
-
-def export_deck_to_txt(deck_data, filename=None):
+def export_deck_to_txt(deck_data: Dict[str, Any], filename: Optional[str] = None) -> Tuple[str, str]:
     """
     Export deck to MTGO/Arena compatible text format
     
@@ -24,7 +20,7 @@ def export_deck_to_txt(deck_data, filename=None):
         filename = f"{commander_name}_{timestamp}.txt"
     
     # Build the deck text
-    lines = []
+    lines: list[str] = []
     lines.append("// SparkRoot - Generated Commander Deck")
     lines.append(f"// Commander: {deck_data['commander']['name']}")
     lines.append(f"// Color Identity: {', '.join(deck_data['commander'].get('color_identity', ['Colorless']))}")
@@ -56,7 +52,7 @@ def export_deck_to_txt(deck_data, filename=None):
     return deck_text, filepath
 
 
-def export_deck_to_json(deck_data, filename=None):
+def export_deck_to_json(deck_data: Dict[str, Any], filename: Optional[str] = None) -> str:
     """
     Export deck to JSON format for programmatic use
     
@@ -73,7 +69,7 @@ def export_deck_to_json(deck_data, filename=None):
         filename = f"{commander_name}_{timestamp}.json"
     
     # Prepare data for JSON export
-    export_data = {
+    export_data: Dict[str, Any] = {
         "format": "Commander/EDH",
         "generated_at": datetime.now().isoformat(),
         "commander": deck_data["commander"],
@@ -97,7 +93,7 @@ def export_deck_to_json(deck_data, filename=None):
     return filepath
 
 
-def export_deck_to_moxfield(deck_data):
+def export_deck_to_moxfield(deck_data: Dict[str, Any]) -> str:
     """
     Generate MoxField-compatible import text
     
@@ -107,7 +103,7 @@ def export_deck_to_moxfield(deck_data):
     Returns:
         str: MoxField import format text
     """
-    lines = []
+    lines: list[str] = []
     
     # Commander
     lines.append(f"1 {deck_data['commander']['name']} *CMDR*")
@@ -120,7 +116,7 @@ def export_deck_to_moxfield(deck_data):
     return "\n".join(lines)
 
 
-def get_deck_statistics(deck_data):
+def get_deck_statistics(deck_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Calculate basic deck statistics
     
@@ -146,7 +142,7 @@ def get_deck_statistics(deck_data):
     }
     
     # Count CMC distribution
-    cmc_counts = {}
+    cmc_counts: Dict[float, int] = {}
     total_cmc = 0
     
     for card in deck:

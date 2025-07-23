@@ -1,3 +1,6 @@
+import pandas as pd
+from typing import Dict, Any, List
+
 # List of Game Changer cards (should match frontend)
 GAME_CHANGERS = set([
     # White
@@ -14,7 +17,7 @@ GAME_CHANGERS = set([
     "Ancient Tomb", "Chrome Mox", "Field of the Dead", "Glacial Chasm", "Grim Monolith", "Lion's Eye Diamond", "Mana Vault", "Mishra's Workshop", "Mox Diamond", "Panoptic Mirror", "The One Ring", "The Tabernacle at Pendrell Vale"
 ])
 
-def enforce_bracket_rules(deck_data, bracket):
+def enforce_bracket_rules(deck_data: Dict[str, Any], bracket: int) -> Dict[str, Any]:
     """
     Enforce bracket rules on the generated deck.
     - Bracket 1 & 2: No Game Changers
@@ -27,7 +30,8 @@ def enforce_bracket_rules(deck_data, bracket):
         deck = [card for card in deck if card.get("name") not in GAME_CHANGERS]
     elif bracket == 3:
         count = 0
-        new_deck = []
+        from typing import List
+        new_deck: List[Dict[str, Any]] = []
         for card in deck:
             if card.get("name") in GAME_CHANGERS:
                 if count < 3:
@@ -43,21 +47,24 @@ def enforce_bracket_rules(deck_data, bracket):
     deck_data["total_cards"] = len(deck) + 1  # +1 for commander
     deck_data["bracket"] = bracket
     return deck_data
-def find_valid_commanders(enriched_df):
-    commanders = []
-    for _, card in enriched_df.iterrows():
+
+
+
+def find_valid_commanders(enriched_df: pd.DataFrame) -> List[Dict[str, Any]]:
+    commanders: List[Dict[str, Any]] = []
+    for _, card in enriched_df.iterrows():  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+        # card is a pandas Series, dynamic type
         if (
-            card["type_line"] 
-            and "Legendary Creature" in card["type_line"]
-            and card["legalities"].get("commander") == "legal"
+            card.get("type_line", "")  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+            and "Legendary Creature" in card.get("type_line", "")  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+            and card.get("legalities", {}).get("commander") == "legal"  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
         ):
-            # Convert pandas Series to dictionary for template compatibility
-            commanders.append(card.to_dict())
+            commanders.append(dict(card.to_dict()))  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
 
     return commanders
 
 
-def generate_commander_deck(commander, card_pool):
+def generate_commander_deck(commander: Dict[str, Any], card_pool: pd.DataFrame) -> Dict[str, Any]:
     """
     Generate a Commander deck: 1 commander + 99 cards matching color identity from collection.
     
@@ -71,33 +78,33 @@ def generate_commander_deck(commander, card_pool):
     commander_color_identity = set(commander.get("color_identity", []))
     
     # Filter cards that match the commander's color identity and are legal in Commander
-    valid_cards = []
-    for _, card in card_pool.iterrows():
-        # Skip the commander itself
-        if card.get("Scryfall ID") == commander.get("Scryfall ID"):
+    valid_cards: List[Dict[str, Any]] = []
+    for _, card in card_pool.iterrows():  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+        # card is a pandas Series, dynamic type
+        if card.get("Scryfall ID") == commander.get("Scryfall ID"):  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
             continue
-            
-        # Check if card is legal in Commander format
-        if card.get("legalities", {}).get("commander") != "legal":
+        if card.get("legalities", {}).get("commander") != "legal":  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
             continue
-            
-        # Check color identity compatibility
-        card_color_identity = set(card.get("color_identity", []))
-        if not card_color_identity.issubset(commander_color_identity):
+        card_color_identity = set(card.get("color_identity", []))  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+        if not card_color_identity.issubset(commander_color_identity):  # type: ignore
             continue
-            
-        # Add multiple copies if available (respecting quantity)
-        quantity = card.get("Quantity", 1)
-        for _ in range(min(quantity, 4)):  # Max 4 copies of any non-basic land
-            # Allow unlimited basic lands
-            if (card.get("type_line", "") and 
-                "Basic Land" in card.get("type_line", "") and 
-                quantity > 4):
-                # For basic lands, add more copies if needed
-                valid_cards.extend([card.to_dict()] * quantity)
+        quantity = card.get("Quantity", 1)  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+        # Ensure quantity is an int for Pyright and runtime safety
+        if not isinstance(quantity, int):
+            try:
+                quantity = int(quantity)  # type: ignore[reportUnknownArgumentType]
+            except Exception:
+                quantity = 1
+        for _ in range(min(quantity, 4)):
+            if (
+                card.get("type_line", "")  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+                and "Basic Land" in card.get("type_line", "")  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
+                and quantity > 4
+            ):
+                valid_cards.extend([dict(card.to_dict())] * quantity)  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
                 break
             else:
-                valid_cards.append(card.to_dict())
+                valid_cards.append(dict(card.to_dict()))  # type: ignore[reportUnknownMemberType,reportUnknownVariableType]
     
     # If we have fewer than 99 cards, use what we have
     deck_size = min(99, len(valid_cards))
@@ -115,7 +122,7 @@ def generate_commander_deck(commander, card_pool):
     }
 
 
-def categorize_cards_by_type(cards):
+def categorize_cards_by_type(cards: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Helper function to categorize cards by type for better deck building.
     
@@ -125,7 +132,7 @@ def categorize_cards_by_type(cards):
     Returns:
         dict: Categories of cards (creatures, spells, lands, etc.)
     """
-    categories = {
+    categories: Dict[str, List[Dict[str, Any]]] = {
         "creatures": [],
         "planeswalkers": [],
         "instants": [],

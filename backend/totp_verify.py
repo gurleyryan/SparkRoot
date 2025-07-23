@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY") or ""
 
 router = APIRouter()
 security = HTTPBearer()

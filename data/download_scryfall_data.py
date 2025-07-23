@@ -1,4 +1,3 @@
-
 import requests
 import json
 import os
@@ -17,7 +16,7 @@ def get_local_version():
             return None
     return None
 
-def save_local_version(updated_at):
+def save_local_version(updated_at: str):
     with open(META_FILE, "w", encoding="utf-8") as f:
         json.dump({"updated_at": updated_at}, f)
 

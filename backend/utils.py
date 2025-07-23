@@ -1,61 +1,11 @@
-import requests
-import os
-import json
+# Third-party imports
 import pandas as pd
+
+# Local imports
 from backend.supabase_db import db
+from typing import Any, List, Dict, Union, cast
 
-def download_scryfall_bulk():
-    url = "https://api.scryfall.com/bulk-data"
-    r = requests.get(url)
-    bulk_data = r.json()
-
-    for item in bulk_data["data"]:
-        if item["type"] == "default_cards":
-            download_url = item["download_uri"]
-            break
-
-    os.makedirs("../data", exist_ok=True)
-    print("Downloading Scryfall card database...")
-    response = requests.get(download_url)
-    with open("../data/data/scryfall_all_cards.json", "wb") as f:
-        f.write(response.content)
-
-    print("Saved full card database to data/")
-
-
-def load_scryfall_cards():
-    import os, psutil
-
-    scryfall_path = "data/data/scryfall_all_cards.json"
-    if not os.path.exists(scryfall_path):
-        raise FileNotFoundError(f"Scryfall file not found: {scryfall_path}")
-    file_size = os.path.getsize(scryfall_path)
-    print(f"[Scryfall] File size: {file_size/1024/1024:.2f} MB")
-    process = psutil.Process(os.getpid())
-    mem_before = process.memory_info().rss / 1024 / 1024
-    print(f"[Scryfall] Memory usage before loading: {mem_before:.2f} MB")
-    with open(scryfall_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    mem_after = process.memory_info().rss / 1024 / 1024
-    print(
-        f"[Scryfall] Memory usage after loading: {mem_after:.2f} MB (delta: {mem_after-mem_before:.2f} MB)"
-    )
-    # Check for Scryfall List object
-    if isinstance(data, dict) and "data" in data:
-        cards = data["data"]
-        print(f"[Scryfall] Loaded {len(cards)} cards from data['data'].")
-        return cards
-    elif isinstance(data, list):
-        print(f"[Scryfall] Loaded {len(data)} cards (list at top level).")
-        return data
-    else:
-        print(
-            "[Scryfall] WARNING: Unexpected Scryfall JSON structure! Returning raw data."
-        )
-        return data
-
-
-def normalize_csv_format(df):
+def normalize_csv_format(df: pd.DataFrame) -> pd.DataFrame:
     """Normalize different CSV formats (ManaBox, Moxfield, etc.) to a standard format"""
     # Create a copy to avoid modifying the original
     normalized_df = df.copy()
@@ -108,7 +58,7 @@ def normalize_csv_format(df):
     }
 
     # Apply column mapping
-    columns_mapped = []
+    columns_mapped: List[str] = []
     for old_name, new_name in column_mapping.items():
         if old_name in normalized_df.columns:
             normalized_df = normalized_df.rename(columns={old_name: new_name})
@@ -130,7 +80,7 @@ def normalize_csv_format(df):
 
     # Ensure we have required columns
     required_columns = ["Name", "Quantity"]
-    missing_columns = []
+    missing_columns: List[str] = []
 
     # Try to find Name column with flexible matching
     if "Name" not in normalized_df.columns:
@@ -175,41 +125,40 @@ def normalize_csv_format(df):
     print(f"Final columns: {list(normalized_df.columns)}")
     return normalized_df
 
-    # Convert quantity to int and filter out zero quantities
-    if "Quantity" in normalized_df.columns:
-        normalized_df["Quantity"] = (
-            pd.to_numeric(normalized_df["Quantity"], errors="coerce")
-            .fillna(0)
-            .astype(int)
-        )
-        normalized_df = normalized_df[normalized_df["Quantity"] > 0].copy()
 
-    return normalized_df
-
-
-def expand_collection_by_quantity(df):
+def expand_collection_by_quantity(df: pd.DataFrame) -> pd.DataFrame:
     """Expand collection dataframe to include one row per individual card (accounting for quantities)"""
-    expanded_rows = []
+    expanded_rows: List[Dict[str, Any]] = []
 
-    for _, row in df.iterrows():
-        quantity = int(row.get("Quantity", 1))
+    
+    for _, row in df.iterrows():  # type: ignore
+        quantity_val = cast(int, row.get("Quantity", 1))  # type: ignore
+        try:
+            quantity = int(quantity_val)
+        except Exception:
+            quantity = 1
         for i in range(quantity):
-            # Create a copy of the row for each card
-            card_row = row.to_dict()
-            card_row["card_instance"] = i + 1  # Track which instance this is
+            card_row = cast(Dict[str, Any], row.to_dict())  # type: ignore
+            card_row["card_instance"] = i + 1
             expanded_rows.append(card_row)
 
     return pd.DataFrame(expanded_rows)
 
-def load_collection(filepath):
-    df = pd.read_csv(filepath)
-
+def load_collection(filepath: str) -> pd.DataFrame:
+    df: pd.DataFrame = pd.read_csv(filepath)  # type: ignore[no-untyped-call]
     # Normalize format
     df = normalize_csv_format(df)
-
     return df
 
-async def upsert_user_card(user_id, card_id, quantity, condition, foil, language, policy="add"):
+async def upsert_user_card(
+    user_id: Union[int, str],
+    card_id: Union[int, str],
+    quantity: int,
+    condition: Any,
+    foil: Any,
+    language: Any,
+    policy: str = "add"
+) -> Any:
     """
     Upsert a card into user_cards with the given policy ('add' or 'replace').
     Returns the user_card_id.
@@ -232,22 +181,36 @@ async def upsert_user_card(user_id, card_id, quantity, condition, foil, language
         """
     else:
         raise ValueError("Unknown policy: must be 'add' or 'replace'")
-    row = await db.execute_query_one(query, (user_id, card_id, quantity, condition, foil, language))
+    row: Dict[str, Any] | None = await db.execute_query_one(query, (user_id, card_id, quantity, condition, foil, language))  # type: ignore
+    if row is None:
+        raise RuntimeError("Database returned None for upsert_user_card query.")
     return row['id']
 
-async def create_collection(user_id, name, description, is_public=False):
+async def create_collection(
+    user_id: Union[int, str],
+    name: str,
+    description: Union[str, None],
+    is_public: bool = False
+) -> Any:
     query = """
     INSERT INTO collections (user_id, name, description, is_public)
     VALUES ($1, $2, $3, $4)
     RETURNING id
     """
-    row = await db.execute_query_one(query, (user_id, name, description, is_public))
+    row: Dict[str, Any] | None = await db.execute_query_one(query, (user_id, name, description, is_public))  # type: ignore
+    if row is None:
+        raise RuntimeError("Database returned None for create_collection query.")
     return row['id']
 
-async def update_collection(collection_id, name=None, description=None, is_public=None):
+async def update_collection(
+    collection_id: Union[int, str],
+    name: Union[str, None] = None,
+    description: Union[str, None] = None,
+    is_public: Union[bool, None] = None
+) -> None:
     # Only update provided fields
-    fields = []
-    params = []
+    fields: List[str] = []
+    params: List[Union[str, bool, None]] = []
     if name is not None:
         fields.append("name = $%d" % (len(params)+2))
         params.append(name)
@@ -260,26 +223,29 @@ async def update_collection(collection_id, name=None, description=None, is_publi
     if not fields:
         return
     query = f"UPDATE collections SET {', '.join(fields)} WHERE id = $1"
-    await db.execute_query(query, tuple([collection_id] + params))
+    await db.execute_query(query, tuple([collection_id] + params))  # type: ignore
 
-async def link_collection_card(collection_id, user_card_id):
+async def link_collection_card(
+    collection_id: Union[int, str],
+    user_card_id: Union[int, str]
+) -> None:
     query = """
     INSERT INTO collection_cards (collection_id, user_card_id)
     VALUES ($1, $2)
     ON CONFLICT DO NOTHING
     """
-    await db.execute_query(query, (collection_id, user_card_id))
+    await db.execute_query(query, (collection_id, user_card_id))  # type: ignore
 
 async def upload_collection_from_csv(
-    user_id,
-    collection_df,
-    collection_name,
-    description=None,
-    is_public=False,
-    inventory_policy="add",
-    collection_action="new",
-    collection_id=None
-):
+    user_id: Union[int, str],
+    collection_df: pd.DataFrame,
+    collection_name: str,
+    description: Union[str, None] = None,
+    is_public: bool = False,
+    inventory_policy: str = "add",
+    collection_action: str = "new",
+    collection_id: Union[int, str, None] = None
+) -> Union[int, str]:
     """
     Upload a collection from a CSV DataFrame.
     - inventory_policy: 'add' (default, non-destructive) or 'replace' (overwrite quantities)
@@ -294,155 +260,106 @@ async def upload_collection_from_csv(
             raise ValueError("collection_id must be provided for update action")
         await update_collection(collection_id, name=collection_name, description=description, is_public=is_public)
         # Remove all old collection_cards for this collection
-        await db.execute_query("DELETE FROM collection_cards WHERE collection_id = $1", (collection_id,))
+        await db.execute_query("DELETE FROM collection_cards WHERE collection_id = $1", (collection_id,))  # type: ignore
     else:
         raise ValueError("collection_action must be 'new' or 'update'")
 
-    for _, row in collection_df.iterrows():
-        # Lookup card in Supabase by Scryfall ID, set code, collector number
-        scryfall_id = row.get("Scryfall ID")
-        set_code = row.get("Set code")
-        collector_number = row.get("Collector number")
-        card_row = await db.execute_query_one(
+    for _, row in collection_df.iterrows():  # type: ignore
+        scryfall_id = cast(str, row.get("Scryfall ID", ""))  # type: ignore
+        set_code = cast(str, row.get("Set code", ""))  # type: ignore
+        collector_number = cast(str, row.get("Collector number", ""))  # type: ignore
+        card_row = await db.execute_query_one( # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
             "SELECT id FROM cards WHERE id = $1 OR (set = $2 AND collector_number = $3)",
             (scryfall_id, set_code, collector_number)
-        )
-        if not card_row:
-            continue  # Skip if card not found
-        card_id = card_row['id']
-        # Upsert into user_cards with chosen policy
+        )  
+        if card_row is None or "id" not in card_row:
+            continue
+        card_id = card_row["id"]  # type: ignore
+        quantity_val = cast(int, row.get("Quantity", 1))  # type: ignore
+        try:
+            quantity = int(quantity_val)
+        except Exception:
+            quantity = 1
+        condition = cast(str, row.get("Condition", ""))  # type: ignore
+        foil = cast(str, row.get("Foil", ""))  # type: ignore
+        language = cast(str, row.get("Language", ""))  # type: ignore
         user_card_id = await upsert_user_card(
             user_id,
-            card_id,
-            int(row.get("Quantity", 1)),
-            row.get("Condition"),
-            row.get("Foil"),
-            row.get("Language"),
+            cast(Union[int, str], card_id),  # type: ignore
+            quantity,
+            condition,
+            foil,
+            language,
             policy=inventory_policy
-        )
-        # Link to collection
-        await link_collection_card(collection_id, user_card_id)
-    await db.close_pool()
+        )  # type: ignore
+        await link_collection_card(collection_id, user_card_id)  # type: ignore
+    # Ensure collection_id is not None before returning
+    if collection_id is None:
+        raise RuntimeError("collection_id is None at end of upload_collection_from_csv")
     return collection_id
 
 
-def enrich_single_row_with_scryfall(row, scryfall_data, set_icon_lookup=None):
+
+
+async def enrich_single_row_with_scryfall(row: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Enrich a single collection row (dict) with Scryfall data. Used for streaming progress.
-    set_icon_lookup: optional, pass if already built for efficiency.
+    Enrich a single collection row (dict) with card and set data from Supabase.
     Returns: enriched card dict
     """
-    import pandas as pd
+    # Query card by Scryfall ID or (set, collector_number)
+    scryfall_id = row.get("Scryfall ID", "")
+    set_code = row.get("Set code", "")
+    collector_number = row.get("Collector number", "")
+    card_query = """
+        SELECT * FROM cards WHERE id = $1 OR (set = $2 AND collector_number = $3)
+    """
+    card_row: Dict[str, Any] | None = await db.execute_query_one(card_query, (scryfall_id, set_code, collector_number))  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+    set_row: Dict[str, Any] | None = None
+    set_icon_svg_uri: str | None = None
+    if card_row and cast(Dict[str, Any], card_row).get("set"):  # type: ignore[reportUnknownMemberType]
+        set_query = "SELECT * FROM sets WHERE code = $1"
+        set_row = await db.execute_query_one(set_query, (card_row["set"],))  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        if set_row:
+            set_icon_svg_uri = set_row.get("icon_svg_uri")  # type: ignore[reportUnknownMemberType]
 
-    # Build lookups (reuse if possible)
-    scryfall_lookup = {card["id"]: card for card in scryfall_data}
-    name_set_lookup = {}
-    for card in scryfall_data:
-        name = card.get("name", "").lower()
-        set_code = card.get("set", "").lower()
-        key = f"{name}|{set_code}"
-        if key not in name_set_lookup:
-            name_set_lookup[key] = card
-    # Set icon lookup (reuse if possible)
-    if set_icon_lookup is None:
-        set_icon_lookup = {}
-        # Try to load from Scryfall sets cache if available
-        SETS_CACHE_PATH = "data/data/scryfall_sets.json"
-        import os, json
-
-        if os.path.exists(SETS_CACHE_PATH):
-            with open(SETS_CACHE_PATH, "r", encoding="utf-8") as f:
-                sets_json = json.load(f)
-            if isinstance(sets_json, dict) and "data" in sets_json:
-                scryfall_sets = sets_json["data"]
-            else:
-                scryfall_sets = sets_json
-            set_icon_lookup = {
-                s["code"].lower(): s.get("icon_svg_uri") for s in scryfall_sets
-            }
-    # Try Scryfall ID lookup first
-    card_data = None
-    if "Scryfall ID" in row and pd.notna(row["Scryfall ID"]):
-        card_id = str(row["Scryfall ID"]).strip()
-        card_data = scryfall_lookup.get(card_id)
-    # Fall back to name + set lookup
-    if not card_data and "Name" in row and "Set code" in row:
-        name = str(row["Name"]).lower().strip()
-        set_code = str(row["Set code"]).lower().strip()
-        lookup_key = f"{name}|{set_code}"
-        card_data = name_set_lookup.get(lookup_key)
-    # Get set icon SVG URI if possible
-    set_code = card_data.get("set") if card_data else row.get("Set code")
-    set_icon_svg_uri = (
-        set_icon_lookup.get(str(set_code).lower())
-        if set_code and set_icon_lookup
-        else None
-    )
-    if card_data:
-        enriched_card = {
-            "original_name": row.get("Name"),
-            "set_code": row.get("Set code"),
-            "set_name": row.get("Set name"),
-            "collector_number": row.get("Collector number"),
-            "quantity": row.get("Quantity", 1),
-            "card_instance": row.get("card_instance", 1),
-            "condition": row.get("Condition"),
-            "language": row.get("Language"),
-            "foil": row.get("Foil"),
-            "altered": row.get("Altered"),
-            "proxy": row.get("Proxy"),
-            "misprint": row.get("Misprint"),
-            "manabox_id": row.get("ManaBox ID"),
-            "tradelist_count": row.get("Tradelist count"),
-            "tags": row.get("Tags"),
-            "last_modified": row.get("Last modified"),
-            "purchase_price": row.get("Purchase price"),
-            "purchase_price_currency": row.get("Purchase price currency"),
-            "rarity_csv": row.get("Rarity"),
-            "name": card_data.get("name"),
-            "oracle_text": card_data.get("oracle_text"),
-            "type_line": card_data.get("type_line"),
-            "mana_cost": card_data.get("mana_cost"),
-            "cmc": card_data.get("cmc"),
-            "colors": card_data.get("colors"),
-            "color_identity": card_data.get("color_identity"),
-            "legalities": card_data.get("legalities"),
-            "layout": card_data.get("layout"),
-            "power": card_data.get("power"),
-            "toughness": card_data.get("toughness"),
-            "keywords": card_data.get("keywords"),
-            "image_uris": card_data.get("image_uris"),
-            "card_faces": card_data.get("card_faces"),
-            "set": card_data.get("set"),
-            "scryfall_set_name": card_data.get("set_name"),
-            "rarity": card_data.get("rarity"),
-            "scryfall_id": card_data.get("id"),
-            "set_icon_svg_uri": set_icon_svg_uri,
-        }
-        return enriched_card
-    else:
-        enriched_card = {
-            "original_name": row.get("Name"),
-            "name": row.get("Name"),
-            "set_code": row.get("Set code"),
-            "set_name": row.get("Set name"),
-            "collector_number": row.get("Collector number"),
-            "quantity": row.get("Quantity", 1),
-            "card_instance": row.get("card_instance", 1),
-            "condition": row.get("Condition"),
-            "language": row.get("Language"),
-            "foil": row.get("Foil"),
-            "altered": row.get("Altered"),
-            "proxy": row.get("Proxy"),
-            "misprint": row.get("Misprint"),
-            "manabox_id": row.get("ManaBox ID"),
-            "tradelist_count": row.get("Tradelist count"),
-            "tags": row.get("Tags"),
-            "last_modified": row.get("Last modified"),
-            "purchase_price": row.get("Purchase price"),
-            "purchase_price_currency": row.get("Purchase price currency"),
-            "rarity": row.get("Rarity"),
-            "scryfall_id": row.get("Scryfall ID"),
-            "set_icon_svg_uri": set_icon_svg_uri,
-        }
-        return enriched_card
+    enriched_card: Dict[str, Any] = {
+        "original_name": row.get("Name"),
+        "set_code": row.get("Set code"),
+        "set_name": set_row.get("name") if set_row else row.get("Set name"),  # type: ignore[reportUnknownMemberType]
+        "collector_number": row.get("Collector number"),
+        "quantity": row.get("Quantity", 1),
+        "card_instance": row.get("card_instance", 1),
+        "condition": row.get("Condition"),
+        "language": row.get("Language"),
+        "foil": row.get("Foil"),
+        "altered": row.get("Altered"),
+        "proxy": row.get("Proxy"),
+        "misprint": row.get("Misprint"),
+        "manabox_id": row.get("ManaBox ID"),
+        "tradelist_count": row.get("Tradelist count"),
+        "tags": row.get("Tags"),
+        "last_modified": row.get("Last modified"),
+        "purchase_price": row.get("Purchase price"),
+        "purchase_price_currency": row.get("Purchase price currency"),
+        "rarity_csv": row.get("Rarity"),
+        "name": card_row.get("name") if card_row else row.get("Name"),  # type: ignore[reportUnknownMemberType]
+        "oracle_text": card_row.get("oracle_text") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "type_line": card_row.get("type_line") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "mana_cost": card_row.get("mana_cost") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "cmc": card_row.get("cmc") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "colors": card_row.get("colors") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "color_identity": card_row.get("color_identity") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "legalities": card_row.get("legalities") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "layout": card_row.get("layout") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "power": card_row.get("power") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "toughness": card_row.get("toughness") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "keywords": card_row.get("keywords") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "image_uris": card_row.get("image_uris") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "card_faces": card_row.get("card_faces") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "set": card_row.get("set") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "scryfall_set_name": set_row.get("name") if set_row else None,  # type: ignore[reportUnknownMemberType]
+        "rarity": card_row.get("rarity") if card_row else None,  # type: ignore[reportUnknownMemberType]
+        "scryfall_id": card_row.get("id") if card_row else row.get("Scryfall ID"),  # type: ignore[reportUnknownMemberType]
+        "set_icon_svg_uri": set_icon_svg_uri,
+    }
+    return enriched_card

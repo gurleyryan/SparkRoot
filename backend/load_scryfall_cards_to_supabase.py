@@ -1,13 +1,16 @@
 import asyncio
 import sys
+import json
+from datetime import datetime, date
+from backend.supabase_db import db
 from dotenv import load_dotenv
+from typing import Optional
+
 load_dotenv("backend/.env")
 
-import json
-import asyncio
-from datetime import datetime
-from backend.supabase_db import db
-def parse_date(val):
+
+
+def parse_date(val: Optional[str]) -> Optional[date]:
     if val is None:
         return None
     try:
@@ -20,16 +23,22 @@ CARDS_JSON = "data/data/scryfall_all_cards.json"
 
 async def main():
     await db.init_pool()
+    from typing import List, Dict, Any
+
+    from typing import cast
     with open(CARDS_JSON, "r", encoding="utf-8") as f:
-        cards = json.load(f)
-    if isinstance(cards, dict) and "data" in cards:
-        cards = cards["data"]
+        cards_data = json.load(f)
+        if isinstance(cards_data, dict) and "data" in cards_data:
+            cards = cast(List[Any], cards_data["data"])
+        else:
+            cards = cast(List[Any], cards_data)
+        cards: List[Dict[str, Any]] = cards
 
     print(f"Loaded {len(cards)} cards from {CARDS_JSON}")
 
     # Fetch all existing card ids
     print("Fetching existing card ids from database...")
-    existing_ids = set()
+    existing_ids: set[str] = set()
     rows = await db.execute_query("SELECT id FROM cards", fetch=True)
     for row in rows:
         # Normalize to lowercase, strip whitespace
@@ -58,7 +67,7 @@ async def main():
         name=EXCLUDED.name, lang=EXCLUDED.lang, "set"=EXCLUDED."set", collector_number=EXCLUDED.collector_number, released_at=EXCLUDED.released_at
     """
 
-    def to_str_list(val):
+    def to_str_list(val: Optional[Any]) -> Optional[list[str]]:
         if val is None:
             return None
         return [str(x) for x in val]
@@ -87,9 +96,9 @@ async def main():
     total = len(new_cards)
     for i in range(0, total, BATCH_SIZE):
         batch = new_cards[i:i+BATCH_SIZE]
-        values_list = []
+        values_list: list[list[Any]] = []
         for card in batch:
-            values = [
+            values: list[Any] = [
                 card.get("id"),
                 card.get("arena_id"),
                 card.get("lang"),
@@ -176,11 +185,11 @@ async def main():
                 card.get("watermark"),
                 json.dumps(card.get("preview")) if card.get("preview") else None
             ]
-            values_list.append(tuple(values))
+            values_list.append(values)
         # Insert batch
         for values in values_list:
             try:
-                await db.execute_query(insert_query, values)
+                await db.execute_query(insert_query, tuple(values))
             except Exception as e:
                 print(f"Error inserting card {values[0]}: {e}")
         print(f"Inserted {min(i+BATCH_SIZE, total)}/{total} cards...")
