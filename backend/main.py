@@ -307,15 +307,19 @@ async def login_user(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
 
 
 @app.get("/api/auth/me", response_model=UserResponse)
-async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_user_from_token)):
+async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
     """Get current user information"""
-    return UserResponse(
-        id=str(current_user["id"]),
-        email=str(current_user["email"]),
-        username=str(current_user.get("username") or ""),
-        full_name=str(current_user.get("full_name") or ""),
-        created_at=current_user.get("created_at"),
-    )
+    # Compose profile info for frontend, including email and updated_at
+    profile_info: Dict[str, Any] = {
+        "id": str(current_user["id"]),
+        "email": str(current_user["email"]),
+        "username": str(current_user.get("username") or ""),
+        "full_name": str(current_user.get("full_name") or ""),
+        "avatar_url": current_user.get("avatar_url"),
+        "created_at": current_user.get("created_at"),
+        "updated_at": current_user.get("updated_at"),
+    }
+    return profile_info
 
 
 # Collection management endpoints

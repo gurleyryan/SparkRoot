@@ -31,6 +31,7 @@ interface ProfileInfo {
   username: string;
   full_name: string;
   avatar_url: string | null;
+  email?: string;
   created_at: string;
   updated_at: string;
 }
@@ -334,12 +335,12 @@ export default function UserSettingsPanel() {
           <div className="flex-1">
             <h3 className="text-xl font-mtg text-mtg-white mb-2">Profile Info</h3>
             {profile && (
-              <div className="text-mtg-white">
-                <div>Username: {profile.username}</div>
-                <div>Full Name: {profile.full_name}</div>
-                <div>Email: {profile.avatar_url}</div>
-                <div>Created: {profile.created_at}</div>
-                <div>Updated: {profile.updated_at}</div>
+              <div className="space-y-2">
+                <div><span className="font-semibold">Username:</span> {profile.username}</div>
+                <div><span className="font-semibold">Full Name:</span> {profile.full_name}</div>
+                <div><span className="font-semibold">Email:</span> {profile.email || '—'}</div>
+                <div><span className="font-semibold">Created:</span> {profile.created_at ? new Date(profile.created_at).toLocaleString() : '—'}</div>
+                <div><span className="font-semibold">Updated:</span> {settings.updated_at ? new Date(settings.updated_at).toLocaleString() : '—'}</div>
               </div>
             )}
           </div>
