@@ -10,7 +10,6 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr
 import secrets
 import httpx
-import random
 import typing
 
 # Security configuration
@@ -271,109 +270,45 @@ class UserManager:
     @staticmethod
     def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         """Create a JWT access token"""
-        to_encode = data.copy()
+        to_encode: Dict[str, Any] = data.copy()
         if expires_delta:
-            expire = datetime.now(timezone.utc) + expires_delta
+            expire: datetime = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        # Ensure 'exp' is a UNIX timestamp (int), as required by PyJWT
-        to_encode.update({"exp": int(expire.timestamp())})
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)  # type: ignore
-        # PyJWT returns a string in v2+
+            expire: datetime = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        # JWT 'exp' must be a UNIX timestamp (int)
+        to_encode.update({"exp": int(expire.timestamp()), "sub": data.get("email")})
+        encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)  # type: ignore
         return encoded_jwt
-
-    @staticmethod
-    async def create_user(email: str, password: str, username: str, full_name: str = "") -> Optional[Dict[str, Any]]:
-        """Create a new user with auth.users + profile (with username in profiles)"""
-        try:
-            print(f"🔐 Creating user: {email} (username: {username})")
-            # Step 1: Create user in auth.users
-            auth_user = await supabase_client.create_user_in_auth(email, password, username)
-            if not auth_user:
-                print("❌ Failed to create auth user")
-                return None
-            user_id = auth_user["id"]
-            print(f"✅ Auth user created with ID: {user_id}")
-            # Step 2: Create profile with username
-            profile = await supabase_client.create_profile(user_id, full_name, username)
-            if not profile:
-                print("⚠️ Auth user created but profile creation failed")
-            else:
-                print("✅ Profile created")
-
-            # Step 3: Create user_settings row with defaults
-            headers: Dict[str, str] = {
-                "apikey": SUPABASE_SERVICE_KEY or "",
-                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY or ''}",
-                "Content-Type": "application/json",
-                "Prefer": "return=representation"
-            }
-            # Randomize playmat_texture from available SVGs
-            playmat_options = ["playmat-texture.svg", "playmat-texture-2.svg", "playmat-texture-3.svg"]
-            playmat_texture = random.choice(playmat_options)
-            settings_payload: Dict[str, Any] = {
-                "id": user_id,  # type: str
-                "price_source": "tcgplayer",  # type: str
-                "currency": "USD",  # type: str
-                "reference_price": "market",  # type: str
-                "profile_public": False,  # type: bool
-                "notifications_enabled": True,  # type: bool
-                "playmat_texture": playmat_texture,  # type: str
-                "theme": "dark",  # type: str
-                "default_format": "commander",  # type: str
-                "card_display": "grid",  # type: str
-                "auto_save": True,  # type: bool
-                "notifications": {"price_alerts": True, "deck_updates": False, "collection_changes": True}  # type: dict
-            }
-            async def create_settings():
-                async with httpx.AsyncClient() as client:
-                    resp = await client.post(
-                        f"{SUPABASE_URL}/rest/v1/user_settings",
-                        headers=headers,
-                        json=settings_payload
-                    )
-                    if resp.status_code not in [200, 201]:
-                        print(f"Error creating user_settings: {resp.text}")
-            await create_settings()
-            return {
-                "id": user_id,
-                "email": email,
-                "full_name": full_name,
-                "created_at": auth_user.get("created_at")
-            }
-        except Exception as e:
-            print(f"❌ Error creating user: {e}")
-            return None
 
     @staticmethod
     async def authenticate_user(email_or_username: str, password: str) -> Optional[Dict[str, Any]]:
         """Authenticate user using Supabase REST API by email or username"""
         try:
             print(f"🔐 Authenticating user: {email_or_username}")
-            # Try email first
-            user_email = None
+            user_email: Optional[str] = None
             if "@" in email_or_username:
                 user_email = email_or_username
             else:
-                # Try to look up by username in profiles
-                user_obj = await supabase_client.get_auth_user_by_username(email_or_username)
+                user_obj: Optional[Dict[str, Any]] = await supabase_client.get_auth_user_by_username(email_or_username)
                 if user_obj and user_obj.get("email"):
                     user_email = user_obj["email"]
                 else:
                     print("❌ Username not found")
                     return None
-            # Try to sign in to verify password
-            auth_result = await supabase_client.verify_password_with_signin(user_email, password)
+            if user_email is None:
+                print("❌ Email not found for authentication")
+                return None
+            auth_result: Optional[Dict[str, Any]] = await supabase_client.verify_password_with_signin(user_email, password)
             if not auth_result:
                 print("❌ Authentication failed")
                 return None
-            user = auth_result.get("user")
+            user: Optional[Dict[str, Any]] = auth_result.get("user") if auth_result else None
             if not user:
                 print("❌ No user in auth result")
                 return None
-            user_id = user["id"]
+            user_id: str = user["id"]
             print(f"✅ Authentication successful for user: {user_id}")
-            profile = await supabase_client.get_profile_by_user_id(user_id)
+            profile: Optional[Dict[str, Any]] = await supabase_client.get_profile_by_user_id(user_id)
             return {
                 "id": user_id,
                 "email": user["email"],
@@ -390,11 +325,11 @@ class UserManager:
     async def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
         """Get user by email using admin API"""
         try:
-            auth_user = await supabase_client.get_auth_user_by_email(email)
+            auth_user: Optional[Dict[str, Any]] = await supabase_client.get_auth_user_by_email(email)
             if not auth_user:
                 return None
-            user_id = auth_user["id"]
-            profile = await supabase_client.get_profile_by_user_id(user_id)
+            user_id: str = auth_user["id"]
+            profile: Optional[Dict[str, Any]] = await supabase_client.get_profile_by_user_id(user_id)
             return {
                 "id": user_id,
                 "email": auth_user["email"],
@@ -409,7 +344,7 @@ class UserManager:
 # Token verification function
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get the current user from JWT token"""
-    credentials_exception = HTTPException(
+    credentials_exception: HTTPException = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
@@ -420,15 +355,15 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             SECRET_KEY,
             algorithms=[ALGORITHM],
             options={"verify_signature": True, "verify_exp": True}
-        )  # type: ignore  # Only if Pyright still complains
-        email = payload.get("sub")  # sub contains the email
+        ) 
+        email: Optional[str] = payload.get("sub")  # sub contains the email
         if email is None:
             raise credentials_exception
     except jwt.ExpiredSignatureError:
         raise credentials_exception
     except jwt.InvalidTokenError:
         raise credentials_exception
-    user = await UserManager.get_user_by_email(email)
+    user: Optional[Dict[str, Any]] = await UserManager.get_user_by_email(email)
     if user is None:
         raise credentials_exception
     return user
@@ -576,8 +511,8 @@ async def delete_collection(user_id: str, collection_id: str) -> bool:
 
 async def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
     headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
         "Content-Type": "application/json"
     }
     async with httpx.AsyncClient() as client:
@@ -587,7 +522,6 @@ async def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
         )
         if resp.status_code == 200:
             data = resp.json()
-            # After fetching data
             if isinstance(data, list) and data:
                 row = typing.cast(Dict[str, Any], data[0])
                 settings: Dict[str, Any] = {
@@ -605,38 +539,10 @@ async def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
                     "created_at": row.get("created_at"),
                     "updated_at": row.get("updated_at"),
                 }
+                print(f"[DEBUG] Returning user settings for user_id={user_id}: {settings}")
                 return settings
-            # If no row, create default settings row and return
-            elif isinstance(data, list) and not data:
-                # Create default row
-                default_settings: Dict[str, Any] = {
-                    "id": user_id,
-                    "price_source": "tcgplayer",
-                    "currency": "USD",
-                    "reference_price": "market",
-                    "profile_public": False,
-                    "notifications_enabled": True,
-                    "playmat_texture": None,
-                    "theme": "dark",
-                    "default_format": "commander",
-                    "card_display": "grid",
-                    "auto_save": True,
-                    "notifications": {},
-                }
-                # Insert default row
-                create_headers = headers.copy()
-                create_headers["Prefer"] = "return=representation"
-                create_resp = await client.post(
-                    f"{SUPABASE_URL}/rest/v1/user_settings",
-                    headers=create_headers,
-                    json=default_settings
-                )
-                if create_resp.status_code in [200, 201]:
-                    return default_settings
-                else:
-                    print(f"Error creating default user settings: {create_resp.text}")
-                    return default_settings
             else:
+                print(f"[DEBUG] No settings row found for user_id={user_id}")
                 return None
         else:
             print(f"Error fetching user settings: {resp.text}")

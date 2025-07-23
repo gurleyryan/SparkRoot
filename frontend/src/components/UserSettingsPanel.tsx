@@ -176,10 +176,17 @@ export default function UserSettingsPanel() {
       return;
     }
     try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      let accessToken = '';
+      try {
+        accessToken = (await import('../store/authStore')).useAuthStore.getState().accessToken || '';
+      } catch {}
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
       const payload = { settings: changedSettings };
-      const resp = await fetch('/api/user/settings', {
+      const resp = await fetch(`${baseUrl}/api/settings`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
       if (!resp.ok) {
@@ -214,15 +221,29 @@ export default function UserSettingsPanel() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-mtg-white font-semibold mb-1">Price Source</label>
-            <input className="form-input w-full" value={settings?.price_source || ''} onChange={e => setSettings(s => s ? { ...s, price_source: e.target.value } : s)} />
+            <select className="form-input w-full" value={settings?.price_source || ''} onChange={e => setSettings(s => s ? { ...s, price_source: e.target.value } : s)}>
+              <option value="tcgplayer">TCGPlayer</option>
+              <option value="scryfall">Scryfall</option>
+            </select>
           </div>
           <div>
-            <label className="block text-mtg-white font-semibold mb-1">Currency</label>
-            <input className="form-input w-full" value={settings?.currency || ''} onChange={e => setSettings(s => s ? { ...s, currency: e.target.value } : s)} />
+            <label className="block text-mtg-white font-semibold mb-1">Currency <span className="text-xs text-mtg-gray-400">(only USD supported currently)</span></label>
+            <select className="form-input w-full" value={settings?.currency || ''} onChange={e => setSettings(s => s ? { ...s, currency: e.target.value } : s)}>
+              <option value="USD">USD</option>
+              <option value="EUR" disabled>EUR (not supported yet)</option>
+              <option value="GBP" disabled>GBP (not supported yet)</option>
+              <option value="CAD" disabled>CAD (not supported yet)</option>
+              <option value="AUD" disabled>AUD (not supported yet)</option>
+            </select>
           </div>
           <div>
             <label className="block text-mtg-white font-semibold mb-1">Reference Price</label>
-            <input className="form-input w-full" value={settings?.reference_price || ''} onChange={e => setSettings(s => s ? { ...s, reference_price: e.target.value } : s)} />
+            <select className="form-input w-full" value={settings?.reference_price || ''} onChange={e => setSettings(s => s ? { ...s, reference_price: e.target.value } : s)}>
+              <option value="market">Market</option>
+              <option value="low">Low</option>
+              <option value="mid">Mid</option>
+              <option value="high">High</option>
+            </select>
           </div>
           <div>
             <label className="block text-mtg-white font-semibold mb-1">Theme</label>
@@ -232,23 +253,22 @@ export default function UserSettingsPanel() {
             </select>
           </div>
           <div>
-            <label className="block text-mtg-white font-semibold mb-1">Default Format</label>
-            <input className="form-input w-full" value={settings?.default_format || ''} onChange={e => setSettings(s => s ? { ...s, default_format: e.target.value } : s)} />
+            <label className="block text-mtg-white font-semibold mb-1">Default Format <span className="text-xs text-mtg-gray-400">(only Commander supported currently)</span></label>
+            <select className="form-input w-full" value={settings?.default_format || ''} onChange={e => setSettings(s => s ? { ...s, default_format: e.target.value } : s)}>
+              <option value="commander">Commander</option>
+              <option value="standard" disabled>Standard (not supported yet)</option>
+              <option value="modern" disabled>Modern (not supported yet)</option>
+              <option value="pioneer" disabled>Pioneer (not supported yet)</option>
+              <option value="legacy" disabled>Legacy (not supported yet)</option>
+              <option value="vintage" disabled>Vintage (not supported yet)</option>
+              <option value="pauper" disabled>Pauper (not supported yet)</option>
+            </select>
           </div>
           <div>
             <label className="block text-mtg-white font-semibold mb-1">Card Display</label>
             <select className="form-input w-full" value={settings?.card_display || ''} onChange={e => setSettings(s => s ? { ...s, card_display: e.target.value } : s)}>
               <option value="grid">Grid</option>
               <option value="list">List</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-mtg-white font-semibold mb-1">Playmat Texture</label>
-            <select className="form-input w-full" value={settings?.playmat_texture || ''} onChange={handlePlaymatChange}>
-              <option value="">Classic</option>
-              {playmatOptions.map((file) => (
-                <option key={file} value={file}>{file.replace('playmat-texture', '').replace(/[-_.]/g, ' ').replace(/\.[a-zA-Z0-9]+$/, '').trim() || 'Classic'}</option>
-              ))}
             </select>
           </div>
         </div>
