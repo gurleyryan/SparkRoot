@@ -1,13 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CollectionUpload from "./CollectionUpload";
 import { useCollectionStore } from "../store/collectionStore";
 import CollectionList from "./CollectionList";
 import CardGrid from "./CardGrid";
 import ConfirmModal from "./ConfirmModal";
-import { useToast } from "./ToastProvider"; // adjust path if needed
-type CollectionGridProps = Record<string, unknown>; // Fix empty interface warning
+import { useToast } from "./ToastProvider";
+import { useAuthStore } from "../store/authStore";
+type CollectionGridProps = Record<string, unknown>;
 
 const CollectionGrid: React.FC<CollectionGridProps> = () => {
+  // Fetch collections on mount for logged-in users
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const setCollections = useCollectionStore((state) => state.setCollections);
+  useEffect(() => {
+    async function fetchCollections() {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/collections`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) throw new Error('Failed to fetch collections');
+        const data = await res.json();
+        setCollections(data.collections || []);
+      } catch (err) {
+        // Optionally handle error
+      }
+    }
+    if (accessToken) {
+      fetchCollections();
+    }
+  }, [accessToken, setCollections]);
   const {
     collections,
     activeCollection,
