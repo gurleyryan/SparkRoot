@@ -280,8 +280,9 @@ class UserManager:
             expire: datetime = datetime.now(timezone.utc) + expires_delta
         else:
             expire: datetime = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        # JWT 'exp' must be a UNIX timestamp (int)
-        to_encode.update({"exp": int(expire.timestamp()), "sub": data.get("email")})
+        # Ensure 'sub' is always set to user email for token validation
+        sub_value = data.get("sub") or data.get("email")
+        to_encode.update({"exp": int(expire.timestamp()), "sub": sub_value})
         encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)  # type: ignore
         return encoded_jwt
 
