@@ -1,21 +1,32 @@
-from sse_starlette.sse import EventSourceResponse
 import io
 import pandas as pd
 import csv
-from fastapi.responses import FileResponse, PlainTextResponse
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-import pandas as pd
-import io
-from typing import List, Dict, Any
-from pydantic import BaseModel
-from datetime import timedelta
-from dotenv import load_dotenv
 import os
 import structlog
 import sentry_sdk
+from backend.utils import (
+    load_scryfall_cards,
+    normalize_csv_format,
+    expand_collection_by_quantity,
+    upload_collection_from_csv,
+)
+from datetime import timedelta
+from dotenv import load_dotenv
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, status, Form
+from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from sse_starlette.sse import EventSourceResponse
+from typing import List, Dict, Any, Optional
+
+# Import security for authentication dependency
+from backend.auth_supabase_rest import security
+
+app = FastAPI(title="SparkRoot API", version="1.0.0")
 
 
 class UpdatePasswordRequest(BaseModel):
@@ -26,11 +37,6 @@ class UpdatePasswordRequest(BaseModel):
 class UpdateEmailRequest(BaseModel):
     new_email: str
 
-
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from fastapi.responses import JSONResponse
 
 # Configure logging
 structlog.configure(
@@ -56,8 +62,56 @@ logger = structlog.get_logger()
 # Load environment variables from .env file
 load_dotenv()
 
-# Import your existing modules
-from backend.utils import enrich_collection_with_scryfall, load_scryfall_cards
+
+@app.post("/api/collections/upload")
+async def upload_collection(
+    file: UploadFile = File(...),
+    collection_name: str = Form(...),
+    description: Optional[str] = Form(None),
+    is_public: bool = Form(False),
+    inventory_policy: str = Form("add"),  # 'add' or 'replace'
+    collection_action: str = Form("new"),  # 'new' or 'update'
+    collection_id: Optional[str] = Form(None),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    """
+    Upload a collection CSV with user-chosen inventory and collection policies.
+    """
+    user = await get_user_from_token(credentials)
+    try:
+        import csv
+        content = await file.read()
+        decoded = content.decode("utf-8")
+        # Auto-detect delimiter using csv.Sniffer
+        sample = decoded[:1024]
+        sniffer = csv.Sniffer()
+        try:
+            dialect = sniffer.sniff(sample)
+            delimiter = dialect.delimiter
+        except Exception:
+            delimiter = ","  # Fallback to comma
+        df = pd.read_csv(io.StringIO(decoded), delimiter=delimiter)
+        df = normalize_csv_format(df)
+        df = expand_collection_by_quantity(df)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"CSV parse error: {e}")
+
+    try:
+        result = await upload_collection_from_csv(
+            user_id=user["id"],
+            collection_df=df,
+            collection_name=collection_name,
+            description=description,
+            is_public=is_public,
+            inventory_policy=inventory_policy,
+            collection_action=collection_action,
+            collection_id=collection_id,
+        )
+        return {"success": True, "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+
+
 from backend.deckgen import find_valid_commanders
 from backend.deck_analysis import analyze_deck_quality
 from backend.deck_export import (
@@ -857,7 +911,8 @@ async def parse_collection_public(file: UploadFile = File(...)):
             f"[Enrich] Memory usage after Scryfall load: {mem_after_scryfall:.2f} MB (delta: {mem_after_scryfall-mem_before:.2f} MB)"
         )
         # Enrich with Scryfall data using your existing logic
-        enriched_df = enrich_collection_with_scryfall(df, scryfall_data)
+        # Enrichment now handled via Supabase; use df directly or query Supabase as needed
+        enriched_df = df
         mem_after_enrich = process.memory_info().rss / 1024 / 1024
         print(
             f"[Enrich] Memory usage after enrichment: {mem_after_enrich:.2f} MB (delta: {mem_after_enrich-mem_after_scryfall:.2f} MB)"
@@ -1048,7 +1103,8 @@ async def load_sample_collection():
         scryfall_data = get_scryfall_data()
 
         # Enrich with Scryfall data using your existing logic
-        enriched_df = enrich_collection_with_scryfall(collection_df, scryfall_data)
+        # Enrichment now handled via Supabase; use collection_df directly or query Supabase as needed
+        enriched_df = collection_df
 
         # Convert to list of dictionaries
         collection = enriched_df.to_dict("records")
@@ -1117,7 +1173,8 @@ async def upload_collection_progress(file: UploadFile = File(...)):
             for idx, row in enumerate(rows):
                 # Convert single row to DataFrame for enrichment
                 df = pd.DataFrame([row])
-                enriched_df = enrich_collection_with_scryfall(df, scryfall_data)
+                # Enrichment now handled via Supabase; use df directly or query Supabase as needed
+                enriched_df = df
                 # Get the enriched card dict (first row)
                 card_dict = None
                 if not enriched_df.empty:

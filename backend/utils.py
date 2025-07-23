@@ -2,6 +2,7 @@ import requests
 import os
 import json
 import pandas as pd
+from backend.supabase_db import db
 
 def download_scryfall_bulk():
     url = "https://api.scryfall.com/bulk-data"
@@ -200,7 +201,6 @@ def expand_collection_by_quantity(df):
 
     return pd.DataFrame(expanded_rows)
 
-
 def load_collection(filepath):
     df = pd.read_csv(filepath)
 
@@ -209,162 +209,121 @@ def load_collection(filepath):
 
     return df
 
-
-def enrich_collection_with_scryfall(collection_df, scryfall_data):
-    # Normalize the collection format first
-    normalized_df = normalize_csv_format(collection_df)
-
-    # Expand by quantity to get individual card instances
-    expanded_df = expand_collection_by_quantity(normalized_df)
-
-    # Build lookups from Scryfall data
-    scryfall_lookup = {card["id"]: card for card in scryfall_data}
-
-    # Build name + set lookup for when Scryfall ID isn't available
-    name_set_lookup = {}
-    for card in scryfall_data:
-        name = card.get("name", "").lower()
-        set_code = card.get("set", "").lower()
-        key = f"{name}|{set_code}"
-        if key not in name_set_lookup:  # Prefer first match
-            name_set_lookup[key] = card
-
-    # --- Scryfall set icon SVG enrichment ---
-    # Download Scryfall set data (if not already cached)
-    import requests
-
-    SETS_CACHE_PATH = "data/data/scryfall_sets.json"
-    if os.path.exists(SETS_CACHE_PATH):
-        with open(SETS_CACHE_PATH, "r", encoding="utf-8") as f:
-            sets_json = json.load(f)
-        if isinstance(sets_json, dict) and "data" in sets_json:
-            scryfall_sets = sets_json["data"]
-        else:
-            scryfall_sets = sets_json
+async def upsert_user_card(user_id, card_id, quantity, condition, foil, language, policy="add"):
+    """
+    Upsert a card into user_cards with the given policy ('add' or 'replace').
+    Returns the user_card_id.
+    """
+    if policy == "add":
+        query = """
+        INSERT INTO user_cards (user_id, card_id, quantity, condition, foil, language)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (user_id, card_id, condition, foil, language)
+        DO UPDATE SET quantity = user_cards.quantity + EXCLUDED.quantity
+        RETURNING id, quantity
+        """
+    elif policy == "replace":
+        query = """
+        INSERT INTO user_cards (user_id, card_id, quantity, condition, foil, language)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (user_id, card_id, condition, foil, language)
+        DO UPDATE SET quantity = EXCLUDED.quantity
+        RETURNING id, quantity
+        """
     else:
-        print("Downloading Scryfall set metadata...")
-        sets_resp = requests.get("https://api.scryfall.com/sets")
-        scryfall_sets = sets_resp.json()["data"]
-        os.makedirs(os.path.dirname(SETS_CACHE_PATH), exist_ok=True)
-        with open(SETS_CACHE_PATH, "w", encoding="utf-8") as f:
-            json.dump({"data": scryfall_sets}, f)
-    # Build set code to icon_svg_uri lookup
-    set_icon_lookup = {s["code"].lower(): s.get("icon_svg_uri") for s in scryfall_sets}
+        raise ValueError("Unknown policy: must be 'add' or 'replace'")
+    row = await db.execute_query_one(query, (user_id, card_id, quantity, condition, foil, language))
+    return row['id']
 
-    enriched = []
+async def create_collection(user_id, name, description, is_public=False):
+    query = """
+    INSERT INTO collections (user_id, name, description, is_public)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id
+    """
+    row = await db.execute_query_one(query, (user_id, name, description, is_public))
+    return row['id']
 
-    for _, row in expanded_df.iterrows():
-        card_data = None
+async def update_collection(collection_id, name=None, description=None, is_public=None):
+    # Only update provided fields
+    fields = []
+    params = []
+    if name is not None:
+        fields.append("name = $%d" % (len(params)+2))
+        params.append(name)
+    if description is not None:
+        fields.append("description = $%d" % (len(params)+2))
+        params.append(description)
+    if is_public is not None:
+        fields.append("is_public = $%d" % (len(params)+2))
+        params.append(is_public)
+    if not fields:
+        return
+    query = f"UPDATE collections SET {', '.join(fields)} WHERE id = $1"
+    await db.execute_query(query, tuple([collection_id] + params))
 
-        # Try Scryfall ID lookup first
-        if "Scryfall ID" in row and pd.notna(row["Scryfall ID"]):
-            card_id = str(row["Scryfall ID"]).strip()
-            card_data = scryfall_lookup.get(card_id)
+async def link_collection_card(collection_id, user_card_id):
+    query = """
+    INSERT INTO collection_cards (collection_id, user_card_id)
+    VALUES ($1, $2)
+    ON CONFLICT DO NOTHING
+    """
+    await db.execute_query(query, (collection_id, user_card_id))
 
-        # Fall back to name + set lookup
-        if not card_data and "Name" in row and "Set code" in row:
-            name = str(row["Name"]).lower().strip()
-            set_code = str(row["Set code"]).lower().strip()
-            lookup_key = f"{name}|{set_code}"
-            card_data = name_set_lookup.get(lookup_key)
+async def upload_collection_from_csv(
+    user_id,
+    collection_df,
+    collection_name,
+    description=None,
+    is_public=False,
+    inventory_policy="add",
+    collection_action="new",
+    collection_id=None
+):
+    """
+    Upload a collection from a CSV DataFrame.
+    - inventory_policy: 'add' (default, non-destructive) or 'replace' (overwrite quantities)
+    - collection_action: 'new' (default, create new collection) or 'update' (replace cards in existing collection)
+    - collection_id: required if collection_action is 'update'
+    """
+    await db.init_pool()
+    if collection_action == "new":
+        collection_id = await create_collection(user_id, collection_name, description, is_public)
+    elif collection_action == "update":
+        if not collection_id:
+            raise ValueError("collection_id must be provided for update action")
+        await update_collection(collection_id, name=collection_name, description=description, is_public=is_public)
+        # Remove all old collection_cards for this collection
+        await db.execute_query("DELETE FROM collection_cards WHERE collection_id = $1", (collection_id,))
+    else:
+        raise ValueError("collection_action must be 'new' or 'update'")
 
-        # Get set icon SVG URI if possible
-        set_code = card_data.get("set") if card_data else row.get("Set code")
-        set_icon_svg_uri = (
-            set_icon_lookup.get(str(set_code).lower()) if set_code else None
+    for _, row in collection_df.iterrows():
+        # Lookup card in Supabase by Scryfall ID, set code, collector number
+        scryfall_id = row.get("Scryfall ID")
+        set_code = row.get("Set code")
+        collector_number = row.get("Collector number")
+        card_row = await db.execute_query_one(
+            "SELECT id FROM cards WHERE id = $1 OR (set = $2 AND collector_number = $3)",
+            (scryfall_id, set_code, collector_number)
         )
-
-        if card_data:
-            # Create enriched card entry - start with essential CSV data
-            enriched_card = {
-                # Core card identification
-                "original_name": row.get("Name"),
-                "set_code": row.get("Set code"),
-                "set_name": row.get("Set name"),
-                "collector_number": row.get("Collector number"),
-                "quantity": row.get("Quantity", 1),
-                "card_instance": row.get("card_instance", 1),
-                # Card condition and physical properties
-                "condition": row.get("Condition"),
-                "language": row.get("Language"),
-                "foil": row.get("Foil"),
-                "altered": row.get("Altered"),
-                "proxy": row.get("Proxy"),
-                "misprint": row.get("Misprint"),
-                # Platform-specific data
-                "manabox_id": row.get("ManaBox ID"),
-                "tradelist_count": row.get("Tradelist count"),
-                "tags": row.get("Tags"),
-                "last_modified": row.get("Last modified"),
-                # Financial data
-                "purchase_price": row.get("Purchase price"),
-                "purchase_price_currency": row.get("Purchase price currency"),
-                # Original CSV rarity (to avoid conflict with Scryfall)
-                "rarity_csv": row.get("Rarity"),
-                # Scryfall enriched data
-                "name": card_data.get("name"),
-                "oracle_text": card_data.get("oracle_text"),
-                "type_line": card_data.get("type_line"),
-                "mana_cost": card_data.get("mana_cost"),
-                "cmc": card_data.get("cmc"),
-                "colors": card_data.get("colors"),
-                "color_identity": card_data.get("color_identity"),
-                "legalities": card_data.get("legalities"),
-                "layout": card_data.get("layout"),
-                "power": card_data.get("power"),
-                "toughness": card_data.get("toughness"),
-                "keywords": card_data.get("keywords"),
-                "image_uris": card_data.get("image_uris"),
-                "card_faces": card_data.get("card_faces"),
-                "set": card_data.get("set"),
-                "scryfall_set_name": card_data.get("set_name"),
-                "rarity": card_data.get("rarity"),
-                "scryfall_id": card_data.get("id"),
-                # Set icon SVG URI
-                "set_icon_svg_uri": set_icon_svg_uri,
-            }
-            enriched.append(enriched_card)
-        else:
-            # Keep original data even if not found in Scryfall
-            enriched_card = {
-                "original_name": row.get("Name"),
-                "name": row.get("Name"),  # Fallback to original name
-                "set_code": row.get("Set code"),
-                "set_name": row.get("Set name"),
-                "collector_number": row.get("Collector number"),
-                "quantity": row.get("Quantity", 1),
-                "card_instance": row.get("card_instance", 1),
-                "condition": row.get("Condition"),
-                "language": row.get("Language"),
-                "foil": row.get("Foil"),
-                "altered": row.get("Altered"),
-                "proxy": row.get("Proxy"),
-                "misprint": row.get("Misprint"),
-                "manabox_id": row.get("ManaBox ID"),
-                "tradelist_count": row.get("Tradelist count"),
-                "tags": row.get("Tags"),
-                "last_modified": row.get("Last modified"),
-                "purchase_price": row.get("Purchase price"),
-                "purchase_price_currency": row.get("Purchase price currency"),
-                "rarity": row.get("Rarity"),
-                "scryfall_id": row.get("Scryfall ID"),
-                # Set icon SVG URI (fallback, may be None)
-                "set_icon_svg_uri": set_icon_svg_uri,
-            }
-            enriched_card["name"] = row.get("Name", "Unknown")
-            enriched.append(enriched_card)
-            print(
-                f"Card not found in Scryfall: {row.get('Name', 'Unknown')} ({row.get('Set code', 'Unknown set')})"
-            )
-
-    enriched_df = pd.DataFrame(enriched)
-
-    # Expand by quantity to get individual card instances
-    if "Quantity" in enriched_df.columns:
-        expanded_df = expand_collection_by_quantity(enriched_df)
-        return expanded_df
-
-    return enriched_df
+        if not card_row:
+            continue  # Skip if card not found
+        card_id = card_row['id']
+        # Upsert into user_cards with chosen policy
+        user_card_id = await upsert_user_card(
+            user_id,
+            card_id,
+            int(row.get("Quantity", 1)),
+            row.get("Condition"),
+            row.get("Foil"),
+            row.get("Language"),
+            policy=inventory_policy
+        )
+        # Link to collection
+        await link_collection_card(collection_id, user_card_id)
+    await db.close_pool()
+    return collection_id
 
 
 def enrich_single_row_with_scryfall(row, scryfall_data, set_icon_lookup=None):

@@ -26,11 +26,36 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           email: formData.email || formData.username,
           password: formData.password,
         });
-        // Only show success if no error in authStore
-        if (!useAuthStore.getState().error) {
+        const authError = useAuthStore.getState().error;
+        if (!authError) {
           showToast('Login successful!', 'success');
           setIsLoading(false);
           onClose();
+        } else {
+          // Show error from authStore
+          let msg = authError;
+          if (msg && typeof msg === 'string') {
+            if (msg.match(/unique.*email/i)) {
+              msg = 'An account with this email already exists.';
+            } else if (msg.match(/unique.*username/i)) {
+              msg = 'This username is already taken.';
+            } else if (msg.match(/password.*too short/i)) {
+              msg = 'Password is too short.';
+            } else if (msg.match(/invalid.*email/i)) {
+              msg = 'Please enter a valid email address.';
+            } else if (msg.match(/incorrect.*password/i)) {
+              msg = 'Incorrect password.';
+            } else if (msg.match(/user.*not found/i)) {
+              msg = 'No account found with that email or username.';
+            } else if (msg.match(/login failed|authentication failed/i)) {
+              msg = 'Incorrect email/username or password.';
+            }
+          } else {
+            msg = 'Authentication failed. Please try again.';
+          }
+          setError(msg);
+          showToast(msg, 'error');
+          setIsLoading(false);
         }
       } else {
         await register({
@@ -39,10 +64,36 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           password: formData.password,
           full_name: formData.fullName,
         });
-        if (!useAuthStore.getState().error) {
+        const authError = useAuthStore.getState().error;
+        if (!authError) {
           showToast('Registration successful! You are now logged in.', 'success');
           setIsLoading(false);
           onClose();
+        } else {
+          // Show error from authStore
+          let msg = authError;
+          if (msg && typeof msg === 'string') {
+            if (msg.match(/unique.*email/i)) {
+              msg = 'An account with this email already exists.';
+            } else if (msg.match(/unique.*username/i)) {
+              msg = 'This username is already taken.';
+            } else if (msg.match(/password.*too short/i)) {
+              msg = 'Password is too short.';
+            } else if (msg.match(/invalid.*email/i)) {
+              msg = 'Please enter a valid email address.';
+            } else if (msg.match(/incorrect.*password/i)) {
+              msg = 'Incorrect password.';
+            } else if (msg.match(/user.*not found/i)) {
+              msg = 'No account found with that email or username.';
+            } else if (msg.match(/login failed|authentication failed/i)) {
+              msg = 'Incorrect email/username or password.';
+            }
+          } else {
+            msg = 'Authentication failed. Please try again.';
+          }
+          setError(msg);
+          showToast(msg, 'error');
+          setIsLoading(false);
         }
       }
     } catch (error: any) {

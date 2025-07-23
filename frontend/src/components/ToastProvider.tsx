@@ -28,14 +28,27 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed z-50 top-4 right-4 flex flex-col gap-2 items-end">
+      <div className="fixed z-50 top-6 right-6 flex flex-col gap-3 items-end pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`px-4 py-2 rounded shadow-lg text-white font-mtg-mono transition-all ${toast.type === "success" ? "bg-green-600" : toast.type === "error" ? "bg-red-600" : "bg-mtg-blue"}`}
+            className={`
+              px-6 py-3 rounded-xl shadow-2xl font-mtg-mono text-base pointer-events-auto transition-all duration-300
+              border-2 border-mtg-blue/60
+              ${toast.type === "success"
+                ? "bg-mtg-black/90 text-mtg-green border-mtg-green/70"
+                : toast.type === "error"
+                ? "bg-mtg-black/90 text-mtg-red border-mtg-red/70"
+                : "bg-mtg-black/90 text-mtg-blue border-mtg-blue/70"}
+              backdrop-blur-md
+            `}
             role="alert"
             aria-live="assertive"
+            style={{ minWidth: '260px', maxWidth: '400px', boxShadow: '0 8px 32px 0 rgba(0,0,0,0.45)' }}
           >
+            <span className="font-bold tracking-wide mr-2">
+              {toast.type === "success" ? "✔" : toast.type === "error" ? "✖" : "ℹ"}
+            </span>
             {toast.message}
           </div>
         ))}

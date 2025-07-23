@@ -27,6 +27,11 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   const [progress, setProgress] = useState(0); // 0-100
   const [statusText, setStatusText] = useState<string>('');
   const [parsedPreview, setParsedPreview] = useState<string>('');
+  const [collectionName, setCollectionName] = useState<string>('My Collection');
+  const [description, setDescription] = useState<string>('');
+  const [isPublic, setIsPublic] = useState<boolean>(false);
+  const [inventoryPolicy, setInventoryPolicy] = useState<'add' | 'replace'>('add');
+  const [collectionAction, setCollectionAction] = useState<'new' | 'update'>('new');
   const hasHydrated = useHasHydrated();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -48,6 +53,24 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   const [liveCards, setLiveCards] = useState<MTGCard[]>([]);
   const [livePreview, setLivePreview] = useState<any>(null);
 
+  const setCollections = useCollectionStore((state) => state.setCollections);
+  const refetchCollections = useCallback(async () => {
+    try {
+      setIsUploading(true);
+      setError(null);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/collections`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch collections');
+      const data = await res.json();
+      setCollections(data.collections || []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to refresh collections');
+    } finally {
+      setIsUploading(false);
+    }
+  }, [accessToken, setCollections]);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsUploading(true);
     setError(null);
@@ -60,96 +83,62 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     if (!file) {
       setIsUploading(false);
       setProgress(0);
-      setStatusText('');
       setError('No file selected.');
       return;
     }
     try {
-      // Read file as text
-      const text = await file.text();
-      setProgress(20);
-      setStatusText('Parsing CSV...');
-      setParsedPreview(text.split('\n').slice(0, 3).join('\n'));
-      setProgress(30);
-      setStatusText('Uploading to server (streaming)...');
-
-      // Prepare a FormData for file upload (SSE endpoint expects file upload)
       const formData = new FormData();
-      formData.append('file', new Blob([text], { type: 'text/csv' }), file.name);
+      formData.append('file', file);
+      formData.append('name', collectionName);
+      formData.append('description', description);
+      formData.append('isPublic', String(isPublic));
+      formData.append('inventoryPolicy', inventoryPolicy);
+      formData.append('collectionAction', collectionAction);
 
-      // Use fetch to POST the file, then open EventSource to /api/collections/progress-upload
-      // We'll use a custom EventSource polyfill for POST if needed, but for now, use a two-step: upload file to temp, then stream progress
-      // For simplicity, we POST the file to /api/collections/progress-upload and listen for SSE events
-
-      // Use XMLHttpRequest to POST and get the SSE stream
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/collections/progress-upload', true);
-      if (accessToken) {
-        xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
-      }
-      xhr.responseType = 'text';
+      xhr.open('POST', `${process.env.NEXT_PUBLIC_API_URL}/api/collections/upload`, true);
+      xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
 
-      let received = '';
-      let cards: MTGCard[] = [];
-      xhr.onreadystatechange = function () {
-        if (xhr.readyState === 3 || xhr.readyState === 4) {
-          // Parse SSE events from responseText
-          const chunk = xhr.responseText.substring(received.length);
-          received = xhr.responseText;
-          const events = chunk.split(/\n\n/).filter(Boolean);
-          for (const event of events) {
-            const lines = event.split('\n');
-            let dataLine = lines.find(l => l.startsWith('data:'));
-            if (dataLine) {
-              try {
-                const payload = JSON.parse(dataLine.replace('data:', '').trim());
-                if (payload.progress) {
-                  setProgress(Math.round(payload.progress * 100));
-                  setStatusText(payload.status || 'Processing...');
-                }
-                if (payload.card) {
-                  cards.push(payload.card);
-                  setLiveCards([...cards]);
-                  setLivePreview(payload.card);
-                }
-                if (payload.done) {
-                  setProgress(100);
-                  setStatusText('Collection uploaded and enriched!');
-                  addCollection({
-                    id: payload.collection_id || '',
-                    user_id: '', // or payload.user_id if available
-                    name: payload.collection_name || file.name,
-                    description: '', // or payload.description if available
-                    cards,
-                    created_at: '',
-                    updated_at: '',
-                  });
-                  if (onCollectionUploaded) onCollectionUploaded(cards);
-                  showToast('Collection uploaded successfully!', 'success');
-                  setIsUploading(false);
-                }
-              } catch (e) {
-                // Ignore parse errors
-              }
-            }
+      xhr.upload.onprogress = function (event) {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setProgress(percent);
+          setStatusText(`Uploading... (${percent}%)`);
+        }
+      };
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          setProgress(100);
+          setStatusText('Upload complete!');
+          showToast('Collection uploaded successfully!', 'success');
+          const response = JSON.parse(xhr.responseText);
+          if (response.cards) {
+            setLiveCards(response.cards);
+            setParsedPreview(JSON.stringify(response.cards.slice(0, 5), null, 2));
+            if (onCollectionUploaded) onCollectionUploaded(response.cards);
+            addCollection(response.collection);
+            refetchCollections();
           }
+          setIsUploading(false);
+        } else {
+          setError('Failed to upload collection.');
+          setIsUploading(false);
         }
       };
       xhr.onerror = function () {
-        setError('Failed to upload collection (streaming).');
+        setError('Failed to upload collection.');
         setIsUploading(false);
         setProgress(0);
         setStatusText('');
       };
       xhr.send(formData);
     } catch (err: any) {
+      setError('Failed to upload collection.');
+      setIsUploading(false);
       setProgress(0);
       setStatusText('');
-      setError('Failed to upload collection. Make sure the backend is running.');
-      showToast('Failed to upload collection. Make sure the backend is running.', 'error');
-      setIsUploading(false);
     }
-  }, [addCollection, onCollectionUploaded, accessToken, showToast]);
+  }, [addCollection, onCollectionUploaded, accessToken, showToast, collectionName, description, isPublic, inventoryPolicy, collectionAction, refetchCollections]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -165,6 +154,68 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
 
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Collection Name */}
+      <div className="mb-4">
+        <label className="block font-semibold mb-1">Collection Name</label>
+        <input
+          type="text"
+          className="input input-bordered w-full"
+          value={collectionName}
+          onChange={e => setCollectionName(e.target.value)}
+          disabled={isUploading}
+        />
+      </div>
+      {/* Description */}
+      <div className="mb-4">
+        <label className="block font-semibold mb-1">Description</label>
+        <textarea
+          className="textarea textarea-bordered w-full"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          disabled={isUploading}
+        />
+      </div>
+      {/* Visibility */}
+      <div className="mb-4 flex items-center gap-4">
+        <label className="font-semibold">Visibility:</label>
+        <label className="flex items-center gap-1">
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={e => setIsPublic(e.target.checked)}
+            disabled={isUploading}
+          />
+          <span>Public</span>
+        </label>
+      </div>
+      {/* Inventory Policy & Collection Action */}
+      <div className="mb-4 flex flex-wrap gap-4">
+        <div>
+          <label className="font-semibold">Inventory Policy:</label>
+          <select
+            className="select select-bordered ml-2"
+            value={inventoryPolicy}
+            onChange={e => setInventoryPolicy(e.target.value as 'add' | 'replace')}
+            disabled={isUploading}
+          >
+            <option value="add">Add (merge quantities)</option>
+            <option value="replace">Replace (overwrite quantities)</option>
+          </select>
+        </div>
+        <div>
+          <label className="font-semibold">Collection Action:</label>
+          <select
+            className="select select-bordered ml-2"
+            value={collectionAction}
+            onChange={e => setCollectionAction(e.target.value as 'new' | 'update')}
+            disabled={isUploading}
+          >
+            <option value="new">New Collection</option>
+            <option value="update">Update Existing</option>
+          </select>
+        </div>
+      </div>
+      {/* Dropzone and Progress */}
       <div
         {...getRootProps()}
         className={`
@@ -177,7 +228,6 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
         `}
       >
         <input {...getInputProps()} />
-
         <div className="space-y-6">
           {/* Upload Icon */}
           <div className="mx-auto w-20 h-20 rounded-full bg-rarity-mythic flex items-center justify-center">
@@ -185,7 +235,6 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
           </div>
-
           {/* Progress Bar and Status */}
           {isUploading && (
             <div className="w-full mx-auto">
@@ -215,7 +264,6 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
               )}
             </div>
           )}
-
           {/* Text */}
           <div>
             <h3 className="text-2xl font-bold text-white mb-2">
@@ -231,106 +279,14 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
               Supports ManaBox, Moxfield, and other CSV formats
             </p>
           </div>
-
-          {/* Real Collection Button */}
-          <button
-            onClick={async () => {
-              setIsUploading(true);
-              setError(null);
-              setProgress(10);
-              setStatusText('Loading sample collection...');
-              try {
-                const apiClient = new ApiClient();
-                const result = await apiClient.loadSampleCollection();
-                setProgress(40);
-                setStatusText('Saving sample collection...');
-                if (result && typeof result === 'object' && 'success' in result && result.success && 'collection' in result) {
-                  const collectionObj = (result as { collection: unknown }).collection;
-                  if (collectionObj && typeof collectionObj === 'object' && 'cards' in collectionObj && Array.isArray((collectionObj as { cards: unknown }).cards)) {
-                    const cards = (collectionObj as { cards: MTGCard[] }).cards;
-                    const name = (collectionObj as { name?: string }).name || 'Sample Collection';
-                    const description = (collectionObj as { description?: string }).description || '';
-                    const saveResult = await apiClient.saveCollection({
-                      name,
-                      description,
-                      collection_data: cards,
-                      is_public: false,
-                    });
-                    setProgress(80);
-                    setStatusText('Finalizing...');
-                    if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
-                      addCollection({
-                        id: String((saveResult as { id: string }).id),
-                        user_id: '',
-                        name,
-                        description,
-                        cards,
-                        created_at: '',
-                        updated_at: '',
-                      });
-                    }
-                    if (typeof onCollectionUploaded === 'function') {
-                      onCollectionUploaded(cards);
-                    }
-                  } else if (Array.isArray(collectionObj)) {
-                    const cards = collectionObj as MTGCard[];
-                    const name = 'Sample Collection';
-                    const description = '';
-                    const saveResult = await apiClient.saveCollection({
-                      name,
-                      description,
-                      collection_data: cards,
-                      is_public: false,
-                    });
-                    setProgress(80);
-                    setStatusText('Finalizing...');
-                    if (saveResult && typeof saveResult === 'object' && 'id' in saveResult) {
-                      addCollection({
-                        id: String((saveResult as { id: string }).id),
-                        user_id: '',
-                        name,
-                        description,
-                        cards,
-                        created_at: '',
-                        updated_at: '',
-                      });
-                    }
-                    if (typeof onCollectionUploaded === 'function') {
-                      onCollectionUploaded(cards);
-                    }
-                  } else {
-                    setError('Sample collection format is invalid.');
-                  }
-                } else if (result && typeof result === 'object' && 'error' in result) {
-                  setError((result as { error?: string }).error || 'Failed to load collection');
-                } else {
-                  setError('Failed to load collection');
-                }
-                setProgress(100);
-                setStatusText('Sample collection loaded!');
-              } catch {
-                setProgress(0);
-                setStatusText('');
-                setError('Failed to load collection. Make sure the backend is running.');
-                showToast('Failed to load collection. Make sure the backend is running.', 'error');
-              } finally {
-                setIsUploading(false);
-              }
-            }}
-            className="px-6 py-2 bg-rarity-mythic hover:bg-rarity-rare text-white rounded-lg transition-colors font-semibold"
-          >
-            Load Sample Collection (or your uploaded collection)
-          </button>
         </div>
       </div>
-
       {/* Error Message */}
       {error && (
         <div className="mt-4 p-4 bg-mtg-red/50 border border-mtg-red rounded-lg">
           <p className="text-mtg-red">{error}</p>
         </div>
       )}
-
       {/* Instructions */}
       <div className="mt-8 backdrop-blur-sm rounded-xl p-6">
         <h4 className="text-lg font-semibold text-rarity-rare mb-3">Supported Formats</h4>

@@ -7,6 +7,8 @@ This file allows Railway to start the FastAPI app from the root directory
 import sys
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv("backend/.env")
 
 def main():
     # Print debug info
