@@ -75,8 +75,8 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsUploading(true);
     setError(null);
-    setProgress(5);
-    setStatusText('Reading file...');
+    setProgress(0);
+    setStatusText('Uploading...');
     setParsedPreview('');
     setLiveCards([]);
     setLivePreview(null);
@@ -88,6 +88,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
       return;
     }
     try {
+      // Prepare form data
       const formData = new FormData();
       formData.append('file', file);
       formData.append('name', collectionName);
@@ -96,43 +97,83 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
       formData.append('inventoryPolicy', inventoryPolicy);
       formData.append('collectionAction', collectionAction);
 
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${process.env.NEXT_PUBLIC_API_URL}/api/collections/upload`, true);
-      xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+      // Send file via fetch to get a temporary upload URL
+      const uploadUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/collections/progress-upload`;
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
 
-      xhr.upload.onprogress = function (event) {
-        if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100);
-          setProgress(percent);
-          setStatusText(`Uploading... (${percent}%)`);
-        }
-      };
-      xhr.onload = function () {
-        if (xhr.status === 200) {
-          setProgress(100);
-          setStatusText('Upload complete!');
-          showToast('Collection uploaded successfully!', 'success');
-          const response = JSON.parse(xhr.responseText);
-          if (response.cards) {
-            setLiveCards(response.cards);
-            setParsedPreview(JSON.stringify(response.cards.slice(0, 5), null, 2));
-            if (onCollectionUploaded) onCollectionUploaded(response.cards);
-            addCollection(response.collection);
-            refetchCollections();
-          }
-          setIsUploading(false);
-        } else {
-          setError('Failed to upload collection.');
-          setIsUploading(false);
-        }
-      };
-      xhr.onerror = function () {
-        setError('Failed to upload collection.');
+      if (!response.body) {
+        setError('No response body from server.');
         setIsUploading(false);
-        setProgress(0);
-        setStatusText('');
-      };
-      xhr.send(formData);
+        return;
+      }
+
+      // Use EventSource polyfill for SSE (fetch streaming)
+      const reader = response.body.getReader();
+      let received = '';
+      let cards: MTGCard[] = [];
+      let total = 0;
+      let done = false;
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        if (value) {
+          received += new TextDecoder().decode(value);
+          // Split by SSE event
+          const events = received.split(/\n\n/);
+          for (let i = 0; i < events.length - 1; i++) {
+            const event = events[i];
+            if (event.includes('event: progress')) {
+              const dataMatch = event.match(/data: (.*)/);
+              if (dataMatch) {
+                try {
+                  const data = JSON.parse(dataMatch[1]);
+                  setProgress(data.percent);
+                  setStatusText(`Processing... (${data.percent}%)`);
+                  if (data.preview) {
+                    setLivePreview(data.preview);
+                    setParsedPreview(JSON.stringify(data.preview, null, 2));
+                  }
+                } catch {}
+              }
+            } else if (event.includes('event: done')) {
+              const dataMatch = event.match(/data: (.*)/);
+              if (dataMatch) {
+                try {
+                  const data = JSON.parse(dataMatch[1]);
+                  cards = data.collection || [];
+                  total = data.total || 0;
+                  setLiveCards(cards);
+                  setParsedPreview(JSON.stringify(cards.slice(0, 5), null, 2));
+                  if (onCollectionUploaded) onCollectionUploaded(cards);
+                  showToast('Collection uploaded successfully!', 'success');
+                  setStatusText('Upload complete!');
+                  setProgress(100);
+                } catch {}
+              }
+            } else if (event.includes('event: error')) {
+              const dataMatch = event.match(/data: (.*)/);
+              if (dataMatch) {
+                try {
+                  const data = JSON.parse(dataMatch[1]);
+                  setError(data.error || 'Failed to upload collection.');
+                  setIsUploading(false);
+                  setProgress(0);
+                  setStatusText('');
+                } catch {}
+              }
+            }
+          }
+          received = events[events.length - 1];
+        }
+        done = streamDone;
+      }
+      setIsUploading(false);
+      refetchCollections();
     } catch (err) {
       setError('Failed to upload collection.');
       setIsUploading(false);

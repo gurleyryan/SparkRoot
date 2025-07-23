@@ -6,16 +6,15 @@ import httpx
 import structlog
 import numpy as np
 import traceback
-import pandas as pd
 import glob
 import uvicorn
 from datetime import timedelta
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Body, status
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Body, status, Form
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse
 from pydantic import BaseModel
-from backend.utils import normalize_csv_format, expand_collection_by_quantity, enrich_single_row_with_scryfall
+from backend.utils import normalize_csv_format, expand_collection_by_quantity, enrich_single_row_with_scryfall, upsert_user_card, create_collection, update_collection, link_collection_card
 from backend.auth_supabase_rest import UserManager, get_user_from_token, get_current_user, create_access_token
 from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield, get_deck_statistics
 from backend.deckgen import find_valid_commanders, generate_commander_deck, enforce_bracket_rules
@@ -26,7 +25,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sse_starlette.sse import EventSourceResponse
-from typing import AsyncGenerator, Dict, Any, List, Optional, Callable, cast
+from typing import Dict, Any, List, Optional, cast, AsyncGenerator
 
 logger = structlog.get_logger()
 
@@ -324,15 +323,17 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_user_
 
 # Collection management endpoints
 
-# Explicit type annotation for get_user_collections_async
-get_user_collections_async: Callable[[str], List[Dict[str, Any]]]
+
 
 @app.get("/api/collections")
 async def get_user_collections(current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
     """Get all collections for the current user"""
-    user_id = current_user["id"]
-    collections: List[Dict[str, Any]] = get_user_collections_async(user_id)
-    return {"success": True, "collections": collections}
+    try:
+        user_id = current_user["id"]
+        collections = await UserManager.get_user_collections(user_id)
+        return {"success": True, "collections": collections}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 @app.get("/api/collections/{collection_id}")
@@ -668,68 +669,97 @@ async def load_sample_collection() -> Dict[str, Any]:
 
 # --- Robust CSV upload, enrichment, and Supabase save for collections ---
 
+
 @app.post("/api/collections/progress-upload")
-async def upload_collection_progress(file: UploadFile = File(...)) -> EventSourceResponse:
-
-    
-
+async def upload_collection_progress(
+    file: UploadFile = File(...),
+    name: str = Form("My Collection"),
+    description: str = Form(""),
+    isPublic: bool = Form(False),
+    inventoryPolicy: str = Form("add"),
+    collectionAction: str = Form("new"),
+    collectionId: Optional[str] = Form(None),
+    current_user: Dict[str, Any] = Depends(get_user_from_token)
+) -> EventSourceResponse:
+  
     async def event_generator() -> AsyncGenerator[dict[str, Any], None]:
         try:
             # Read file content
             content = await file.read()
             decoded = content.decode(errors="replace")
-            # Use csv.reader to get rows
-            reader = csv.DictReader(io.StringIO(decoded))
-            rows = list(reader)
+            # Parse CSV to DataFrame
+            df: pd.DataFrame = pd.read_csv(io.StringIO(decoded))  # type: ignore
+            df = normalize_csv_format(df)
+            df = expand_collection_by_quantity(df)
+            rows: List[Dict[str, Any]] = df.to_dict("records")  # type: ignore
             total = len(rows)
             if total == 0:
                 yield {"event": "error", "data": {"error": "No rows found in CSV."}}
                 return
+
+            user_id = current_user["id"]
+            # Create or update collection
+            if collectionAction == "new":
+                collection_id = await create_collection(user_id, name, description, isPublic)
+            elif collectionAction == "update" and collectionId:
+                await update_collection(collectionId, name, description, isPublic)
+                collection_id = collectionId
+            else:
+                yield {"event": "error", "data": {"error": "Invalid collection action or missing collectionId."}}
+                return
+
+            user_card_ids: List[Any] = []
             enriched_cards: List[Dict[str, Any]] = []
             for idx, row in enumerate(rows):
-                # Convert single row to DataFrame for enrichment
-                df = pd.DataFrame([row])
-                # Enrichment now handled via Supabase; use df directly or query Supabase as needed
-                enriched_df = df
-                # Get the enriched card dict (first row)
-                card_dict: Dict[str, Any] = {}
-                if not enriched_df.empty:
-                    card_dict = enriched_df.iloc[0].to_dict()  # type: ignore
-                    card_dict: Dict[str, Any] = dict(card_dict)  # Explicit type annotation
-                    enriched_cards.append(card_dict)
-                percent = int(100 * (idx + 1) / total)
-                # Only send essential preview fields for frontend
-                preview: Dict[str, Any] = {
-                    "name": card_dict.get("name") if card_dict else row.get("Name"),
-                    "set_code": (
-                        card_dict.get("set_code") if card_dict else row.get("Set code")
-                    ),
-                    "image_uris": card_dict.get("image_uris") if card_dict else None,
-                    "card_instance": (
-                        card_dict.get("card_instance") if card_dict else None
-                    ),
-                    "idx": idx,
-                    "total": total,
-                }
-                yield {
-                    "event": "progress",
-                    "data": {
-                        "current": idx + 1,
-                        "total": total,
-                        "percent": percent,
-                        "preview": preview,
-                    },
-                }
+                # Find card_id from public.cards
+                card_id = None
+                # Try Scryfall ID, then set+collector_number, then name+set
+                scryfall_id = row.get("Scryfall ID")
+                set_code = row.get("Set code")
+                collector_number = row.get("Collector number")
+                name_val = row.get("Name")
+                # Query for card_id
+                query = None
+                params = None
+                if scryfall_id:
+                    query = "SELECT id FROM cards WHERE id = $1"
+                    params = (scryfall_id,)
+                elif set_code and collector_number:
+                    query = "SELECT id FROM cards WHERE set = $1 AND collector_number = $2"
+                    params = (set_code, collector_number)
+                elif name_val and set_code:
+                    query = "SELECT id FROM cards WHERE name = $1 AND set = $2"
+                    params = (name_val, set_code)
+                if query and params:
+                    from backend.supabase_db import db
+                    card_row = await db.execute_query_one(query, params)
+                    if card_row:
+                        card_id = card_row["id"]
+                if not card_id:
+                    # Could not find card, skip
+                    preview: Dict[str, Any] = {"name": name_val, "set_code": set_code, "idx": idx, "total": total, "error": "Card not found"}
+                    yield {"event": "progress", "data": {"current": idx+1, "total": total, "percent": int(100*(idx+1)/total), "preview": preview}}
+                    continue
+
+                # Upsert user_card
+                quantity = int(row.get("Quantity", 1))
+                condition = row.get("Condition", "Near Mint")
+                foil = bool(row.get("Foil", False))
+                language = row.get("Language", "en")
+                user_card_id = await upsert_user_card(user_id, card_id, quantity, condition, foil, language, inventoryPolicy)
+                user_card_ids.append(user_card_id)
+
+                # Link user_card to collection
+                await link_collection_card(collection_id, user_card_id)
+
+                preview = {"name": name_val, "set_code": set_code, "idx": idx, "total": total}
+                yield {"event": "progress", "data": {"current": idx+1, "total": total, "percent": int(100*(idx+1)/total), "preview": preview}}
+                enriched_cards.append({"user_card_id": user_card_id, "card_id": card_id, "name": name_val, "set_code": set_code, "quantity": quantity})
+
             # After all cards, send the full enriched collection as a final event
-            yield {
-                "event": "done",
-                "data": {"collection": enriched_cards, "total": total},
-            }
+            yield {"event": "done", "data": {"collection": enriched_cards, "total": total, "collection_id": collection_id}}
         except Exception as e:
-            yield {
-                "event": "error",
-                "data": {"error": str(e), "details": traceback.format_exc()},
-            }
+            yield {"event": "error", "data": {"error": str(e), "details": traceback.format_exc()}}
 
     return EventSourceResponse(event_generator())
 
