@@ -10,7 +10,6 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr
 import secrets
 import httpx
-import asyncio
 import random
 
 # Security configuration
@@ -244,19 +243,19 @@ supabase_client = SupabaseRestClient()
 
 class UserManager:
     @staticmethod
-    def get_user_collections(user_id: str) -> List[Dict[str, Any]]:
+    async def get_user_collections(user_id: str) -> List[Dict[str, Any]]:
         ...
 
     @staticmethod
-    def save_collection(user_id: str, collection_data: 'CollectionSave') -> Optional[str]:
+    async def save_collection(user_id: str, collection_data: 'CollectionSave') -> Optional[str]:
         ...
 
     @staticmethod
-    def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
+    async def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
         ...
 
     @staticmethod
-    def update_user_settings(user_id: str, settings: 'UserSettings') -> bool:
+    async def update_user_settings(user_id: str, settings: 'UserSettings') -> bool:
         ...
     @staticmethod
     def hash_password(password: str) -> str:
@@ -456,7 +455,7 @@ class UserSettings(BaseModel):
     notifications: Optional[Dict[str, Any]] = None
 
 # Collection management functions (placeholder implementations)
-def get_user_collections(user_id: str) -> List[Dict[str, Any]]:
+async def get_user_collections(user_id: str) -> List[Dict[str, Any]]:
     """Get all collections for a user (placeholder implementation)"""
     headers: Dict[str, str] = {
         "apikey": SUPABASE_ANON_KEY,
@@ -480,9 +479,9 @@ def get_user_collections(user_id: str) -> List[Dict[str, Any]]:
             else:
                 print(f"Error fetching collections: {resp.text}")
                 return []
-    return asyncio.run(fetch())
+    return await fetch()
 
-def save_collection(user_id: str, collection_data: CollectionSave) -> Optional[str]:
+async def save_collection(user_id: str, collection_data: CollectionSave) -> Optional[str]:
     """Save a collection for a user (placeholder implementation)"""
     headers: Dict[str, str] = {
         "apikey": SUPABASE_SERVICE_KEY or "",
@@ -515,9 +514,9 @@ def save_collection(user_id: str, collection_data: CollectionSave) -> Optional[s
             else:
                 print(f"Error saving collection: {resp.text}")
                 return None
-    return asyncio.run(post())
+    return await post()
 
-def get_collection_by_id(user_id: str, collection_id: str) -> Optional[Dict[str, Any]]:
+async def get_collection_by_id(user_id: str, collection_id: str) -> Optional[Dict[str, Any]]:
     headers: Dict[str, str] = {
         "apikey": SUPABASE_ANON_KEY,
         "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
@@ -540,9 +539,9 @@ def get_collection_by_id(user_id: str, collection_id: str) -> Optional[Dict[str,
             else:
                 print(f"Error fetching collection: {resp.text}")
                 return None
-    return asyncio.run(fetch())
+    return await fetch()
 
-def update_collection(user_id: str, collection_id: str, data: Dict[str, Any]) -> bool:
+async def update_collection(user_id: str, collection_id: str, data: Dict[str, Any]) -> bool:
     headers = {
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
@@ -557,9 +556,9 @@ def update_collection(user_id: str, collection_id: str, data: Dict[str, Any]) ->
                 json=data
             )
             return resp.status_code in [200, 204]
-    return asyncio.run(patch())
+    return await patch()
 
-def delete_collection(user_id: str, collection_id: str) -> bool:
+async def delete_collection(user_id: str, collection_id: str) -> bool:
     headers = {
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
@@ -572,9 +571,9 @@ def delete_collection(user_id: str, collection_id: str) -> bool:
                 headers=headers
             )
             return resp.status_code in [200, 204]
-    return asyncio.run(delete())
+    return await delete()
 
-def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
+async def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
     headers = {
         "apikey": SUPABASE_ANON_KEY,
         "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
@@ -597,9 +596,9 @@ def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
             else:
                 print(f"Error fetching user settings: {resp.text}")
                 return None
-    return asyncio.run(fetch())
+    return await fetch()
 
-def update_user_settings(user_id: str, settings: UserSettings) -> bool:
+async def update_user_settings(user_id: str, settings: UserSettings) -> bool:
     headers = {
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
@@ -614,7 +613,8 @@ def update_user_settings(user_id: str, settings: UserSettings) -> bool:
                 json=settings.model_dump(exclude_unset=True)
             )
             return resp.status_code in [200, 204]
-    return asyncio.run(patch())
+    return await patch()
+
 
 # Add methods to UserManager
 UserManager.get_user_collections = staticmethod(get_user_collections)

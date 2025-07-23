@@ -39,7 +39,16 @@ export default function UserSettingsPanel() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [socials, setSocials] = useState<SocialIntegration[]>([]);
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
-  const [playmatOptions, setPlaymatOptions] = useState<string[]>([]);
+  const [playmatOptions, setPlaymatOptions] = useState<string[]>([ 
+    'playmat-texture-white.svg',
+    'playmat-texture-blue.svg',
+    'playmat-texture-black.svg',
+    'playmat-texture-red.svg',
+    'playmat-texture-green.svg',
+    'playmat-texture-colorless.svg',
+    'playmat-texture-multicolored.svg',
+    'playmat-texture.svg',
+  ]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -48,20 +57,34 @@ export default function UserSettingsPanel() {
     async function fetchAll() {
       setLoading(true);
       setError(null);
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      let accessToken = '';
       try {
-        const [settingsRes, socialsRes, profileRes, playmatsRes] = await Promise.all([
-          fetch('/api/user/settings'),
-          fetch('/api/user/socials'),
-          fetch('/api/user/profile'),
-          fetch('/api/playmats'),
+        accessToken = (await import('../store/authStore')).useAuthStore.getState().accessToken || '';
+      } catch {}
+      const headers: Record<string, string> = {};
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      try {
+        const [settingsRes, profileRes] = await Promise.all([
+          fetch(`${baseUrl}/api/settings`, { headers }),
+          fetch(`${baseUrl}/api/auth/me`, { headers }),
         ]);
-        if (!settingsRes.ok || !socialsRes.ok || !profileRes.ok || !playmatsRes.ok)
-          throw new Error('Failed to load user data');
-        setSettings(await settingsRes.json());
-        setSocials(await socialsRes.json());
+        if (!settingsRes.ok) {
+          const errText = await settingsRes.text();
+          setError(`Settings fetch failed: ${settingsRes.status} ${errText}`);
+          setLoading(false);
+          return;
+        }
+        if (!profileRes.ok) {
+          const errText = await profileRes.text();
+          setError(`Profile fetch failed: ${profileRes.status} ${errText}`);
+          setLoading(false);
+          return;
+        }
+        const settingsData = await settingsRes.json();
+        setSettings(settingsData.settings);
         setProfile(await profileRes.json());
-        const playmatData = await playmatsRes.json();
-        setPlaymatOptions(Array.isArray(playmatData.files) ? playmatData.files : []);
+        // playmatOptions is static from /public
       } catch (e: unknown) {
         if (e instanceof Error) {
           setError(e.message || 'Failed to load user data');
@@ -75,17 +98,98 @@ export default function UserSettingsPanel() {
     fetchAll();
   }, []);
 
+  // Playmat selection handler: updates local state and persists to backend
+  async function handlePlaymatChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newTexture = e.target.value;
+    setSettings(s => s ? { ...s, playmat_texture: newTexture } : s);
+    setSaving(true);
+    setError(null);
+    if (!settings) {
+      setError('Settings not loaded. Cannot save playmat selection.');
+      setSaving(false);
+      return;
+    }
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      let accessToken = '';
+      try {
+        accessToken = (await import('../store/authStore')).useAuthStore.getState().accessToken || '';
+      } catch {}
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      const payload = { settings: { playmat_texture: newTexture } };
+      const resp = await fetch(`${baseUrl}/api/settings`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        console.error('Settings PUT error:', errorText);
+        throw new Error('Failed to save playmat selection');
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message || 'Failed to save playmat selection');
+      } else {
+        setError('Failed to save playmat selection');
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Track initial settings for change detection
+  const [initialSettings, setInitialSettings] = useState<UserSettings | null>(null);
+  useEffect(() => {
+    if (settings && !initialSettings) {
+      setInitialSettings(settings);
+    }
+  }, [settings, initialSettings]);
+
+  function getChangedSettings(): Partial<UserSettings> {
+    if (!settings || !initialSettings) return {};
+    const changed: Record<string, unknown> = {};
+    for (const key in settings) {
+      if (Object.prototype.hasOwnProperty.call(settings, key)) {
+        if (JSON.stringify(settings[key as keyof UserSettings]) !== JSON.stringify(initialSettings[key as keyof UserSettings])) {
+          changed[key] = settings[key as keyof UserSettings];
+        }
+      }
+    }
+    return changed as Partial<UserSettings>;
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    if (!settings) {
+      setError('Settings not loaded. Cannot save.');
+      setSaving(false);
+      return;
+    }
+    const changedSettings = getChangedSettings();
+    if (Object.keys(changedSettings).length === 0) {
+      setError('No changes to save.');
+      setSaving(false);
+      return;
+    }
     try {
+      const payload = { settings: changedSettings };
       const resp = await fetch('/api/user/settings', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(payload),
       });
-      if (!resp.ok) throw new Error('Failed to save settings');
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        console.error('Settings PUT error:', errorText);
+        throw new Error('Failed to save settings');
+      } else {
+        // Update initialSettings after successful save
+        setInitialSettings(settings);
+      }
     } catch (e: unknown) {
       if (e instanceof Error) {
         setError(e.message || 'Failed to save settings');
@@ -99,6 +203,9 @@ export default function UserSettingsPanel() {
 
   if (loading) return <div className="text-mtg-white">Loading settings...</div>;
   if (error) return <div className="text-red-400">{error}</div>;
+
+  // If settings is null, show a message or default form
+  if (!settings) return <div className="text-mtg-white">No settings found for this user.</div>;
 
   return (
     <div className="bg-slate-900/80 p-8 rounded-xl border border-rarity-uncommon mt-8">
@@ -137,7 +244,7 @@ export default function UserSettingsPanel() {
           </div>
           <div>
             <label className="block text-mtg-white font-semibold mb-1">Playmat Texture</label>
-            <select className="form-input w-full" value={settings?.playmat_texture || ''} onChange={e => setSettings(s => s ? { ...s, playmat_texture: e.target.value } : s)}>
+            <select className="form-input w-full" value={settings?.playmat_texture || ''} onChange={handlePlaymatChange}>
               <option value="">Classic</option>
               {playmatOptions.map((file) => (
                 <option key={file} value={file}>{file.replace('playmat-texture', '').replace(/[-_.]/g, ' ').replace(/\.[a-zA-Z0-9]+$/, '').trim() || 'Classic'}</option>
