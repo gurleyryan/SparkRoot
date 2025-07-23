@@ -254,11 +254,8 @@ async def register_user(user_data: Dict[str, Any] = Body(...)):
                 status_code=400,
                 detail="Username is required and must be a non-empty string.",
             )
-        user_response: Optional[Dict[str, Any]] = await UserManager.create_user( # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-            email=str(user_data["email"]),
-            password=str(user_data["password"]),
-            username=str(user_data["username"]),
-            full_name=str(user_data.get("full_name", "")),
+        user_response: Optional[Dict[str, Any]] = await UserManager.create_user(
+            email=str(user_data["email"]), password=str(user_data["password"]), username=str(user_data["username"]), full_name=str(user_data.get("full_name", "")),
         )  
         if user_response:
             return UserResponse(
@@ -283,19 +280,19 @@ async def login_user(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     password = str(payload.get("password", ""))
     if not identifier or not password:
         raise HTTPException(status_code=422, detail="Missing identifier or password")
-    user = await UserManager.authenticate_user(identifier, password)  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+    user: Optional[Dict[str, Any]] = await UserManager.authenticate_user(identifier, password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email/username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user_email = str(user.get("email", identifier))  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-    user_id = user.get("id", "")  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-    username = str(user.get("username", ""))  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-    ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Set your desired token expiration time in minutes
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
+    user_email: str = str(user.get("email", identifier))
+    user_id: str = str(user.get("id", ""))
+    username: str = str(user.get("username", ""))
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # Set your desired token expiration time in minutes
+    access_token_expires: timedelta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token: str = create_access_token(
         data={"sub": user_email, "user_id": user_id}, expires_delta=access_token_expires
     )
     return {
@@ -313,8 +310,8 @@ async def login_user(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
 async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_user_from_token)):
     """Get current user information"""
     return UserResponse(
-        id=current_user["id"],
-        email=current_user["email"],
+        id=str(current_user["id"]),
+        email=str(current_user["email"]),
         username=str(current_user.get("username") or ""),
         full_name=str(current_user.get("full_name") or ""),
         created_at=current_user.get("created_at"),

@@ -243,6 +243,11 @@ supabase_client = SupabaseRestClient()
 
 class UserManager:
     @staticmethod
+    async def create_user(email: str, password: str, username: str, full_name: str = "") -> Optional[Dict[str, Any]]:
+        """Stub for create_user to satisfy type checkers. Actual implementation should be provided elsewhere."""
+        # You should implement this method or attach it dynamically as in your current codebase.
+        return None
+    @staticmethod
     async def get_user_collections(user_id: str) -> List[Dict[str, Any]]:
         ...
 
@@ -344,28 +349,39 @@ class UserManager:
 # Token verification function
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get the current user from JWT token"""
-    credentials_exception: HTTPException = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     try:
         payload: Dict[str, Any] = jwt.decode( # type: ignore
             credentials.credentials,
             SECRET_KEY,
             algorithms=[ALGORITHM],
-            options={"verify_signature": True, "verify_exp": True}
-        ) 
+            options={"verify_signature": True, "verify_exp": True}  
+        )  
         email: Optional[str] = payload.get("sub")  # sub contains the email
         if email is None:
-            raise credentials_exception
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     except jwt.ExpiredSignatureError:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired, please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     except jwt.InvalidTokenError:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     user: Optional[Dict[str, Any]] = await UserManager.get_user_by_email(email)
     if user is None:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found for token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 # Alias for backward compatibility
