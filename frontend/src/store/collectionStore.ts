@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { MTGCard, Collection, CollectionStats, CardFilters, SortOptions } from '@/types';
-// ...existing code...
 
 interface CollectionState {
   // Data

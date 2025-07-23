@@ -39,7 +39,7 @@ export interface User {
   updated_at?: string;
   app_metadata?: {
     role?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

@@ -4,9 +4,16 @@ import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import AuraFrame from "./AuraFrame";
 import ExpandedCardInfo from "./ExpandedCardInfo";
+import type { MTGCard } from "@/types/index";
+
+// Extend MTGCard locally to allow card_faces and image for compatibility
+export type MTGCardWithFaces = MTGCard & {
+  card_faces?: Array<Partial<MTGCard> & { image_uris?: { normal?: string; large?: string } }>;
+  image?: string;
+};
 
 export interface CardProps {
-  card: any;
+  card: MTGCardWithFaces;
   className?: string;
 }
 
@@ -52,10 +59,10 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
   // Always prefer card_faces if present, then image_uris, then image
   let imageUrl = undefined;
   let isDoubleFaced = false;
-  let faces = [];
+  let faces: Partial<MTGCardWithFaces>[] = [];
   if (card.card_faces && Array.isArray(card.card_faces) && card.card_faces[0]?.image_uris) {
     faces = card.card_faces;
-    isDoubleFaced = faces.length > 1 && faces[0]?.image_uris && faces[1]?.image_uris;
+    isDoubleFaced = faces.length > 1 && Boolean(faces[0]?.image_uris) && Boolean(faces[1]?.image_uris);
     imageUrl = faces[faceIndex]?.image_uris?.normal || faces[faceIndex]?.image_uris?.large;
   } else if (card.image_uris) {
     imageUrl = card.image_uris.normal || card.image_uris.large;
@@ -64,7 +71,7 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
   }
 
   // Single click: expand/collapse for single-faced, flip for DFC (even when expanded)
-  const handleCardClick = (e: React.MouseEvent) => {
+  const handleCardClick = () => {
     if (isDoubleFaced) {
       // If expanded, only flip face, do not close overlay
       setFaceIndex((prev) => (prev === 0 ? 1 : 0));
@@ -74,7 +81,7 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
   };
 
   // Double click: expand/collapse for DFC
-  const handleCardDoubleClick = (e: React.MouseEvent) => {
+  const handleCardDoubleClick = () => {
     if (isDoubleFaced) {
       setExpanded((v) => !v);
     }

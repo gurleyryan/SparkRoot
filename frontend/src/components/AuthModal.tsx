@@ -96,10 +96,10 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           setIsLoading(false);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       let msg = 'Authentication failed. Please try again.';
-      if (error && typeof error === 'object' && error.message) {
-        msg = error.message;
+      if (error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
+        msg = (error as { message: string }).message;
       }
       // Custom handling for common Supabase/SQL errors
       if (msg.match(/unique.*email/i)) {

@@ -2,13 +2,14 @@
 
 import React from "react";
 import Card from "./Card";
+import { MTGCardWithFaces } from "./Card"; // Adjust the path if MTGCardWithFaces is defined elsewhere
 
 export interface CardGridProps {
   cards: any[];
   className?: string;
 }
 
-const CardGrid: React.FC<CardGridProps> = ({
+const CardGrid: React.FC<{ cards: MTGCardWithFaces[]; className?: string }> = ({
   cards,
   className = "",
 }) => {

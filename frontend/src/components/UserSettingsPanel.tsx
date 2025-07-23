@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useAuthStore } from '@/store/authStore';
 
 interface UserSettings {
   price_source: string;
@@ -12,11 +11,10 @@ interface UserSettings {
   default_format: string;
   card_display: string;
   auto_save: boolean;
-  notifications: {
+  notifications: Record<string, boolean | undefined> & {
     price_alerts?: boolean;
     deck_updates?: boolean;
     collection_changes?: boolean;
-    [key: string]: any;
   };
   created_at?: string;
   updated_at?: string;
@@ -38,7 +36,6 @@ interface ProfileInfo {
 }
 
 export default function UserSettingsPanel() {
-  const user = useAuthStore((s) => s.user);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [socials, setSocials] = useState<SocialIntegration[]>([]);
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
@@ -65,8 +62,12 @@ export default function UserSettingsPanel() {
         setProfile(await profileRes.json());
         const playmatData = await playmatsRes.json();
         setPlaymatOptions(Array.isArray(playmatData.files) ? playmatData.files : []);
-      } catch (e: any) {
-        setError(e.message || 'Failed to load user data');
+      } catch (e: unknown) {
+        if (e instanceof Error) {
+          setError(e.message || 'Failed to load user data');
+        } else {
+          setError('Failed to load user data');
+        }
       } finally {
         setLoading(false);
       }
@@ -85,8 +86,12 @@ export default function UserSettingsPanel() {
         body: JSON.stringify(settings),
       });
       if (!resp.ok) throw new Error('Failed to save settings');
-    } catch (e: any) {
-      setError(e.message || 'Failed to save settings');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message || 'Failed to save settings');
+      } else {
+        setError('Failed to save settings');
+      }
     } finally {
       setSaving(false);
     }

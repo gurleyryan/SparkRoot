@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useCollectionStore } from "@/store/collectionStore";
 import { ApiClient } from "@/lib/api";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 
 
 interface TrendPoint {
@@ -23,10 +23,42 @@ export default function PricingDashboard() {
 
   // Advanced analytics state
   const [activeTab, setActiveTab] = useState<'trends' | 'cei' | 'deck' | 'card' | 'collection'>('trends');
-  const [cei, setCei] = useState<any[]>([]);
-  const [deckCostToWin, setDeckCostToWin] = useState<any[]>([]);
-  const [investmentWatch, setInvestmentWatch] = useState<any[]>([]);
-  const [roi, setRoi] = useState<any | null>(null);
+  interface CEIResult {
+    card_name: string;
+    decks: number;
+    price: number;
+    cei: number;
+  }
+  interface DeckCostResult {
+    deck_name: string;
+    price: number;
+    wins: number;
+    cost_to_win: number;
+  }
+  interface PriceWatchResult {
+    card_name: string;
+    volatility: number;
+    recent_spike: boolean;
+    price_history: number[];
+  }
+  interface CollectionPerformanceCard {
+    card_name: string;
+    purchase_price: number;
+    current_price: number;
+    gain: number;
+    roi_percent: number;
+  }
+  interface CollectionPerformance {
+    total_spent: number;
+    current_value: number;
+    roi_percent: number;
+    cards: CollectionPerformanceCard[];
+  }
+
+  const [cei, setCei] = useState<CEIResult[]>([]);
+  const [deckCostToWin, setDeckCostToWin] = useState<DeckCostResult[]>([]);
+  const [priceWatch, setPriceWatch] = useState<PriceWatchResult[]>([]);
+  const [collectionPerformance, setCollectionPerformance] = useState<CollectionPerformance | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const api = useMemo(() => new ApiClient(), []);
 
@@ -38,13 +70,15 @@ export default function PricingDashboard() {
       try {
         const apiClient = new ApiClient();
         // Use the correct method name for collection trends
-        const res: any = await apiClient.getCollectionValue(activeCollection.cards as unknown as Record<string, unknown>[]);
-        if (!res.success) throw new Error(res.error || 'Failed to fetch trends');
-        setTrend(res.trend || []);
-        setBreakdownByRarity(res.breakdown_by_rarity || {});
-        setBreakdownBySet(res.breakdown_by_set || {});
-      } catch (err: any) {
-        setError(err?.message || 'Failed to fetch pricing trends');
+        const res = await apiClient.getCollectionValue(activeCollection.cards as unknown as Record<string, unknown>[]);
+        if (!res || typeof res !== 'object' || !('success' in res)) throw new Error('Unexpected API response');
+        if (!('error' in res) || typeof (res as any).error !== 'string') (res as any).error = undefined;
+        if (!(res as { success: boolean }).success) throw new Error((res as any).error || 'Failed to fetch trends');
+        setTrend((res as { trend?: TrendPoint[] }).trend || []);
+        setBreakdownByRarity((res as { breakdown_by_rarity?: Breakdown }).breakdown_by_rarity || {});
+        setBreakdownBySet((res as { breakdown_by_set?: Breakdown }).breakdown_by_set || {});
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch pricing trends');
       } finally {
         setLoading(false);
       }
@@ -57,23 +91,23 @@ export default function PricingDashboard() {
     async function fetchAnalytics() {
       setAnalyticsLoading(true);
       try {
-        const [ceiRes, deckRes, investRes] = await Promise.all([
+        const [ceiRes, deckRes, priceWatchRes] = await Promise.all([
           api.getCardEfficiencyIndex(),
           api.getDeckCostToWin(),
           api.getInvestmentWatch(),
         ]);
         setCei(ceiRes.data || []);
         setDeckCostToWin(deckRes.data || []);
-        setInvestmentWatch(investRes.data || []);
-        // ROI: only if collection loaded
+        setPriceWatch(priceWatchRes.data || []);
+        // Collection performance: only if collection loaded
         if (activeCollection) {
-          const roiRes = await api.getCollectionROI(activeCollection);
-          setRoi(roiRes.data || null);
+          const perfRes = await api.getCollectionROI(activeCollection);
+          setCollectionPerformance(perfRes.data || null);
         } else {
-          setRoi(null);
+          setCollectionPerformance(null);
         }
-      } catch (err: any) {
-        setError(err.message || 'Failed to load analytics');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load analytics');
       } finally {
         setAnalyticsLoading(false);
       }
@@ -173,10 +207,10 @@ export default function PricingDashboard() {
               <tbody>
                 {cei.map((row, i) => (
                   <tr key={i} className="text-mtg-white hover:bg-mtg-blue/10">
-                    <td className="px-4 py-2">{row.card_name}</td>
-                    <td className="px-4 py-2">{row.decks}</td>
-                    <td className="px-4 py-2">${row.price}</td>
-                    <td className="px-4 py-2 font-bold">{row.cei}</td>
+                    <td className="px-4 py-2">{String(row.card_name)}</td>
+                    <td className="px-4 py-2">{String(row.decks)}</td>
+                    <td className="px-4 py-2">${String(row.price)}</td>
+                    <td className="px-4 py-2 font-bold">{String(row.cei)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -200,10 +234,10 @@ export default function PricingDashboard() {
               <tbody>
                 {deckCostToWin.map((row, i) => (
                   <tr key={i} className="text-mtg-white hover:bg-mtg-blue/10">
-                    <td className="px-4 py-2">{row.deck_name}</td>
-                    <td className="px-4 py-2">${row.price}</td>
-                    <td className="px-4 py-2">{row.wins}</td>
-                    <td className="px-4 py-2 font-bold">{row.cost_to_win}</td>
+                    <td className="px-4 py-2">{String(row.deck_name)}</td>
+                    <td className="px-4 py-2">${String(row.price)}</td>
+                    <td className="px-4 py-2">{String(row.wins)}</td>
+                    <td className="px-4 py-2 font-bold">{String(row.cost_to_win)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -214,7 +248,7 @@ export default function PricingDashboard() {
         {/* Card Price Tab */}
         {activeTab === 'card' && (
           <div>
-            <h3 className="text-xl font-bold mb-4 text-mtg-white">Card Price (Volatility/Spikes)</h3>
+            <h3 className="text-xl font-bold mb-4 text-mtg-white">Card Price Watch (Volatility/Spikes)</h3>
             <table className="min-w-full bg-slate-900/80 rounded-xl">
               <thead>
                 <tr className="text-mtg-blue">
@@ -225,12 +259,12 @@ export default function PricingDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {investmentWatch.map((row, i) => (
+                {priceWatch.map((row, i) => (
                   <tr key={i} className="text-mtg-white hover:bg-mtg-blue/10">
-                    <td className="px-4 py-2">{row.card_name}</td>
-                    <td className="px-4 py-2">{(row.volatility * 100).toFixed(1)}%</td>
+                    <td className="px-4 py-2">{String(row.card_name)}</td>
+                    <td className="px-4 py-2">{typeof row.volatility === 'number' ? `${(row.volatility * 100).toFixed(1)}%` : ''}</td>
                     <td className="px-4 py-2">{row.recent_spike ? <span className="text-rarity-mythic font-bold">Yes</span> : 'No'}</td>
-                    <td className="px-4 py-2">{row.price_history?.join(' → ')}</td>
+                    <td className="px-4 py-2">{Array.isArray(row.price_history) ? row.price_history.join(' → ') : ''}</td>
                   </tr>
                 ))}
               </tbody>
@@ -239,13 +273,13 @@ export default function PricingDashboard() {
         )}
 
         {/* Collection Price Tab */}
-        {activeTab === 'collection' && roi && (
+        {activeTab === 'collection' && collectionPerformance && (
           <div>
-            <h3 className="text-xl font-bold mb-4 text-mtg-white">Collection Price</h3>
+            <h3 className="text-xl font-bold mb-4 text-mtg-white">Collection Performance</h3>
             <div className="mb-4 text-mtg-white">
-              <div>Total Spent: <span className="font-bold text-rarity-uncommon">${roi.total_spent}</span></div>
-              <div>Current Value: <span className="font-bold text-rarity-rare">${roi.current_value}</span></div>
-              <div>ROI: <span className={`font-bold ${roi.roi_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>{roi.roi_percent}%</span></div>
+              <div>Total Spent: <span className="font-bold text-rarity-uncommon">${collectionPerformance ? String(collectionPerformance.total_spent) : ''}</span></div>
+              <div>Current Value: <span className="font-bold text-rarity-rare">${collectionPerformance ? String(collectionPerformance.current_value) : ''}</span></div>
+              <div>Performance: <span className={`font-bold ${collectionPerformance && collectionPerformance.roi_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>{collectionPerformance ? String(collectionPerformance.roi_percent) : ''}%</span></div>
             </div>
             <table className="min-w-full bg-slate-900/80 rounded-xl">
               <thead>
@@ -254,17 +288,17 @@ export default function PricingDashboard() {
                   <th className="px-4 py-2">Purchase Price</th>
                   <th className="px-4 py-2">Current Price</th>
                   <th className="px-4 py-2">Gain</th>
-                  <th className="px-4 py-2">ROI %</th>
+                  <th className="px-4 py-2">Performance %</th>
                 </tr>
               </thead>
               <tbody>
-                {roi.cards.map((row: any, i: number) => (
+                {collectionPerformance && Array.isArray(collectionPerformance.cards) && collectionPerformance.cards.map((row, i) => (
                   <tr key={i} className="text-mtg-white hover:bg-mtg-blue/10">
-                    <td className="px-4 py-2">{row.card_name}</td>
-                    <td className="px-4 py-2">${row.purchase_price}</td>
-                    <td className="px-4 py-2">${row.current_price}</td>
-                    <td className={`px-4 py-2 ${row.gain >= 0 ? 'text-green-400' : 'text-red-400'}`}>{row.gain}</td>
-                    <td className={`px-4 py-2 ${row.roi_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>{row.roi_percent}%</td>
+                    <td className="px-4 py-2">{String(row.card_name)}</td>
+                    <td className="px-4 py-2">${String(row.purchase_price)}</td>
+                    <td className="px-4 py-2">${String(row.current_price)}</td>
+                    <td className={`px-4 py-2 ${row.gain >= 0 ? 'text-green-400' : 'text-red-400'}`}>{String(row.gain)}</td>
+                    <td className={`px-4 py-2 ${row.roi_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>{String(row.roi_percent)}%</td>
                   </tr>
                 ))}
               </tbody>

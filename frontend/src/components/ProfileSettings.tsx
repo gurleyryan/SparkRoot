@@ -51,8 +51,12 @@ export default function ProfileSettings() {
         });
       }
       setMessage('Profile updated successfully.');
-    } catch (err: any) {
-      setError(err?.message || 'Failed to update profile.');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to update profile.');
+      }
     } finally {
       setLoading(false);
     }

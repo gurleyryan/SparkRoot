@@ -2,6 +2,7 @@
 
 import React from "react";
 import CardGrid from "./CardGrid";
+import type { MTGCard } from '@/types/index';
 
 const GAME_CHANGERS = [
   // White
@@ -19,8 +20,14 @@ const GAME_CHANGERS = [
   "Ancient Tomb", "Chrome Mox", "Field of the Dead", "Glacial Chasm", "Grim Monolith", "Lion's Eye Diamond", "Mana Vault", "Mishra's Workshop", "Mox Diamond", "Panoptic Mirror", "The One Ring", "The Tabernacle at Pendrell Vale"
 ];
 
-const GameChangers: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const [gameChangerCards, setGameChangerCards] = React.useState<any[]>([]);
+
+// Extend MTGCard for Scryfall fields used in this component
+type MTGCardExtended = MTGCard & {
+  set_icon_svg_uri?: string;
+};
+
+const GameChangers: React.FC = () => {
+  const [gameChangerCards, setGameChangerCards] = React.useState<Partial<MTGCardExtended>[]>([]);
   const [loadingCards, setLoadingCards] = React.useState(false);
   const [errorCards, setErrorCards] = React.useState<string | null>(null);
 
@@ -34,7 +41,7 @@ const GameChangers: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         .then(res => res.json())
         .then(setData => {
           const setIconLookup: Record<string, string> = {};
-          (setData.data || []).forEach((setObj: any) => {
+          (setData.data || []).forEach((setObj: { code: string; icon_svg_uri: string }) => {
             setIconLookup[setObj.code.toLowerCase()] = setObj.icon_svg_uri;
           });
           // Now fetch all cards
@@ -43,12 +50,12 @@ const GameChangers: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               try {
                 const resp = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
                 if (!resp.ok) throw new Error('Not found');
-                const data = await resp.json();
+                const data: Partial<MTGCardExtended> = await resp.json();
                 // Attach set_icon_svg_uri for overlay support
                 const setCode = (data.set || '').toLowerCase();
                 return { ...data, set_icon_svg_uri: setIconLookup[setCode] };
               } catch {
-                return { name, oracle_text: 'Not found' };
+                return { name, oracle_text: 'Not found' } as Partial<MTGCardExtended>;
               }
             })
           ).then(setGameChangerCards)
@@ -69,7 +76,12 @@ const GameChangers: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   if (errorCards) {
     return <div className="text-red-400 py-8 text-center w-full">{errorCards}</div>;
   }
-  return <CardGrid cards={gameChangerCards} />;
+  // Filter out cards missing required fields and cast to MTGCardWithFaces
+  const validCards = gameChangerCards.filter(
+    (card): card is import("./Card").MTGCardWithFaces =>
+      typeof card.id === 'string' && typeof card.name === 'string' && typeof card.set === 'string'
+  );
+  return <CardGrid cards={validCards} />;
 };
 
 export default GameChangers;

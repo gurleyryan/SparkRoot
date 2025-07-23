@@ -43,8 +43,12 @@ export const useAuthStore = create<AuthState>()(
           const apiClient = new ApiClient();
           const updatedUser = await apiClient.updateProfile(data);
           set({ user: updatedUser as User, isLoading: false });
-        } catch (err: any) {
-          set({ error: err?.message || 'Failed to update profile', isLoading: false });
+        } catch (err: unknown) {
+          if (err instanceof Error) {
+            set({ error: err.message || 'Failed to update profile', isLoading: false });
+          } else {
+            set({ error: 'Failed to update profile', isLoading: false });
+          }
         }
       },
       changePassword: async (data) => {
@@ -62,9 +66,14 @@ export const useAuthStore = create<AuthState>()(
             set({ error: err.error || 'Failed to update password.' });
             throw new Error(err.error || 'Failed to update password.');
           }
-        } catch (err: any) {
-          set({ error: err?.message || 'Failed to update password.' });
-          throw err;
+        } catch (err: unknown) {
+          if (err instanceof Error) {
+            set({ error: err.message || 'Failed to update password.' });
+            throw err;
+          } else {
+            set({ error: 'Failed to update password.' });
+            throw new Error('Failed to update password.');
+          }
         } finally {
           set({ isLoading: false });
         }
@@ -102,8 +111,12 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
-        } catch (err: any) {
-          set({ error: err?.message || 'Login failed', isLoading: false });
+        } catch (err: unknown) {
+          if (err instanceof Error) {
+            set({ error: err.message || 'Login failed', isLoading: false });
+          } else {
+            set({ error: 'Login failed', isLoading: false });
+          }
         }
       },
       setPlaymatTexture: async (texture) => {
@@ -165,8 +178,12 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
-        } catch (err: any) {
-          set({ error: err?.message || 'Registration failed', isLoading: false });
+        } catch (err: unknown) {
+          if (err instanceof Error) {
+            set({ error: err.message || 'Registration failed', isLoading: false });
+          } else {
+            set({ error: 'Registration failed', isLoading: false });
+          }
         }
       },
       logout: () => {

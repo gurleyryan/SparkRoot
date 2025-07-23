@@ -2,10 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { useToast } from './ToastProvider';
 import BracketPicker from '@/components/BracketPicker';
 import { ApiClient } from '@/lib/api';
+import type { MTGCard } from '@/types/index';
 import { useCollectionStore } from '@/store/collectionStore';
 
 export interface DeckBuilderProps {
-  onDeckGenerated: (cards: any[]) => void;
+  onDeckGenerated: (cards: MTGCard[]) => void;
   onShowGameChangers: () => void;
   onHideGameChangers?: () => void;
   loading?: boolean;
@@ -25,7 +26,7 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
   const commanderOptions = useMemo(() => {
     if (!activeCollection || !Array.isArray(activeCollection.cards)) return [];
     return activeCollection.cards.filter(
-      (card) =>
+      (card: MTGCard) =>
         typeof card.type_line === 'string' &&
         card.type_line.toLowerCase().includes('legendary creature')
     );
@@ -46,9 +47,13 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         typeof result === 'object' &&
         ('success' in result || 'deck' in result)
       ) {
-        const deckCards = Array.isArray((result as any).deck)
-          ? (result as any).deck
-          : Object.values((result as any).deck || {});
+        const deckRaw = (result as { deck?: unknown }).deck;
+        let deckCards: MTGCard[] = [];
+        if (Array.isArray(deckRaw)) {
+          deckCards = deckRaw as MTGCard[];
+        } else if (deckRaw && typeof deckRaw === 'object') {
+          deckCards = Object.values(deckRaw) as MTGCard[];
+        }
         onDeckGenerated(deckCards);
         showToast('Deck generated successfully!', 'success');
       } else if (

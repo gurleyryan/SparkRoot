@@ -1,8 +1,31 @@
 import React, { useEffect, useState } from "react";
+import type { MTGCard } from '@/types/index';
+// Extend MTGCard for Scryfall fields used in this component
+type MTGCardExtended = MTGCard & {
+  flavor_text?: string;
+  artist?: string;
+  reserved?: boolean;
+  lang?: string;
+  illustration_id?: string;
+  released_at?: string;
+  set_icon_svg_uri?: string;
+  icon_svg_uri?: string;
+};
 
 interface ExpandedCardInfoProps {
-  card: any;
-  faces: any[];
+  card: Partial<MTGCardExtended>;
+  faces: Array<Partial<MTGCardExtended>>;
+  faceIndex: number;
+  isDoubleFaced: boolean;
+  cardRect: DOMRect;
+  borderClass: string;
+  onClose: () => void;
+  frameOnly?: boolean;
+}
+
+interface ExpandedCardInfoProps {
+  card: Partial<MTGCardExtended>;
+  faces: Array<Partial<MTGCardExtended>>;
   faceIndex: number;
   isDoubleFaced: boolean;
   cardRect: DOMRect;
@@ -17,34 +40,24 @@ function renderManaCost(manaCost: string | undefined) {
   // Scryfall mana cost: "{B}{B}{2}{U/P}" etc.
   return manaCost.match(/\{.*?\}/g)?.map((symbol, i) => {
     const clean = symbol.replace(/[{}]/g, '').toLowerCase();
-    // Use mana font icon classes, e.g. ms ms-b, ms ms-2, ms ms-up, etc.
     return <span key={i} className={`ms ms-${clean} ms-cost inline-block align-middle text-lg`} aria-label={clean} />;
   });
 }
 
 // Helper to render set icon SVG and code, with rarity color
-
-function renderSetIcon(card: any) {
-  const rarity = (card.rarity || '').toLowerCase();
-  let rarityColor = '#231F20';
-  if (rarity === 'uncommon') rarityColor = '#BBE2EF';
-  else if (rarity === 'rare') rarityColor = '#DCBF7D';
-  else if (rarity === 'mythic') rarityColor = '#F8991C';
-
-  const iconSvg = card.set_icon_svg_uri || card.icon_svg_uri;
-  // Inline SVG recoloring logic
+// (Removed duplicate renderSetIcon function; use RenderSetIcon component and useSetIconSvg hook below)
+// Custom hook to get set icon SVG content
+function useSetIconSvg(card: Partial<MTGCardExtended>) {
   const [svgContent, setSvgContent] = useState<string | null>(null);
   useEffect(() => {
     let ignore = false;
+    const iconSvg = card.set_icon_svg_uri || card.icon_svg_uri;
     if (iconSvg) {
       fetch(iconSvg)
         .then(res => res.text())
         .then(svg => {
-          // Replace all fill attributes (not on svg root) with fill="currentColor"
           let recolored = svg.replace(/(<(?!svg)[^>]+)fill="#?[0-9a-fA-F]{3,6}"/g, '$1fill="currentColor"');
-          // Remove any hardcoded fill on <svg> root
           recolored = recolored.replace(/(<svg[^>]*?)fill="currentColor"/i, '$1');
-          // Set all stroke attributes to black
           recolored = recolored.replace(/stroke="#?[0-9a-fA-F]{3,6}"/g, 'stroke="#000"');
           if (!ignore) setSvgContent(recolored);
         });
@@ -52,8 +65,17 @@ function renderSetIcon(card: any) {
       setSvgContent(null);
     }
     return () => { ignore = true; };
-  }, [iconSvg]);
+  }, [card.set_icon_svg_uri, card.icon_svg_uri]);
+  return svgContent;
+}
 
+function RenderSetIcon({ card }: { card: Partial<MTGCardExtended> }) {
+  const rarity = (card.rarity || '').toLowerCase();
+  let rarityColor = '#231F20';
+  if (rarity === 'uncommon') rarityColor = '#BBE2EF';
+  else if (rarity === 'rare') rarityColor = '#DCBF7D';
+  else if (rarity === 'mythic') rarityColor = '#F8991C';
+  const svgContent = useSetIconSvg(card);
   if (svgContent) {
     return (
       <span className="flex items-center gap-1">
@@ -61,11 +83,9 @@ function renderSetIcon(card: any) {
           style={{ width: 24, height: 24, color: rarityColor, display: 'inline-block', verticalAlign: 'middle' }}
           dangerouslySetInnerHTML={{ __html: svgContent }}
         />
-        <span className="text-xs text-slate-400 font-mono">{card.set?.toUpperCase()}</span>
       </span>
     );
   }
-  // Fallback to font icon if available
   if (card.set) {
     let rarityClass = 'text-rarity-common';
     if (rarity === 'uncommon') rarityClass = 'text-rarity-uncommon';
@@ -74,22 +94,16 @@ function renderSetIcon(card: any) {
     return (
       <span className="flex items-center gap-1">
         <span className={`ss ss-${card.set.toLowerCase()} ss-2x align-middle ${rarityClass}`} title={card.set.toUpperCase()} />
-        <span className="text-xs text-slate-400 font-mono">{card.set.toUpperCase()}</span>
       </span>
     );
   }
-  // Fallback: just set code
   return <span className="ml-1 text-xs text-slate-400 font-mono">{card.set?.toUpperCase() || ''}</span>;
 }
-
-// This component renders the expanded info panels around the card, visually extending the card layout
-const ExpandedCardInfo: React.FC<ExpandedCardInfoProps> = ({ card, faces, faceIndex, isDoubleFaced, cardRect, onClose }) => {
-  if (!cardRect) return null;
-  // Info panel is 64px larger than card on all sides
+function ExpandedCardInfo({ card, faces, faceIndex, isDoubleFaced, cardRect, borderClass, onClose, frameOnly }: ExpandedCardInfoProps) {
   const infoStyle: React.CSSProperties = {
     position: "fixed",
-    left: (cardRect.left),
-    top: (cardRect.top),
+    left: cardRect.left,
+    top: cardRect.top,
     width: cardRect.width,
     height: cardRect.height,
     zIndex: 52,
@@ -97,7 +111,7 @@ const ExpandedCardInfo: React.FC<ExpandedCardInfoProps> = ({ card, faces, faceIn
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "center"
   };
   // Card content layout
   const face = isDoubleFaced ? faces[faceIndex] : card;
@@ -159,7 +173,7 @@ const ExpandedCardInfo: React.FC<ExpandedCardInfoProps> = ({ card, faces, faceIn
             {face?.type_line || card.type_line || ''}
           </div>
           <div className="flex flex-col gap-1 text-xs text-slate-400 font-mtg-mono text-right items-end">
-            <span className="flex items-center gap-1">{renderSetIcon(card)}<span>{card.collector_number || ''}</span></span>
+            <span className="flex items-center gap-1"><RenderSetIcon card={card} /><span>{card.collector_number || ''}</span></span>
             <span className="uppercase">{card.rarity?.charAt(0)}</span>
           </div>
         </div>

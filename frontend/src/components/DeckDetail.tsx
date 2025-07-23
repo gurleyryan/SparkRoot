@@ -28,7 +28,6 @@ export default function DeckDetail({ deckId }: DeckDetailProps) {
   const [exportResult, setExportResult] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
-  const [editCommander, setEditCommander] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Fetch deck data on mount
@@ -44,7 +43,6 @@ export default function DeckDetail({ deckId }: DeckDetailProps) {
         setDeck(deckData);
         setEditName(deckData.name);
         setEditDesc(deckData.description || "");
-        setEditCommander(deckData.commander?.name || "");
       } catch (err: any) {
         setError(err.message || "Failed to load deck");
         showToast(err.message || "Failed to load deck", "error");
@@ -72,7 +70,11 @@ export default function DeckDetail({ deckId }: DeckDetailProps) {
       setShowDetails(false);
       showToast("Deck updated", "success");
     } catch (err: any) {
-      showToast(err.message || "Failed to update deck", "error");
+      if (err instanceof Error) {
+        showToast(err.message || "Failed to update deck", "error");
+      } else {
+        showToast("Failed to update deck", "error");
+      }
     } finally {
       setSaving(false);
     }
@@ -104,7 +106,11 @@ export default function DeckDetail({ deckId }: DeckDetailProps) {
       setExportResult(text);
       showToast("Deck exported", "success");
     } catch (err: any) {
-      showToast(err.message || "Failed to export deck", "error");
+      if (err instanceof Error) {
+        showToast(err.message || "Failed to export deck", "error");
+      } else {
+        showToast("Failed to export deck", "error");
+      }
       setExportResult(null);
     }
   };
@@ -136,7 +142,11 @@ export default function DeckDetail({ deckId }: DeckDetailProps) {
       // Optionally redirect or update state
       setDeck(null);
     } catch (err: any) {
-      showToast(err.message || "Failed to delete deck", "error");
+      if (err instanceof Error) {
+        showToast(err.message || "Failed to delete deck", "error");
+      } else {
+        showToast("Failed to delete deck", "error");
+      }
     }
   };
 

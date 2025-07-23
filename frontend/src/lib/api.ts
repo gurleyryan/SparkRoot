@@ -1,6 +1,3 @@
-// ...existing code...
-
-// ...existing code...
 import type { User } from '@/types';
 // API Configuration for MTG Deck Optimizer
 // This file configures the API endpoints for both development and production
@@ -60,7 +57,6 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
 
 // API client class
 export class ApiClient {
-  // ...existing code...
 
   // Deck detail methods
   async getDeckById(deckId: string) {
@@ -104,7 +100,7 @@ export class ApiClient {
     const resp = await fetch(url, {
       method: 'POST',
       headers: this.defaultHeaders,
-      body: JSON.stringify(collection),
+      body: JSON.stringify(collection as Record<string, unknown>),
     });
     if (!resp.ok) throw new Error('Failed to fetch Collection ROI');
     return resp.json();
@@ -119,7 +115,9 @@ export class ApiClient {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const zustand = require('../store/authStore');
         token = zustand.useAuthStore.getState().accessToken;
-      } catch {}
+      } catch {
+        // ignore error
+      }
     }
     this.defaultHeaders = getAuthHeaders(token);
   }

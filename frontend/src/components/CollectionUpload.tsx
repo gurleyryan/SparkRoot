@@ -1,8 +1,7 @@
 import { useToast } from './ToastProvider';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
-import type { MTGCard, Collection } from '@/types';
-import { ApiClient } from '@/lib/api';
+import type { MTGCard } from '@/types';
 import { useAuthStore } from '../store/authStore';
 import { useCollectionStore } from '@/store/collectionStore';
 
@@ -36,7 +35,6 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const accessToken = useAuthStore((state) => state.accessToken);
-  const checkAuth = useAuthStore((state) => state.checkAuth);
   const addCollection = useCollectionStore((state) => state.addCollection);
 
   // Debug: log token and user info
@@ -49,9 +47,8 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   }, [user, isAuthenticated]);
 
   // SSE upload with live progress and preview
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const [liveCards, setLiveCards] = useState<MTGCard[]>([]);
-  const [livePreview, setLivePreview] = useState<any>(null);
+  const [, setLiveCards] = useState<MTGCard[]>([]);
+  const [livePreview, setLivePreview] = useState<Partial<MTGCard> | null>(null);
 
   const setCollections = useCollectionStore((state) => state.setCollections);
   const refetchCollections = useCallback(async () => {
@@ -64,8 +61,12 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
       if (!res.ok) throw new Error('Failed to fetch collections');
       const data = await res.json();
       setCollections(data.collections || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to refresh collections');
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to refresh collections');
+      } else {
+        setError('Failed to refresh collections');
+      }
     } finally {
       setIsUploading(false);
     }
@@ -132,7 +133,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
         setStatusText('');
       };
       xhr.send(formData);
-    } catch (err: any) {
+    } catch (err) {
       setError('Failed to upload collection.');
       setIsUploading(false);
       setProgress(0);
@@ -254,8 +255,8 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
               {livePreview && (
                 <div className="mt-2 p-2 bg-mtg-black/40 border border-rarity-mythic rounded text-xs text-left">
                   <div className="font-bold text-rarity-mythic">Card Preview:</div>
-                  <div>Name: {livePreview.name || livePreview.original_name}</div>
-                  <div>Set: {livePreview.set_code}</div>
+                  <div>Name: {livePreview.name}</div>
+                  <div>Set: {livePreview.set}</div>
                   <div>Quantity: {livePreview.quantity}</div>
                   {livePreview.image_uris && livePreview.image_uris.normal && (
                     <img src={livePreview.image_uris.normal} alt={livePreview.name} className="mt-1 max-h-32" />

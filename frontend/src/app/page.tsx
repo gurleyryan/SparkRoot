@@ -1,5 +1,6 @@
 "use client";
 import { useState } from 'react';
+import type { MTGCard } from '@/types/index';
 import Link from 'next/link';
 import { useModalStore } from '../store/modalStore';
 import CollectionUpload from '@/components/CollectionUpload';
@@ -19,11 +20,11 @@ export default function HomePage() {
 
   // DeckBuilder dashboard state
   const [cardGridType, setCardGridType] = useState<string | null>(null);
-  const [deckCards, setDeckCards] = useState<any[]>([]);
+  const [deckCards, setDeckCards] = useState<MTGCard[]>([]);
   const [loading] = useState(false);
 
   // Handler for DeckBuilder to call when deck is generated
-  function handleDeckGenerated(cards: any[]) {
+  function handleDeckGenerated(cards: MTGCard[]) {
     setCardGridType('deck');
     setDeckCards(cards);
   }
@@ -134,7 +135,7 @@ export default function HomePage() {
                 </>
               )}
               {cardGridType === 'gamechangers' && (
-                <GameChangers onClose={handleClearGrid} />
+                <GameChangers />
               )}
               {cardGridType === null && (
                 <div className="text-slate-400 text-center w-full">Use the buttons above to generate a deck or view Game Changer cards.</div>

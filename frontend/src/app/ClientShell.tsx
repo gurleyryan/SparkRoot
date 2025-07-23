@@ -15,11 +15,11 @@ const { useModalStore } = require('../store/modalStore');
 // const useModalStore = create((set) => ({ showAuthModal: false, setShowAuthModal: (show) => set({ showAuthModal: show }) }));
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((s: any) => s.isAuthenticated);
-  const user = useAuthStore((s: any) => s.user);
-  const logout = useAuthStore((s: any) => s.logout);
-  const showAuthModal = useModalStore((s: any) => s.showAuthModal);
-  const setShowAuthModal = useModalStore((s: any) => s.setShowAuthModal);
+  const isAuthenticated = useAuthStore((s: { isAuthenticated: boolean }) => s.isAuthenticated);
+  const user = useAuthStore((s: { user: unknown }) => s.user);
+  const logout = useAuthStore((s: { logout: () => void }) => s.logout);
+  const showAuthModal = useModalStore((s: { showAuthModal: boolean }) => s.showAuthModal);
+  const setShowAuthModal = useModalStore((s: { setShowAuthModal: (show: boolean) => void }) => s.setShowAuthModal);
 
   return (
     <ToastProvider>
