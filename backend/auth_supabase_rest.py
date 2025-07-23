@@ -11,6 +11,7 @@ from pydantic import BaseModel, EmailStr
 import secrets
 import httpx
 import random
+import typing
 
 # Security configuration
 SECRET_KEY: str = str(os.getenv("SECRET_KEY", secrets.token_urlsafe(32)))
@@ -579,24 +580,67 @@ async def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
         "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
         "Content-Type": "application/json"
     }
-    async def fetch() -> Optional[Dict[str, Any]]:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{SUPABASE_URL}/rest/v1/user_settings?id=eq.{user_id}",
-                headers=headers
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, list) and data:
-                    return data[0]  # type: ignore
-                elif isinstance(data, dict):
-                    return data  # type: ignore
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/user_settings?id=eq.{user_id}",
+            headers=headers
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            # After fetching data
+            if isinstance(data, list) and data:
+                row = typing.cast(Dict[str, Any], data[0])
+                settings: Dict[str, Any] = {
+                    "price_source": row.get("price_source", "tcgplayer"),
+                    "currency": row.get("currency", "USD"),
+                    "reference_price": row.get("reference_price", "market"),
+                    "profile_public": row.get("profile_public", False),
+                    "notifications_enabled": row.get("notifications_enabled", True),
+                    "playmat_texture": row.get("playmat_texture"),
+                    "theme": row.get("theme", "dark"),
+                    "default_format": row.get("default_format", "commander"),
+                    "card_display": row.get("card_display", "grid"),
+                    "auto_save": row.get("auto_save", True),
+                    "notifications": row.get("notifications", {}),
+                    "created_at": row.get("created_at"),
+                    "updated_at": row.get("updated_at"),
+                }
+                return settings
+            # If no row, create default settings row and return
+            elif isinstance(data, list) and not data:
+                # Create default row
+                default_settings: Dict[str, Any] = {
+                    "id": user_id,
+                    "price_source": "tcgplayer",
+                    "currency": "USD",
+                    "reference_price": "market",
+                    "profile_public": False,
+                    "notifications_enabled": True,
+                    "playmat_texture": None,
+                    "theme": "dark",
+                    "default_format": "commander",
+                    "card_display": "grid",
+                    "auto_save": True,
+                    "notifications": {},
+                }
+                # Insert default row
+                create_headers = headers.copy()
+                create_headers["Prefer"] = "return=representation"
+                create_resp = await client.post(
+                    f"{SUPABASE_URL}/rest/v1/user_settings",
+                    headers=create_headers,
+                    json=default_settings
+                )
+                if create_resp.status_code in [200, 201]:
+                    return default_settings
                 else:
-                    return None
+                    print(f"Error creating default user settings: {create_resp.text}")
+                    return default_settings
             else:
-                print(f"Error fetching user settings: {resp.text}")
                 return None
-    return await fetch()
+        else:
+            print(f"Error fetching user settings: {resp.text}")
+            return None
 
 async def update_user_settings(user_id: str, settings: UserSettings) -> bool:
     headers = {
