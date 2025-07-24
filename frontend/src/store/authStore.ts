@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, UserSettings } from '@/types';
 import { ApiClient } from '../lib/api';
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 interface AuthState {
   user: User | null;
@@ -81,41 +83,36 @@ export const useAuthStore = create<AuthState>()(
       login: async (credentials) => {
         set({ isLoading: true, error: null });
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
-          const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
-          // 1. Login to get access token
-          const resp = await fetch(`${baseUrl}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(credentials),
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: credentials.email,
+            password: credentials.password,
           });
-          if (!resp.ok) {
-            const err = await resp.json();
-            set({ error: err.error || 'Login failed', isLoading: false });
-            throw new Error(err.error || 'Login failed');
+          if (error || !data.session) {
+            set({ error: error?.message || 'Login failed.', isLoading: false });
+            throw new Error(error?.message || 'Login failed.');
           }
-          const data = await resp.json();
-          // 2. Fetch user profile with access token
-          const meResp = await fetch(`${baseUrl}/api/auth/me`, {
-            headers: { Authorization: `Bearer ${data.access_token}` },
-          });
-          if (!meResp.ok) {
-            set({ error: 'Failed to fetch user profile', isLoading: false });
-            throw new Error('Failed to fetch user profile');
+          const jwt = data.session.access_token;
+          // Optionally fetch user profile from backend using this JWT
+          if (!data.user) {
+            set({ error: 'User data missing after login.', isLoading: false });
+            throw new Error('User data missing after login.');
           }
-          const user = await meResp.json();
           set({
-            user,
+            user: {
+              ...data.user,
+              id: data.user?.id ?? '',
+              email: data.user?.email ?? '',
+            },
             isAuthenticated: true,
-            accessToken: data.access_token,
+            accessToken: jwt,
             isLoading: false,
             error: null,
           });
         } catch (err: unknown) {
           if (err instanceof Error) {
-            set({ error: err.message || 'Login failed', isLoading: false });
+            set({ error: err.message || 'Login failed.', isLoading: false });
           } else {
-            set({ error: 'Login failed', isLoading: false });
+            set({ error: 'Login failed.', isLoading: false });
           }
         }
       },
@@ -148,33 +145,33 @@ export const useAuthStore = create<AuthState>()(
       register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
-          const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
-          // 1. Register to get access token
-          const resp = await fetch(`${baseUrl}/api/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData),
+          const { data, error } = await supabase.auth.signUp({
+            email: userData.email,
+            password: userData.password,
+            options: {
+              data: {
+                username: userData.username,
+                full_name: userData.full_name,
+              },
+            },
           });
-          if (!resp.ok) {
-            const err = await resp.json();
-            set({ error: err.error || 'Registration failed', isLoading: false });
-            throw new Error(err.error || 'Registration failed');
+          if (error || !data.session) {
+            set({ error: error?.message || 'Registration failed', isLoading: false });
+            throw new Error(error?.message || 'Registration failed');
           }
-          const data = await resp.json();
-          // 2. Fetch user profile with access token (same as login)
-          const meResp = await fetch(`${baseUrl}/api/auth/me`, {
-            headers: { Authorization: `Bearer ${data.access_token}` },
-          });
-          if (!meResp.ok) {
-            set({ error: 'Failed to fetch user profile', isLoading: false });
-            throw new Error('Failed to fetch user profile');
+          const jwt = data.session.access_token;
+          if (!data.user) {
+            set({ error: 'User data missing after registration.', isLoading: false });
+            throw new Error('User data missing after registration.');
           }
-          const user = await meResp.json();
           set({
-            user,
+            user: {
+              ...data.user,
+              id: data.user.id ?? '',
+              email: data.user.email ?? '',
+            },
             isAuthenticated: true,
-            accessToken: data.access_token,
+            accessToken: jwt,
             isLoading: false,
             error: null,
           });

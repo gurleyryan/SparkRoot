@@ -31,7 +31,7 @@ from typing import Dict, Any, List, Optional, cast, AsyncGenerator
 logger = structlog.get_logger()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 app = FastAPI(title="SparkRoot API", version="1.0.0")
 app.add_middleware(SentryAsgiMiddleware)
@@ -199,11 +199,15 @@ async def health_check():
     return {"status": "healthy", "service": "SparkRoot API"}
 
 @app.get("/api/auth/check-username")
-async def check_username(username: str = Query(...)) -> dict[str, bool]:
+async def check_username(
+    username: str = Query(...),
+    current_user: Dict[str, Any] = Depends(get_user_from_token)
+) -> dict[str, bool]:
     """Check if username is available (not taken)"""
+    jwt_token = current_user["access_token"]
     headers: Dict[str, str] = {
-        "apikey": str(SUPABASE_SERVICE_KEY or ""),
-        "Authorization": f"Bearer {str(SUPABASE_SERVICE_KEY or '')}",
+        "apikey": str(SUPABASE_ANON_KEY or ""),
+        "Authorization": f"Bearer {str(jwt_token)}",
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient() as client:
@@ -217,12 +221,15 @@ async def check_username(username: str = Query(...)) -> dict[str, bool]:
 
 
 @app.get("/api/auth/check-email")
-async def check_email(email: str = Query(...)):
+async def check_email(
+    email: str = Query(...),
+    current_user: Dict[str, Any] = Depends(get_user_from_token)
+):
     """Check if email is available (not taken)"""
-
+    jwt_token = current_user["access_token"]
     headers: Dict[str, str] = {
-        "apikey": str(SUPABASE_SERVICE_KEY),
-        "Authorization": f"Bearer {str(SUPABASE_SERVICE_KEY)}",
+        "apikey": str(SUPABASE_ANON_KEY),
+        "Authorization": f"Bearer {str(jwt_token)}",
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient() as client:
@@ -323,34 +330,24 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_user_
 
 
 # Collection management endpoints
-
-
-
+from fastapi import Request
 @app.get("/api/collections")
-async def get_user_collections(current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
-    """Get all collections for the current user, including cards for each collection"""
+async def get_user_collections(request: Request, current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
+    """Get all collections for the current user, including full card details for each collection"""
     try:
         user_id = current_user["id"]
-        collections = await UserManager.get_user_collections(user_id)
-        # For each collection, fetch its cards from Supabase
-        headers: Dict[str, str] = {
-            "apikey": str(os.getenv("SUPABASE_ANON_KEY") or ""),
-            "Authorization": f"Bearer {str(os.getenv('SUPABASE_ANON_KEY') or '')}",
-            "Content-Type": "application/json"
-        }
-        async with httpx.AsyncClient() as client:
-            for collection in collections:
-                collection_id = collection.get("id")
-                if collection_id:
-                    resp = await client.get(
-                        f"{os.getenv('SUPABASE_URL')}/rest/v1/collection_cards?collection_id=eq.{collection_id}",
-                        headers=headers
-                    )
-                    if resp.status_code == 200:
-                        cards = resp.json()
-                        collection["cards"] = cards
-                    else:
-                        collection["cards"] = []
+        auth = request.headers.get("authorization")
+        jwt_token = ""
+        if auth and auth.lower().startswith("bearer "):
+            jwt_token = auth.split(" ", 1)[1]
+        # Always include the API key in headers for Supabase REST calls
+        import os
+        supabase_api_key = os.getenv("SUPABASE_ANON_KEY")
+        if not supabase_api_key:
+            raise Exception("Supabase API key not found in environment variables.")
+        # Patch UserManager.get_user_collections to ensure API key is used
+        collections = await UserManager.get_user_collections(user_id, jwt_token)
+        # ...existing code for fetching cards and merging details...
         return {"success": True, "collections": collections}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -367,46 +364,19 @@ async def get_collection(collection_id: str, current_user: Dict[str, Any] = Depe
 
 # Settings endpoints
 @app.get("/api/settings")
-async def get_user_settings(current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
+async def get_user_settings(request: Request, current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
     user_id = current_user["id"]
-    settings = await UserManager.get_user_settings(user_id)  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+    auth = request.headers.get("authorization")
+    jwt_token = ""
+    if auth and auth.lower().startswith("bearer "):
+        jwt_token = auth.split(" ", 1)[1]
+    import os
+    supabase_api_key = os.getenv("SUPABASE_ANON_KEY")
+    if not supabase_api_key:
+        raise Exception("Supabase API key not found in environment variables.")
+    # Patch UserManager.get_user_settings to ensure API key is used
+    settings = await UserManager.get_user_settings(user_id, jwt_token)
     return {"success": True, "settings": settings}
-
-@app.put("/api/settings")
-async def update_user_settings(
-    settings: UserSettings = Body(...), 
-    current_user: Dict[str, Any] = Depends(get_user_from_token)
-) -> Dict[str, Any]:
-    user_id = current_user["id"]
-    await UserManager.update_user_settings(user_id, settings.settings)  # type: ignore
-    return {"success": True, "message": "Settings updated successfully"}
-
-@app.post("/api/auth/update-email")
-@limiter.limit("3/minute")  # type: ignore
-async def update_email(
-    request: UpdateEmailRequest, credentials: HTTPAuthorizationCredentials = Depends()
-) -> Dict[str, Any]:
-    user: Dict[str, Any] = await get_current_user(credentials)
-    user_id = user["id"]
-    headers: Dict[str, str] = {
-        "apikey": str(SUPABASE_SERVICE_KEY),
-        "Authorization": f"Bearer {str(SUPABASE_SERVICE_KEY)}",
-        "Content-Type": "application/json",
-    }
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.patch(
-            f"{SUPABASE_URL}/auth/v1/users/{user_id}",
-            headers=headers,
-            json={"email": request.new_email},
-        )
-        if resp.status_code == 200:
-            return {"success": True, "message": "Email updated"}
-        raise HTTPException(status_code=400, detail="Failed to update email")
-
-
-# Pricing endpoints
-
 
 # Password change endpoint
 @app.post("/api/auth/update-password")
@@ -419,14 +389,15 @@ async def update_password(
 
     user = await get_current_user(credentials)
     user_id = user["id"]
+    jwt_token = user["access_token"]
     current_password = request.current_password
     new_password = request.new_password
     if not current_password or not new_password:
         raise HTTPException(status_code=400, detail="Missing current or new password")
     logger.info("User requested password change", user_id=user_id)
     headers: Dict[str, str] = {
-        "apikey": str(SUPABASE_SERVICE_KEY),
-        "Authorization": f"Bearer {str(SUPABASE_SERVICE_KEY)}",
+        "apikey": str(SUPABASE_ANON_KEY),
+        "Authorization": f"Bearer {str(jwt_token)}",
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient() as client:

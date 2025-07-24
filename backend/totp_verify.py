@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY") or ""
+SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY") or ""
 
 router = APIRouter()
 security = HTTPBearer()
@@ -12,9 +12,10 @@ security = HTTPBearer()
 @router.post("/api/auth/verify-totp")
 async def verify_totp(code: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Verify TOTP code with Supabase Auth API"""
+    jwt_token = credentials.credentials
     headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {str(jwt_token)}",
         "Content-Type": "application/json"
     }
     async with httpx.AsyncClient() as client:

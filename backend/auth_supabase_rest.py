@@ -1,6 +1,6 @@
 # User Authentication and Data Management API - Supabase REST API Version
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 import jwt
@@ -23,7 +23,6 @@ security = HTTPBearer()
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or ""
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or ""
 
 if not SUPABASE_URL or not SUPABASE_ANON_KEY:
     raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required")
@@ -89,43 +88,54 @@ class SupabaseRestClient:
             except Exception as e:
                 print(f"Error getting auth user by username: {e}")
                 return None
-    def __init__(self):
+    def __init__(self, jwt_token: Optional[str] = None):
         self.base_url = SUPABASE_URL
+        self.jwt_token = jwt_token or ""
         self.anon_headers: Dict[str, str] = {
             "apikey": SUPABASE_ANON_KEY,
-            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
             "Content-Type": "application/json"
         }
+        if self.jwt_token:
+            self.anon_headers["Authorization"] = f"Bearer {self.jwt_token}"
+        # Use service key for admin endpoints
+        self.service_key = os.getenv("SUPABASE_SERVICE_KEY", "")
         self.service_headers: Dict[str, str] = {
-            "apikey": SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY}",
+            "apikey": self.service_key,
+            "Authorization": f"Bearer {self.service_key}",
             "Content-Type": "application/json"
         }
 
-    async def create_user_in_auth(self, email: str, password: str, username: str) -> Optional[Dict[str, Any]]:
-        """Create user directly in auth.users table using admin API, with display_name as username"""
+    async def create_user_in_auth(self, email: str, password: str, username: str, full_name: str = "") -> Optional[Dict[str, Any]]:
+        """Create user using the public signup endpoint (anon key), then create profile."""
         async with httpx.AsyncClient() as client:
             try:
-                user_data: Dict[str, Any] = {
+                signup_data: Dict[str, Any] = {
                     "email": email,
                     "password": password,
-                    "email_confirm": True,  # Bypass email confirmation
-                    "display_name": username
+                    "data": {
+                        "username": username,
+                        "full_name": full_name
+                    }
                 }
                 response = await client.post(
-                    f"{self.base_url}/auth/v1/admin/users",
-                    headers=self.service_headers,
-                    json=user_data,
+                    f"{self.base_url}/auth/v1/signup",
+                    headers=self.anon_headers,
+                    json=signup_data,
                     timeout=10.0
                 )
                 if response.status_code in [200, 201]:
-                    return response.json()
+                    user = response.json()
+                    # Optionally, create profile in profiles table
+                    user_id = user.get("user", {}).get("id") or user.get("id")
+                    if user_id:
+                        await self.create_profile(user_id, full_name, username)
+                    return user
                 else:
-                    error_msg = f"Auth user creation failed: {response.status_code} - {response.text}"
+                    error_msg = f"User signup failed: {response.status_code} - {response.text}"
                     print(error_msg)
                     raise Exception(error_msg)
             except Exception as e:
-                print(f"Error creating auth user: {e}")
+                print(f"Error creating user: {e}")
                 raise
 
     async def get_auth_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
@@ -166,12 +176,7 @@ class SupabaseRestClient:
                     json=sign_in_data,
                     timeout=10.0
                 )
-                if response.status_code == 200:
-                    return response.json()
-                else:
-                    error_msg = f"Password verification failed: {response.status_code} - {response.text}"
-                    print(error_msg)
-                    raise Exception(error_msg)
+                return response.json() if response.status_code == 200 else None
             except Exception as e:
                 print(f"Error verifying password: {e}")
                 raise
@@ -248,20 +253,98 @@ class UserManager:
         # You should implement this method or attach it dynamically as in your current codebase.
         return None
     @staticmethod
-    async def get_user_collections(user_id: str) -> List[Dict[str, Any]]:
-        ...
+    async def get_user_collections(user_id: str, jwt_token: typing.Union[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Get all collections for a user (with API key header)"""
+        # If jwt_token is a dict, extract the actual access token
+        if isinstance(jwt_token, dict):
+            jwt_token = jwt_token.get("access_token") or ""
+        async def fetch() -> List[Dict[str, Any]]:
+            async with httpx.AsyncClient() as client:
+                headers = {
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": f"Bearer {jwt_token}",
+                    "Content-Type": "application/json",
+                }
+                resp = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/collections?user_id=eq.{user_id}",
+                    headers=headers
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if isinstance(data, list):
+                        return data  # type: ignore
+                    elif isinstance(data, dict):
+                        return [data]  # type: ignore
+                    else:
+                        return []
+                else:
+                    print(f"Error fetching collections: {resp.text}")
+                    return []
+        return await fetch()
 
     @staticmethod
-    async def save_collection(user_id: str, collection_data: 'CollectionSave') -> Optional[str]:
-        ...
+    async def save_collection(user_id: str, jwt_token: str, collection_data: 'CollectionSave') -> Optional[str]:
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "Authorization": f"Bearer {jwt_token}",
+                "Content-Type": "application/json",
+            }
+            resp = await client.post(
+                f"{SUPABASE_URL}/rest/v1/collections",
+                headers=headers,
+                json=collection_data
+            )
+            if resp.status_code == 201:
+                return resp.headers.get("Location")
+            else:
+                print(f"Error saving collection: {resp.text}")
+                return None
 
     @staticmethod
-    async def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
-        ...
+    async def get_user_settings(user_id: str, jwt_token: typing.Union[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        # If jwt_token is a dict, extract the actual access token
+        if isinstance(jwt_token, dict):
+            jwt_token = jwt_token.get("access_token") or ""
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {jwt_token}",
+                "Content-Type": "application/json",
+            }
+            resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/user_settings?user_id=eq.{user_id}",
+                headers=headers
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    return typing.cast(Dict[str, Any], data[0]) if data else None
+                elif isinstance(data, dict):
+                    return typing.cast(Dict[str, Any], data)
+                else:
+                    return None
+            else:
+                print(f"Error fetching user settings: {resp.text}")
+                return None
 
     @staticmethod
-    async def update_user_settings(user_id: str, settings: 'UserSettings') -> bool:
-        ...
+    async def update_user_settings(user_id: str, jwt_token: str, settings: 'UserSettings') -> bool:
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "Authorization": f"Bearer {jwt_token}",
+                "Content-Type": "application/json",
+            }
+            resp = await client.patch(
+                f"{SUPABASE_URL}/rest/v1/user_settings?user_id=eq.{user_id}",
+                headers=headers,
+                json=settings
+            )
+            if resp.status_code == 204:
+                return True
+            else:
+                print(f"Error updating user settings: {resp.text}")
+                return False
+
     @staticmethod
     def hash_password(password: str) -> str:
         """Hash a password"""
@@ -348,42 +431,26 @@ class UserManager:
             return None
 
 # Token verification function
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get the current user from JWT token"""
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+    """Get the current user from Supabase JWT token (decode only, no signature verification)"""
+    token = credentials.credentials
     try:
-        payload: Dict[str, Any] = jwt.decode( # type: ignore
-            credentials.credentials,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-            options={"verify_signature": True, "verify_exp": True}  
-        )  
-        email: Optional[str] = payload.get("sub")  # sub contains the email
-        if email is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired, please log in again.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    user: Optional[Dict[str, Any]] = await UserManager.get_user_by_email(email)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found for token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
+        # Decode JWT without verifying signature, just to extract claims
+        payload = jwt.decode(token, options={"verify_signature": False}) # type: ignore
+        email = payload.get("email")
+        user_id = payload.get("sub")
+        user: Dict[str, Any] = {
+            "id": user_id,
+            "email": email,
+            "access_token": token,
+            "role": payload.get("role"),
+            "app_metadata": payload.get("app_metadata"),
+            "user_metadata": payload.get("user_metadata"),
+        }
+        return user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 # Alias for backward compatibility
 get_user_from_token = get_current_user
@@ -408,11 +475,11 @@ class UserSettings(BaseModel):
     notifications: Optional[Dict[str, Any]] = None
 
 # Collection management functions (placeholder implementations)
-async def get_user_collections(user_id: str) -> List[Dict[str, Any]]:
+async def get_user_collections(user_id: str, jwt_token: str) -> List[Dict[str, Any]]:
     """Get all collections for a user (placeholder implementation)"""
     headers: Dict[str, str] = {
         "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json"
     }
     async def fetch() -> List[Dict[str, Any]]:
@@ -434,11 +501,11 @@ async def get_user_collections(user_id: str) -> List[Dict[str, Any]]:
                 return []
     return await fetch()
 
-async def save_collection(user_id: str, collection_data: CollectionSave) -> Optional[str]:
+async def save_collection(user_id: str, collection_data: CollectionSave, jwt_token: str) -> Optional[str]:
     """Save a collection for a user (placeholder implementation)"""
     headers: Dict[str, str] = {
-        "apikey": SUPABASE_SERVICE_KEY or "",
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY or ''}",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
@@ -469,10 +536,10 @@ async def save_collection(user_id: str, collection_data: CollectionSave) -> Opti
                 return None
     return await post()
 
-async def get_collection_by_id(user_id: str, collection_id: str) -> Optional[Dict[str, Any]]:
+async def get_collection_by_id(user_id: str, collection_id: str, jwt_token: str) -> Optional[Dict[str, Any]]:
     headers: Dict[str, str] = {
         "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json"
     }
     async def fetch() -> Optional[Dict[str, Any]]:
@@ -486,7 +553,7 @@ async def get_collection_by_id(user_id: str, collection_id: str) -> Optional[Dic
                 if isinstance(data, list) and data:
                     return data[0]  # type: ignore
                 elif isinstance(data, dict):
-                    return data  # type: ignore
+                    return typing.cast(Dict[str, Any], data)  # Explicit cast for type checker
                 else:
                     return None
             else:
@@ -494,10 +561,10 @@ async def get_collection_by_id(user_id: str, collection_id: str) -> Optional[Dic
                 return None
     return await fetch()
 
-async def update_collection(user_id: str, collection_id: str, data: Dict[str, Any]) -> bool:
+async def update_collection(user_id: str, collection_id: str, data: Dict[str, Any], jwt_token: str) -> bool:
     headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
@@ -511,10 +578,10 @@ async def update_collection(user_id: str, collection_id: str, data: Dict[str, An
             return resp.status_code in [200, 204]
     return await patch()
 
-async def delete_collection(user_id: str, collection_id: str) -> bool:
+async def delete_collection(user_id: str, collection_id: str, jwt_token: str) -> bool:
     headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json"
     }
     async def delete():
@@ -526,10 +593,10 @@ async def delete_collection(user_id: str, collection_id: str) -> bool:
             return resp.status_code in [200, 204]
     return await delete()
 
-async def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
+async def get_user_settings(user_id: str, jwt_token: str) -> Optional[Dict[str, Any]]:
     headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json"
     }
     async with httpx.AsyncClient() as client:
@@ -565,10 +632,10 @@ async def get_user_settings(user_id: str) -> Optional[Dict[str, Any]]:
             print(f"Error fetching user settings: {resp.text}")
             return None
 
-async def update_user_settings(user_id: str, settings: UserSettings) -> bool:
+async def update_user_settings(user_id: str, settings: UserSettings, jwt_token: str) -> bool:
     headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
@@ -581,10 +648,3 @@ async def update_user_settings(user_id: str, settings: UserSettings) -> bool:
             )
             return resp.status_code in [200, 204]
     return await patch()
-
-
-# Add methods to UserManager
-UserManager.get_user_collections = staticmethod(get_user_collections)
-UserManager.save_collection = staticmethod(save_collection)
-UserManager.get_user_settings = staticmethod(get_user_settings)
-UserManager.update_user_settings = staticmethod(update_user_settings)
