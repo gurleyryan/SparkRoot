@@ -47,7 +47,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   }, [user, isAuthenticated]);
 
   // SSE upload with live progress and preview
-  const [, setLiveCards] = useState<MTGCard[]>([]);
+  const [liveCards, setLiveCards] = useState<MTGCard[]>([]);
   const [livePreview, setLivePreview] = useState<Partial<MTGCard> | null>(null);
 
   const setCollections = useCollectionStore((state) => state.setCollections);
@@ -116,8 +116,6 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
       // Use EventSource polyfill for SSE (fetch streaming)
       const reader = response.body.getReader();
       let received = '';
-      let cards: MTGCard[] = [];
-      let total = 0;
       let done = false;
       while (!done) {
         const { value, done: streamDone } = await reader.read();
@@ -127,44 +125,45 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
           const events = received.split(/\n\n/);
           for (let i = 0; i < events.length - 1; i++) {
             const event = events[i];
-            if (event.includes('event: progress')) {
+            if (event && typeof event === 'string' && event.includes('event: progress')) {
               const dataMatch = event.match(/data: (.*)/);
               if (dataMatch) {
                 try {
                   const data = JSON.parse(dataMatch[1]);
-                  setProgress(data.percent);
-                  setStatusText(`Processing... (${data.percent}%)`);
-                  if (data.preview) {
-                    setLivePreview(data.preview);
-                    setParsedPreview(JSON.stringify(data.preview, null, 2));
+                  setProgress(data.percent ?? 0);
+                  setStatusText(data.status ?? '');
+                  if (data.card) {
+                    setLivePreview(data.card);
+                    setLiveCards(prev => [...prev, data.card]);
                   }
-                } catch {}
+                  if (data.preview) {
+                    setParsedPreview(data.preview);
+                  }
+                } catch (e) {}
               }
-            } else if (event.includes('event: done')) {
+            } else if (event && typeof event === 'string' && event.includes('event: done')) {
               const dataMatch = event.match(/data: (.*)/);
               if (dataMatch) {
                 try {
                   const data = JSON.parse(dataMatch[1]);
-                  cards = data.collection || [];
-                  total = data.total || 0;
-                  setLiveCards(cards);
-                  setParsedPreview(JSON.stringify(cards.slice(0, 5), null, 2));
-                  if (onCollectionUploaded) onCollectionUploaded(cards);
-                  showToast('Collection uploaded successfully!', 'success');
-                  setStatusText('Upload complete!');
                   setProgress(100);
-                } catch {}
+                  setStatusText('Upload complete!');
+                  if (data.cards) {
+                    setLiveCards(data.cards);
+                  }
+                  if (onCollectionUploaded) {
+                    onCollectionUploaded(data.cards ?? []);
+                  }
+                } catch (e) {}
               }
-            } else if (event.includes('event: error')) {
+            } else if (event && typeof event === 'string' && event.includes('event: error')) {
               const dataMatch = event.match(/data: (.*)/);
               if (dataMatch) {
                 try {
                   const data = JSON.parse(dataMatch[1]);
-                  setError(data.error || 'Failed to upload collection.');
-                  setIsUploading(false);
-                  setProgress(0);
-                  setStatusText('');
-                } catch {}
+                  setError(data.error || 'Upload error');
+                  setStatusText('Error during upload');
+                } catch (e) {}
               }
             }
           }
@@ -302,6 +301,46 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                   {livePreview.image_uris && livePreview.image_uris.normal && (
                     <img src={livePreview.image_uris.normal} alt={livePreview.name} className="mt-1 max-h-32" />
                   )}
+                </div>
+              )}
+              {/* Card image stack */}
+              {livePreview && (
+                <div className="mt-4 flex flex-row items-end justify-center relative" style={{ minHeight: '120px' }}>
+                  {/* Stack previous cards behind */}
+                  {livePreview && livePreview.image_uris && livePreview.image_uris.normal && (
+                    <img
+                      src={livePreview.image_uris.normal}
+                      alt={livePreview.name}
+                      className="relative z-10 shadow-lg rounded-lg"
+                      style={{
+                        position: 'absolute',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        bottom: 0,
+                        maxHeight: '120px',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                      }}
+                    />
+                  )}
+                  {liveCards && liveCards.slice(-7, -1).map((card, idx) => (
+                    card.image_uris && card.image_uris.normal ? (
+                      <img
+                        key={idx}
+                        src={card.image_uris.normal}
+                        alt={card.name}
+                        className="absolute shadow-md rounded-lg"
+                        style={{
+                          left: `calc(50% + ${(idx - 3) * 18}px)`,
+                          transform: 'translateX(-50%)',
+                          bottom: `${(idx + 1) * 8}px`,
+                          opacity: 0.7 - idx * 0.07,
+                          zIndex: idx,
+                          maxHeight: '110px',
+                          filter: 'blur(0.5px)',
+                        }}
+                      />
+                    ) : null
+                  ))}
                 </div>
               )}
             </div>
