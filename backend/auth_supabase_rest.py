@@ -433,23 +433,43 @@ class UserManager:
 # Token verification function
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
-    """Get the current user from Supabase JWT token (decode only, no signature verification)"""
+    """Get the current user from Supabase JWT token (decode only, no signature verification), and merge profile info."""
     token = credentials.credentials
     try:
         # Decode JWT without verifying signature, just to extract claims
         payload = jwt.decode(token, options={"verify_signature": False}) # type: ignore
         email = payload.get("email")
         user_id = payload.get("sub")
-        user: Dict[str, Any] = {
+        # Fetch profile info from public.profiles
+        async with httpx.AsyncClient() as client:
+            profile_resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/profiles?user_id=eq.{user_id}",
+                headers={
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                },
+                timeout=10.0
+            )
+            profile = None
+            if profile_resp.status_code == 200:
+                profiles = profile_resp.json()
+                if profiles:
+                    profile = profiles[0]
+        return {
             "id": user_id,
             "email": email,
+            "username": profile.get("username") if profile else "",
+            "full_name": profile.get("full_name") if profile else "",
+            "avatar_url": profile.get("avatar_url") if profile else None,
+            "created_at": profile.get("created_at") if profile else None,
             "access_token": token,
             "role": payload.get("role"),
             "app_metadata": payload.get("app_metadata"),
             "user_metadata": payload.get("user_metadata"),
         }
-        return user
-    except Exception:
+    except Exception as e:
+        print(f"Error in get_current_user: {e}")
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 # Alias for backward compatibility
@@ -606,27 +626,11 @@ async def get_user_settings(user_id: str, jwt_token: str) -> Optional[Dict[str, 
         )
         if resp.status_code == 200:
             data = resp.json()
-            if isinstance(data, list) and data:
-                row = typing.cast(Dict[str, Any], data[0])
-                settings: Dict[str, Any] = {
-                    "price_source": row.get("price_source", "tcgplayer"),
-                    "currency": row.get("currency", "USD"),
-                    "reference_price": row.get("reference_price", "market"),
-                    "profile_public": row.get("profile_public", False),
-                    "notifications_enabled": row.get("notifications_enabled", True),
-                    "playmat_texture": row.get("playmat_texture"),
-                    "theme": row.get("theme", "dark"),
-                    "default_format": row.get("default_format", "commander"),
-                    "card_display": row.get("card_display", "grid"),
-                    "auto_save": row.get("auto_save", True),
-                    "notifications": row.get("notifications", {}),
-                    "created_at": row.get("created_at"),
-                    "updated_at": row.get("updated_at"),
-                }
-                print(f"[DEBUG] Returning user settings for user_id={user_id}: {settings}")
-                return settings
+            if isinstance(data, list):
+                return typing.cast(Dict[str, Any], data[0]) if data else None
+            elif isinstance(data, dict):
+                return typing.cast(Dict[str, Any], data)
             else:
-                print(f"[DEBUG] No settings row found for user_id={user_id}")
                 return None
         else:
             print(f"Error fetching user settings: {resp.text}")
