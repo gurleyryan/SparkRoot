@@ -328,10 +328,29 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_user_
 
 @app.get("/api/collections")
 async def get_user_collections(current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
-    """Get all collections for the current user"""
+    """Get all collections for the current user, including cards for each collection"""
     try:
         user_id = current_user["id"]
         collections = await UserManager.get_user_collections(user_id)
+        # For each collection, fetch its cards from Supabase
+        headers: Dict[str, str] = {
+            "apikey": str(os.getenv("SUPABASE_ANON_KEY") or ""),
+            "Authorization": f"Bearer {str(os.getenv('SUPABASE_ANON_KEY') or '')}",
+            "Content-Type": "application/json"
+        }
+        async with httpx.AsyncClient() as client:
+            for collection in collections:
+                collection_id = collection.get("id")
+                if collection_id:
+                    resp = await client.get(
+                        f"{os.getenv('SUPABASE_URL')}/rest/v1/collection_cards?collection_id=eq.{collection_id}",
+                        headers=headers
+                    )
+                    if resp.status_code == 200:
+                        cards = resp.json()
+                        collection["cards"] = cards
+                    else:
+                        collection["cards"] = []
         return {"success": True, "collections": collections}
     except Exception as e:
         return {"success": False, "error": str(e)}

@@ -78,12 +78,13 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   setCollections: (collections) => set({ collections }),
   
   setActiveCollection: (collection) => {
-    set({ activeCollection: collection });
-    if (collection) {
-      get().setCards(collection.cards);
-    } else {
-      get().setCards([]);
+    if (!collection) {
+      set({ activeCollection: null, cards: [] });
+      return;
     }
+    // Defensive: ensure cards is always an array
+    const safeCards = Array.isArray(collection.cards) ? collection.cards : [];
+    set({ activeCollection: { ...collection, cards: safeCards }, cards: safeCards });
   },
   
   addCollection: (collection) =>
@@ -111,9 +112,9 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   
   // Card actions
   setCards: (cards) => {
-    const stats = calculateStats(cards);
-    set({ cards, stats });
-    get().applyFilters();
+    // Defensive: ensure cards is always an array
+    const safeCards = Array.isArray(cards) ? cards : [];
+    set({ cards: safeCards });
   },
   
   addCards: (newCards) =>

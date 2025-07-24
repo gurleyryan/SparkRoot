@@ -79,6 +79,19 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
 
+  // Handler for selecting a collection card
+  function handleSelectCollection(id: string) {
+    const selected = collections.find(c => c.id === id);
+    if (selected) {
+      setActiveCollection(selected);
+      // Defensive: ensure cards is always an array
+      if (Array.isArray(selected.cards)) {
+        // Optionally set cards in store if needed
+        // setCards(selected.cards); // Uncomment if you want to sync cards separately
+      }
+    }
+  }
+
   return (
     <>
       {/* Import Modal - overlays entire app */}
@@ -196,7 +209,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                       collections={sortedCollections.filter(col => col.name.toLowerCase().includes(searchQuery.toLowerCase()))}
                       viewMode={viewMode}
                       selectedId={activeCollection?.id}
-                      onSelect={id => setActiveCollection(collections.find(c => c.id === id) || null)}
+                      onSelect={handleSelectCollection}
                       onOpen={id => setOpenedCollectionId(id)}
                       className="bg-transparent"
                     />

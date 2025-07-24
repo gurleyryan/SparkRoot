@@ -31,6 +31,8 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   const [isPublic, setIsPublic] = useState<boolean>(false);
   const [inventoryPolicy, setInventoryPolicy] = useState<'add' | 'replace'>('add');
   const [collectionAction, setCollectionAction] = useState<'new' | 'update'>('new');
+  const { collections } = useCollectionStore();
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const hasHydrated = useHasHydrated();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -96,6 +98,9 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
       formData.append('isPublic', String(isPublic));
       formData.append('inventoryPolicy', inventoryPolicy);
       formData.append('collectionAction', collectionAction);
+      if (collectionAction === 'update' && selectedCollectionId) {
+        formData.append('collectionId', selectedCollectionId);
+      }
 
       // Send file via fetch to get a temporary upload URL
       const uploadUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/collections/progress-upload`;
@@ -255,6 +260,22 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
             <option value="update">Update Existing</option>
           </select>
         </div>
+        {collectionAction === 'update' && (
+          <div>
+            <label className="font-semibold">Select Collection to Update:</label>
+            <select
+              className="select select-bordered ml-2"
+              value={selectedCollectionId}
+              onChange={e => setSelectedCollectionId(e.target.value)}
+              disabled={isUploading}
+            >
+              <option value="">-- Select --</option>
+              {collections.map(col => (
+                <option key={col.id} value={col.id}>{col.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
       {/* Dropzone and Progress */}
       <div

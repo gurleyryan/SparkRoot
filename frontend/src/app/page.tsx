@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { MTGCard } from '@/types/index';
 import Link from 'next/link';
 import { useModalStore } from '../store/modalStore';
@@ -15,8 +15,27 @@ import Image from 'next/image';
 
 
 export default function HomePage() {
-  const { collections } = useCollectionStore();
+  const { collections, setCollections } = useCollectionStore();
+  const accessToken = useAuthStore((s) => s.accessToken);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // Refetch collections whenever accessToken changes (after login)
+  useEffect(() => {
+    async function fetchCollections() {
+      if (!accessToken) return;
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/collections`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) throw new Error('Failed to fetch collections');
+        const data = await res.json();
+        setCollections(data.collections || []);
+      } catch (err) {
+        // Optionally handle error
+      }
+    }
+    fetchCollections();
+  }, [accessToken, setCollections]);
 
   // DeckBuilder dashboard state
   const [cardGridType, setCardGridType] = useState<string | null>(null);
