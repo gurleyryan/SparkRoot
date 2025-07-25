@@ -433,10 +433,8 @@ class UserManager:
 # Token verification function
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
-    """Get the current user from Supabase JWT token (decode only, no signature verification), and merge profile info."""
     token = credentials.credentials
     try:
-        # Decode JWT without verifying signature, just to extract claims
         payload = jwt.decode(token, options={"verify_signature": False}) # type: ignore
         email = payload.get("email")
         user_id = payload.get("sub")
@@ -457,8 +455,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                 if profiles:
                     profile = profiles[0]
         # --- PATCH: Always extract app_metadata and role from JWT ---
-        app_metadata = typing.cast(Dict[str, Any], payload.get("app_metadata") or {})
-        # Some providers put role directly on the payload, some in app_metadata
+        app_metadata: Dict[str, Any] = payload.get("app_metadata") or {}
         role = app_metadata.get("role") or payload.get("role") or ""
         return {
             "id": user_id,
