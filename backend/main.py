@@ -68,9 +68,13 @@ class UpdateEmailRequest(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
-    username: str
-    full_name: str
-    created_at: Any = None
+    username: Optional[str] = None
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+    role: Optional[str] = None
+    app_metadata: Optional[Dict[str, Any]] = None
 
 @app.post("/api/collections/enrich-csv")
 async def enrich_collection_csv(file: UploadFile = File(...)) -> Dict[str, Any]:
