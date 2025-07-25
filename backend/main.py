@@ -390,6 +390,59 @@ async def get_collection(collection_id: str, current_user: Dict[str, Any] = Depe
         status_code=501, detail="get_collection_by_id is not implemented."
     )
 
+# User inventory endpoint: returns all user_cards for the user, joined with card details
+@app.get("/api/inventory")
+async def get_user_inventory(request: Request, current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
+    """Get the user's full inventory (all user_cards, not just those in collections)"""
+    try:
+        user_id = current_user["id"]
+        auth = request.headers.get("authorization")
+        jwt_token = ""
+        if auth and auth.lower().startswith("bearer "):
+            jwt_token = auth.split(" ", 1)[1]
+        supabase_api_key = os.getenv("SUPABASE_ANON_KEY")
+        if not supabase_api_key:
+            raise Exception("Supabase API key not found in environment variables.")
+        # Query all user_cards for this user, join with cards table
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{os.getenv('SUPABASE_URL')}/rest/v1/user_cards",
+                params={
+                    "user_id": f"eq.{user_id}",
+                    "select": "*,cards(*)"
+                },
+                headers={
+                    "apikey": supabase_api_key,
+                    "Authorization": f"Bearer {jwt_token}",
+                    "Content-Type": "application/json"
+                }
+            )
+            user_cards: List[Dict[str, Any]] = resp.json() if resp.status_code == 200 else []
+            cards: List[Dict[str, Any]] = []
+            total_quantity = 0
+            for uc in user_cards:
+                card = uc.get("cards")
+                if not card:
+                    continue
+                quantity = uc.get("quantity", 1)
+                total_quantity += quantity
+                merged: Dict[str, Any] = {**card, **uc, "quantity": quantity}
+                cards.append(merged)
+            inventory: Dict[str, Any] = {
+                "id": "inventory",
+                "user_id": user_id,
+                "name": "My Inventory",
+                "description": "All cards in your account, across all collections.",
+                "cards": cards,
+                "created_at": None,
+                "updated_at": None,
+                "total_cards": total_quantity,
+                "unique_cards": len(cards),
+            }
+        return {"success": True, "inventory": inventory}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 # Settings endpoints
 @app.get("/api/settings")
 async def get_user_settings(request: Request, current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:

@@ -51,6 +51,53 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
   // Find the opened collection object
   const openedCollection = collections.find(c => c.id === openedCollectionId);
 
+  // Card-level search/filter/sort state for opened collection
+  const [cardSearchQuery, setCardSearchQuery] = useState("");
+  const [colorFilter, setColorFilter] = useState("");
+  const [rarityFilter, setRarityFilter] = useState("");
+  const [cardSortField, setCardSortField] = useState<"name" | "cmc" | "rarity" | "set">("name");
+  const [cardSortDir, setCardSortDir] = useState<"asc" | "desc">("asc");
+
+  // Compute filtered/sorted cards for opened collection
+  const filteredSortedCards = React.useMemo(() => {
+    if (!openedCollection?.cards) return [];
+    let cards = [...openedCollection.cards];
+    // Search by name
+    if (cardSearchQuery) {
+      cards = cards.filter(card => card.name.toLowerCase().includes(cardSearchQuery.toLowerCase()));
+    }
+    // Filter by color
+    if (colorFilter) {
+      if (colorFilter === "C") {
+        cards = cards.filter(card => (card.colors?.length === 0));
+      } else if (colorFilter === "M") {
+        cards = cards.filter(card => (card.colors?.length ?? 0) > 1);
+      } else {
+        cards = cards.filter(card => card.colors?.includes(colorFilter));
+      }
+    }
+    // Filter by rarity
+    if (rarityFilter) {
+      cards = cards.filter(card => card.rarity === rarityFilter);
+    }
+    // Sort
+    cards.sort((a, b) => {
+      let cmp = 0;
+      if (cardSortField === "name") {
+        cmp = a.name.localeCompare(b.name);
+      } else if (cardSortField === "cmc") {
+        cmp = (a.cmc ?? 0) - (b.cmc ?? 0);
+      } else if (cardSortField === "rarity") {
+        const order = { common: 1, uncommon: 2, rare: 3, mythic: 4 };
+        cmp = (order[a.rarity] ?? 0) - (order[b.rarity] ?? 0);
+      } else if (cardSortField === "set") {
+        cmp = a.set.localeCompare(b.set);
+      }
+      return cardSortDir === "asc" ? cmp : -cmp;
+    });
+    return cards;
+  }, [openedCollection, cardSearchQuery, colorFilter, rarityFilter, cardSortField, cardSortDir]);
+
   // Sort collections based on active sort field and direction
   const sortedCollections = [...collections].sort((a, b) => {
     let cmp = 0;
@@ -232,14 +279,69 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
       <div className="w-full flex flex-col items-center">
         {openedCollection ? (
           <>
-            <div className="flex items-center gap-4 mb-4">
-              <button type="button" className="btn-secondary" onClick={() => setOpenedCollectionId(null)}>
-                &larr; Back to Collections
-              </button>
-              <h3 className="text-2xl font-bold text-rarity-rare">{openedCollection.name}</h3>
-              <span className="text-rarity-uncommon">{openedCollection.cards?.length ?? 0} cards</span>
+            <div className="flex flex-col gap-2 w-full max-w-5xl mb-4">
+              <div className="flex items-center gap-4 mb-2">
+                <button type="button" className="btn-secondary" onClick={() => setOpenedCollectionId(null)}>
+                  &larr; Back to Collections
+                </button>
+                <h3 className="text-2xl font-bold text-rarity-rare">{openedCollection.name}</h3>
+                <span className="text-rarity-uncommon">{openedCollection.cards?.length ?? 0} cards</span>
+              </div>
+              {/* Card search, filter, and sort controls */}
+              <div className="flex flex-wrap gap-2 items-center bg-slate-800/60 p-2 rounded-lg">
+                <input
+                  type="text"
+                  placeholder="Search cards..."
+                  className="input input-bordered input-sm w-48"
+                  value={cardSearchQuery}
+                  onChange={e => setCardSearchQuery(e.target.value)}
+                />
+                <select
+                  className="select select-bordered select-sm"
+                  value={colorFilter}
+                  onChange={e => setColorFilter(e.target.value)}
+                >
+                  <option value="">All Colors</option>
+                  <option value="W">White</option>
+                  <option value="U">Blue</option>
+                  <option value="B">Black</option>
+                  <option value="R">Red</option>
+                  <option value="G">Green</option>
+                  <option value="C">Colorless</option>
+                  <option value="M">Multicolor</option>
+                </select>
+                <select
+                  className="select select-bordered select-sm"
+                  value={rarityFilter}
+                  onChange={e => setRarityFilter(e.target.value)}
+                >
+                  <option value="">All Rarities</option>
+                  <option value="common">Common</option>
+                  <option value="uncommon">Uncommon</option>
+                  <option value="rare">Rare</option>
+                  <option value="mythic">Mythic</option>
+                </select>
+                <select
+                  className="select select-bordered select-sm"
+                  value={cardSortField}
+                  onChange={e => setCardSortField(e.target.value as "name" | "cmc" | "rarity" | "set")}
+                >
+                  <option value="name">Sort: Name</option>
+                  <option value="cmc">Sort: CMC</option>
+                  <option value="rarity">Sort: Rarity</option>
+                  <option value="set">Sort: Set</option>
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline"
+                  onClick={() => setCardSortDir(cardSortDir === 'asc' ? 'desc' : 'asc')}
+                  title="Toggle sort direction"
+                >
+                  {cardSortDir === 'asc' ? '⬆️ Asc' : '⬇️ Desc'}
+                </button>
+              </div>
             </div>
-            <CardGrid cards={openedCollection.cards || []} />
+            <CardGrid cards={filteredSortedCards} />
           </>
         ) : (
           <div className="m-auto">
