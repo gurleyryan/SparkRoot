@@ -738,7 +738,12 @@ async def upload_collection_progress(
                 print("[progress-upload] No suitable columns to group by.", file=sys.stderr)
                 yield {"event": "error", "data": {"error": "No suitable columns to group by."}}
                 return
-            grouped: pd.DataFrame = df.groupby(group_keys, dropna=False).agg({"Quantity": "sum", **{col: "first" for col in df.columns if col != "Quantity"}}).reset_index()  # type: ignore
+            # Build aggregation dict: sum Quantity, first for all other columns except group keys
+            agg_dict = {"Quantity": "sum"}
+            for col in df.columns:
+                if col != "Quantity" and col not in group_keys:
+                    agg_dict[col] = "first"
+            grouped: pd.DataFrame = df.groupby(group_keys, dropna=False, as_index=False).agg(agg_dict)  # type: ignore
             rows: List[Dict[str, Any]] = grouped.to_dict("records")  # type: ignore
             total = len(rows)
             print(f"[progress-upload] Grouped rows (unique cards): {total}", file=sys.stderr)
