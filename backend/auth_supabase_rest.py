@@ -34,12 +34,15 @@ class UserCreate(BaseModel):
     full_name: Optional[str] = None
 
 class UserResponse(BaseModel):
-    id: str  # UUID string (auth.users.id)
+    id: str
     email: str
     username: Optional[str] = None
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
-    created_at: Optional[str] = None
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+    role: Optional[str] = None
+    app_metadata: Optional[Dict[str, Any]] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -436,6 +439,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     token = credentials.credentials
     try:
         payload = jwt.decode(token, options={"verify_signature": False}) # type: ignore
+        print("JWT PAYLOAD:", payload)
         email = payload.get("email")
         user_id = payload.get("sub")
         # Fetch profile info from public.profiles
