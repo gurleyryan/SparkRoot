@@ -190,32 +190,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                   />
                 </div>
               </div>
-              {/* Main Content: CollectionList or CardGrid below controls, no background */}
-              <div className="w-full flex flex-col items-center">
-                {openedCollection ? (
-                  <>
-                    <div className="flex items-center gap-4 mb-4 w-full max-w-6xl">
-                      <button type="button" className="btn-secondary" onClick={() => setOpenedCollectionId(null)}>
-                        &larr; Back to Collections
-                      </button>
-                      <h3 className="text-2xl font-bold text-rarity-rare">{openedCollection.name}</h3>
-                      <span className="text-rarity-uncommon">{openedCollection.cards?.length ?? 0} cards</span>
-                    </div>
-                    <CardGrid cards={openedCollection.cards || []} />
-                  </>
-                ) : (
-                  <div className="w-full max-w-6xl">
-                    <CollectionList
-                      collections={sortedCollections.filter(col => col.name.toLowerCase().includes(searchQuery.toLowerCase()))}
-                      viewMode={viewMode}
-                      selectedId={activeCollection?.id}
-                      onSelect={handleSelectCollection}
-                      onOpen={id => setOpenedCollectionId(id)}
-                      className="bg-transparent"
-                    />
-                  </div>
-                )}
-              </div>
+
               <ConfirmModal
                 open={showDeleteModal}
                 title="Delete Collection?"
@@ -248,9 +223,36 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                   onCancel={() => setShowRenameModal(false)}
                 />
               )}
+
             </div>
           </div>
         </div>
+      </div>
+      {/* Main Content: CollectionList or CardGrid below controls, no background */}
+      <div className="w-full flex flex-col items-center">
+        {openedCollection ? (
+          <>
+            <div className="flex items-center gap-4 mb-4">
+              <button type="button" className="btn-secondary" onClick={() => setOpenedCollectionId(null)}>
+                &larr; Back to Collections
+              </button>
+              <h3 className="text-2xl font-bold text-rarity-rare">{openedCollection.name}</h3>
+              <span className="text-rarity-uncommon">{openedCollection.cards?.length ?? 0} cards</span>
+            </div>
+            <CardGrid cards={openedCollection.cards || []} />
+          </>
+        ) : (
+          <div className="m-auto">
+            <CollectionList
+              collections={sortedCollections.filter(col => col.name.toLowerCase().includes(searchQuery.toLowerCase()))}
+              viewMode={viewMode}
+              selectedId={activeCollection?.id}
+              onSelect={handleSelectCollection}
+              onOpen={id => setOpenedCollectionId(id)}
+              className="bg-transparent"
+            />
+          </div>
+        )}
       </div>
     </>
   );

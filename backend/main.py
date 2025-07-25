@@ -340,14 +340,60 @@ async def get_user_collections(request: Request, current_user: Dict[str, Any] = 
         jwt_token = ""
         if auth and auth.lower().startswith("bearer "):
             jwt_token = auth.split(" ", 1)[1]
-        # Always include the API key in headers for Supabase REST calls
-        import os
         supabase_api_key = os.getenv("SUPABASE_ANON_KEY")
         if not supabase_api_key:
             raise Exception("Supabase API key not found in environment variables.")
-        # Patch UserManager.get_user_collections to ensure API key is used
+        # Get collections
         collections = await UserManager.get_user_collections(user_id, jwt_token)
-        # ...existing code for fetching cards and merging details...
+        # For each collection, fetch cards
+        async with httpx.AsyncClient() as client:
+            for collection in collections:
+                collection_id = collection["id"]
+                # 1. Get collection_cards for this collection
+                resp = await client.get(
+                    f"{os.getenv('SUPABASE_URL')}/rest/v1/collection_cards",
+                    params={"collection_id": f"eq.{collection_id}"},
+                    headers={
+                        "apikey": supabase_api_key,
+                        "Authorization": f"Bearer {jwt_token}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                collection_cards = cast(List[Dict[str, Any]], resp.json()) if resp.status_code == 200 else []
+                cards: List[Dict[str, Any]] = []
+                for cc in collection_cards:
+                    # 2. Get user_card
+                    user_card_id = cc["user_card_id"]
+                    resp_uc = await client.get(
+                        f"{os.getenv('SUPABASE_URL')}/rest/v1/user_cards",
+                        params={"id": f"eq.{user_card_id}"},
+                        headers={
+                            "apikey": supabase_api_key,
+                            "Authorization": f"Bearer {jwt_token}",
+                            "Content-Type": "application/json"
+                        }
+                    )
+                    user_card = resp_uc.json()[0] if resp_uc.status_code == 200 and resp_uc.json() else None
+                    if not user_card:
+                        continue
+                    # 3. Get card details
+                    card_id = user_card["card_id"]
+                    resp_card = await client.get(
+                        f"{os.getenv('SUPABASE_URL')}/rest/v1/cards",
+                        params={"id": f"eq.{card_id}"},
+                        headers={
+                            "apikey": supabase_api_key,
+                            "Authorization": f"Bearer {jwt_token}",
+                            "Content-Type": "application/json"
+                        }
+                    )
+                    card = resp_card.json()[0] if resp_card.status_code == 200 and resp_card.json() else None
+                    if not card:
+                        continue
+                    # Merge user_card and card info (add quantity, condition, etc.)
+                    merged = {**card, **user_card}
+                    cards.append(merged)
+                collection["cards"] = cards
         return {"success": True, "collections": collections}
     except Exception as e:
         return {"success": False, "error": str(e)}
