@@ -70,6 +70,8 @@ export interface Collection {
   cards: MTGCard[];
   created_at: string;
   updated_at: string;
+  total_cards?: number;   // total number of cards (sum of quantities)
+  unique_cards?: number;  // number of unique cards
 }
 
 export interface CollectionStats {

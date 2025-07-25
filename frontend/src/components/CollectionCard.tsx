@@ -36,7 +36,8 @@ const CollectionCard: React.FC<CollectionCardProps> = ({
         <p className="text-slate-300 text-sm">{collection.description}</p>
       )}
       <div className="flex gap-4 text-xs text-slate-400 pt-2">
-        <span>Cards: {collection.cards?.length ?? 0}</span>
+        <span>Cards: {collection.total_cards ?? collection.cards?.length ?? 0}</span>
+        <span>Unique: {collection.unique_cards ?? collection.cards?.length ?? 0}</span>
         <span>Created: {new Date(collection.created_at).toLocaleDateString()}</span>
       </div>
     </div>

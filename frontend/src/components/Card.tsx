@@ -126,6 +126,11 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
               {faceIndex === 0 ? faces[0]?.name || 'Front' : faces[1]?.name || 'Back'}
             </div>
           )}
+          {typeof card.quantity === "number" && card.quantity > 1 && (
+            <div className="absolute top-2 right-2 bg-mtg-blue text-white rounded-full px-2 py-1 text-xs font-bold shadow">
+              x{card.quantity}
+            </div>
+          )}
         </div>
       </button>
       {/* Aura and expanded info overlays (no card image, only info around the card) */}

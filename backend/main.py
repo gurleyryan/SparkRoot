@@ -10,7 +10,7 @@ import glob
 import uvicorn
 import sys
 from datetime import timedelta
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Body, status, Form
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Body, status, Form, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse
@@ -330,7 +330,6 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_user_
 
 
 # Collection management endpoints
-from fastapi import Request
 @app.get("/api/collections")
 async def get_user_collections(request: Request, current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
     """Get all collections for the current user, including full card details for each collection"""
@@ -345,55 +344,38 @@ async def get_user_collections(request: Request, current_user: Dict[str, Any] = 
             raise Exception("Supabase API key not found in environment variables.")
         # Get collections
         collections = await UserManager.get_user_collections(user_id, jwt_token)
-        # For each collection, fetch cards
+        # For each collection, fetch all cards in one request
         async with httpx.AsyncClient() as client:
             for collection in collections:
                 collection_id = collection["id"]
                 # 1. Get collection_cards for this collection
                 resp = await client.get(
                     f"{os.getenv('SUPABASE_URL')}/rest/v1/collection_cards",
-                    params={"collection_id": f"eq.{collection_id}"},
+                    params={
+                        "collection_id": f"eq.{collection_id}",
+                        "select": "*,user_cards(*,cards(*))"
+                    },
                     headers={
                         "apikey": supabase_api_key,
                         "Authorization": f"Bearer {jwt_token}",
                         "Content-Type": "application/json"
                     }
                 )
-                collection_cards = cast(List[Dict[str, Any]], resp.json()) if resp.status_code == 200 else []
+                collection_cards: List[Dict[str, Any]] = resp.json() if resp.status_code == 200 else []
                 cards: List[Dict[str, Any]] = []
+                total_quantity = 0
                 for cc in collection_cards:
-                    # 2. Get user_card
-                    user_card_id = cc["user_card_id"]
-                    resp_uc = await client.get(
-                        f"{os.getenv('SUPABASE_URL')}/rest/v1/user_cards",
-                        params={"id": f"eq.{user_card_id}"},
-                        headers={
-                            "apikey": supabase_api_key,
-                            "Authorization": f"Bearer {jwt_token}",
-                            "Content-Type": "application/json"
-                        }
-                    )
-                    user_card = resp_uc.json()[0] if resp_uc.status_code == 200 and resp_uc.json() else None
-                    if not user_card:
+                    user_card = cc.get("user_cards")
+                    card = user_card.get("cards") if user_card else None
+                    if not user_card or not card:
                         continue
-                    # 3. Get card details
-                    card_id = user_card["card_id"]
-                    resp_card = await client.get(
-                        f"{os.getenv('SUPABASE_URL')}/rest/v1/cards",
-                        params={"id": f"eq.{card_id}"},
-                        headers={
-                            "apikey": supabase_api_key,
-                            "Authorization": f"Bearer {jwt_token}",
-                            "Content-Type": "application/json"
-                        }
-                    )
-                    card = resp_card.json()[0] if resp_card.status_code == 200 and resp_card.json() else None
-                    if not card:
-                        continue
-                    # Merge user_card and card info (add quantity, condition, etc.)
-                    merged = {**card, **user_card}
+                    quantity = user_card.get("quantity", 1)
+                    total_quantity += quantity
+                    merged: Dict[str, Any] = {**card, **user_card, "quantity": quantity}
                     cards.append(merged)
                 collection["cards"] = cards
+                collection["total_cards"] = total_quantity
+                collection["unique_cards"] = len(cards)
         return {"success": True, "collections": collections}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -742,11 +724,24 @@ async def upload_collection_progress(
             print(f"[progress-upload] Parsed CSV, shape: {df.shape}", file=sys.stderr)
             df = normalize_csv_format(df)
             print(f"[progress-upload] Normalized CSV, shape: {df.shape}", file=sys.stderr)
-            df = expand_collection_by_quantity(df)
-            print(f"[progress-upload] Expanded by quantity, shape: {df.shape}", file=sys.stderr)
-            rows: List[Dict[str, Any]] = df.to_dict("records")  # type: ignore
+            # Group by unique card (Scryfall ID preferred, else Set code + Collector number, else Name + Set code)
+            group_keys: List[str] = []
+            if "Scryfall ID" in df.columns:
+                group_keys.append("Scryfall ID")
+            elif "Set code" in df.columns and "Collector number" in df.columns:
+                group_keys.extend(["Set code", "Collector number"])
+            elif "Name" in df.columns and "Set code" in df.columns:
+                group_keys.extend(["Name", "Set code"])
+            else:
+                group_keys = [col for col in ["Scryfall ID", "Set code", "Collector number", "Name"] if col in df.columns]
+            if not group_keys:
+                print("[progress-upload] No suitable columns to group by.", file=sys.stderr)
+                yield {"event": "error", "data": {"error": "No suitable columns to group by."}}
+                return
+            grouped: pd.DataFrame = df.groupby(group_keys, dropna=False).agg({"Quantity": "sum", **{col: "first" for col in df.columns if col != "Quantity"}}).reset_index()  # type: ignore
+            rows: List[Dict[str, Any]] = grouped.to_dict("records")  # type: ignore
             total = len(rows)
-            print(f"[progress-upload] Total rows: {total}", file=sys.stderr)
+            print(f"[progress-upload] Grouped rows (unique cards): {total}", file=sys.stderr)
             if total == 0:
                 print("[progress-upload] No rows found in CSV.", file=sys.stderr)
                 yield {"event": "error", "data": {"error": "No rows found in CSV."}}
