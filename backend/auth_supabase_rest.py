@@ -439,7 +439,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     token = credentials.credentials
     try:
         payload = jwt.decode(token, options={"verify_signature": False}) # type: ignore
-        print("JWT PAYLOAD:", payload)
+        # print("JWT PAYLOAD:", payload)
         email = payload.get("email")
         user_id = payload.get("sub")
         # Fetch profile info from public.profiles
