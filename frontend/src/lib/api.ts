@@ -152,6 +152,14 @@ export class ApiClient {
           errorMessage = errorData || errorMessage;
         }
         
+        if (response.status === 401 || response.status === 403) {
+          if (typeof window !== "undefined") {
+            const zustand = require('../store/authStore');
+            zustand.useAuthStore.getState().logout(true); // auto-logout
+          }
+          throw new Error("Session expired. Please log in again.");
+        }
+
         throw new Error(errorMessage);
       }
 

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useAuthStore } from "../store/authStore";
 
 interface NavigationProps {
   isAuthenticated: boolean;
@@ -15,7 +16,8 @@ interface NavigationProps {
 export default function Navigation({ isAuthenticated, user, onLogin, onLogout }: NavigationProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isAdmin = user?.app_metadata?.role === 'admin';
-  const pathname = usePathname(); // <-- Use hook at top level
+  const pathname = usePathname();
+  const hydrating = useAuthStore((s) => s.hydrating);
 
   // Prevent scroll when drawer is open (mobile UX)
   React.useEffect(() => {
@@ -35,7 +37,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
       <a href="#main-content" className="sr-only focus:not-sr-only absolute left-2 top-2 bg-mtg-blue text-white px-4 py-2 rounded z-50" tabIndex={0}>
         Skip to main content
       </a>
-      <nav className="container sleeve-morphism mx-auto backdrop-blur-sm border-b-2 shadow-lg sticky top-0 z-50" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}} aria-label="Main navigation">
+      <nav className="container sleeve-morphism mx-auto backdrop-blur-sm border-b-2 shadow-lg sticky top-0 z-50" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }} aria-label="Main navigation">
         <div className="container mx-auto px-4">
           <div className="flex items-center h-16 gap-4 md:gap-8">
             {/* Title */}
@@ -99,7 +101,9 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
               <div className="hidden md:block" style={{ width: '2rem' }} aria-hidden="true"></div>
               {/* User Actions (desktop) */}
               <div className="flex items-center space-x-4">
-                {isAuthenticated ? (
+                {hydrating ? (
+                  <span className="animate-pulse text-slate-400">Loading user...</span>
+                ) : isAuthenticated ? (
                   <div className="flex items-center space-x-4">
                     <a
                       href="/account"
@@ -119,7 +123,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                   <button
                     onClick={onLogin}
                     className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-2 py-2 rounded-lg transition-colors font-mtg-mono w-auto min-w-0"
-                    style={{maxWidth:'160px', width:'auto', whiteSpace:'nowrap'}}
+                    style={{ maxWidth: '160px', width: 'auto', whiteSpace: 'nowrap' }}
                   >
                     <i className="ms ms-w text-mtg-white mr-2"></i>
                     Sign In
@@ -154,54 +158,58 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             </button>
             {/* Navigation Links */}
             {[
-                { href: "/collection", label: "Collection", icon: "ms-counter-lore", iconColor: "text-mtg-red" },
-                { href: "/deck-builder", label: "Deck Builder", icon: "ms-commander", iconColor: "text-rarity-mythic" },
-                { href: "/pricing", label: "Pricing", icon: "ms-counter-gold", iconColor: "text-rarity-rare" },
-                { href: "/help", label: "Help", icon: "ms-party-wizard", iconColor: "text-mtg-green" },
-                ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: "ms-ability-dungeon", iconColor: "text-rarity-mythic" }] : []),
-              ].map(link => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`group flex items-center transition-colors font-mtg-mono py-2 ${pathname === link.href ? "bg-mtg-blue/30 text-rarity-uncommon" : ""}`}
-                  onClick={() => setDrawerOpen(false)}
-                  prefetch={false}
-                >
-                  <i className={`ms ms-2x mr-2 ${link.icon} ${link.iconColor} group-hover:!text-rarity-uncommon min-w-[2rem]`}></i>
-                  <span className="text-rarity-rare group-hover:!text-rarity-uncommon truncate block max-w-[70%]">{link.label}</span>
-                </Link>
-              ))}
-            <div className="border-t border-rarity-rare my-4" />
-            {/* User Actions */}
-            {isAuthenticated ? (
-              <>
-                <Link
-                  href="/account"
-                  className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer py-2"
-                  title="Account"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  Welcome, {user?.username || user?.full_name || user?.email || 'User'}
-                </Link>
-                <button
-                  onClick={() => { setDrawerOpen(false); onLogout(); }}
-                  className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono mt-2"
-                  type="button"
-                ><i className="ms ms-b text-mtg-black mr-2"></i>
-                  Logout
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => { setDrawerOpen(false); onLogin(); }}
-                className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-4 py-2 rounded-lg transition-colors font-mtg-mono mt-2 w-auto min-w-0"
-                style={{maxWidth:'160px', width:'auto', whiteSpace:'nowrap'}}
-                type="button"
+              { href: "/collection", label: "Collection", icon: "ms-counter-lore", iconColor: "text-mtg-red" },
+              { href: "/deck-builder", label: "Deck Builder", icon: "ms-commander", iconColor: "text-rarity-mythic" },
+              { href: "/pricing", label: "Pricing", icon: "ms-counter-gold", iconColor: "text-rarity-rare" },
+              { href: "/help", label: "Help", icon: "ms-party-wizard", iconColor: "text-mtg-green" },
+              ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: "ms-ability-dungeon", iconColor: "text-rarity-mythic" }] : []),
+            ].map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`group flex items-center transition-colors font-mtg-mono py-2 ${pathname === link.href ? "bg-mtg-blue/30 text-rarity-uncommon" : ""}`}
+                onClick={() => setDrawerOpen(false)}
+                prefetch={false}
               >
-                <i className="ms ms-w text-mtg-white mr-2"></i>
-                Sign In
-              </button>
-            )}
+                <i className={`ms ms-2x mr-2 ${link.icon} ${link.iconColor} group-hover:!text-rarity-uncommon min-w-[2rem]`}></i>
+                <span className="text-rarity-rare group-hover:!text-rarity-uncommon truncate block max-w-[70%]">{link.label}</span>
+              </Link>
+            ))}
+            <div className="border-t border-rarity-rare my-4" />
+            {/* User Actions (mobile) */}
+            <div>
+              {hydrating ? (
+                <span className="animate-pulse text-slate-400">Loading user...</span>
+              ) : isAuthenticated ? (
+                <>
+                  <Link
+                    href="/account"
+                    className="text-rarity-uncommon font-mtg-display hover:text-rarity-mythic transition-colors underline cursor-pointer py-2"
+                    title="Account"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    {user?.username || user?.full_name || user?.email || 'User'}
+                  </Link>
+                  <button
+                    onClick={() => { setDrawerOpen(false); onLogout(); }}
+                    className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic text-mtg-white px-4 py-2 rounded-lg transition-colors font-mtg-mono mt-2"
+                    type="button"
+                  ><i className="ms ms-b text-mtg-black mr-2"></i>
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => { setDrawerOpen(false); onLogin(); }}
+                  className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic px-4 py-2 rounded-lg transition-colors font-mtg-mono mt-2 w-auto min-w-0"
+                  style={{ maxWidth: '160px', width: 'auto', whiteSpace: 'nowrap' }}
+                  type="button"
+                >
+                  <i className="ms ms-w text-mtg-white mr-2"></i>
+                  Sign In
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

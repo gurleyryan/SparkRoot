@@ -3,7 +3,19 @@ import { persist } from 'zustand/middleware';
 import type { User, UserSettings } from '@/types';
 import { ApiClient } from '../lib/api';
 import { createClient } from '@supabase/supabase-js';
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+
+export function getSupabaseClient(rememberMe: boolean) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        storage: rememberMe ? localStorage : sessionStorage,
+        persistSession: true,
+      },
+    }
+  );
+}
 
 interface AuthState {
   user: User | null;
@@ -12,18 +24,25 @@ interface AuthState {
   error: string | null;
   playmat_texture: string | null;
   userSettings: UserSettings | null;
-  accessToken: string | null; // <-- add this
+  accessToken: string | null;
+  hydrating: boolean;
+  autoLoggedOut: boolean;
   setUser: (user: User | null) => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
   changePassword: (data: { oldPassword: string; newPassword: string }) => Promise<void>;
-  login: (credentials: { email: string; password: string }) => Promise<void>;
+  login: (
+    credentials: { email: string; password: string },
+    rememberMe?: boolean
+  ) => Promise<void>;
   setPlaymatTexture: (texture: string) => Promise<void>;
   register: (data: { username: string; email: string; password: string; full_name?: string }) => Promise<void>;
-  logout: () => void;
+  logout: (auto?: boolean) => void;
   clearError: () => void;
   checkAuth: () => Promise<void>;
   rehydrateUser: () => Promise<void>;
-  fetchWithAuth: (input: RequestInfo, init?: RequestInit) => Promise<Response>; // <-- add this
+  fetchWithAuth: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+  setHydrating: (hydrating: boolean) => void;
+  setAutoLoggedOut: (val: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -35,7 +54,9 @@ export const useAuthStore = create<AuthState>()(
       error: null,
       playmat_texture: null,
       userSettings: null,
-      accessToken: null, // <-- add this
+      accessToken: null,
+      hydrating: true,
+      autoLoggedOut: false,
       setUser: (user) => {
         set({ user, isAuthenticated: !!user });
       },
@@ -80,9 +101,10 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: false });
         }
       },
-      login: async (credentials) => {
+      login: async (credentials, rememberMe = true) => {
         set({ isLoading: true, error: null });
         try {
+          const supabase = getSupabaseClient(rememberMe);
           const { data, error } = await supabase.auth.signInWithPassword({
             email: credentials.email,
             password: credentials.password,
@@ -108,6 +130,19 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
+          try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+            const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+            const resp = await fetch(`${baseUrl}/api/auth/me`, {
+              headers: { Authorization: `Bearer ${jwt}` },
+            });
+            if (resp.ok) {
+              const user = await resp.json();
+              set({ user });
+            }
+          } catch {
+            // ignore, fallback to Supabase user
+          }
         } catch (err: unknown) {
           if (err instanceof Error) {
             set({ error: err.message || 'Login failed.', isLoading: false });
@@ -145,6 +180,8 @@ export const useAuthStore = create<AuthState>()(
       register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
+          // Default to rememberMe = true for registration (or add as a parameter if you want)
+          const supabase = getSupabaseClient(true);
           const { data, error } = await supabase.auth.signUp({
             email: userData.email,
             password: userData.password,
@@ -175,6 +212,19 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: null,
           });
+          try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+            const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+            const resp = await fetch(`${baseUrl}/api/auth/me`, {
+              headers: { Authorization: `Bearer ${jwt}` },
+            });
+            if (resp.ok) {
+              const user = await resp.json();
+              set({ user });
+            }
+          } catch {
+            // ignore, fallback to Supabase user
+          }
         } catch (err: unknown) {
           if (err instanceof Error) {
             set({ error: err.message || 'Registration failed', isLoading: false });
@@ -183,12 +233,17 @@ export const useAuthStore = create<AuthState>()(
           }
         }
       },
-      logout: () => {
+      logout: async (auto = false) => {
+        try {
+          const supabase = getSupabaseClient(true); // or false, doesn't matter for signOut
+          await supabase.auth.signOut();
+        } catch {}
         set({
           user: null,
           isAuthenticated: false,
           accessToken: null,
           error: null,
+          autoLoggedOut: auto,
         });
       },
       clearError: () => {
@@ -230,6 +285,8 @@ export const useAuthStore = create<AuthState>()(
         };
         return fetch(url, { ...init, headers });
       },
+      setHydrating: (hydrating) => set({ hydrating }),
+      setAutoLoggedOut: (val) => set({ autoLoggedOut: val }),
     }),
     {
       name: 'auth-storage',
@@ -238,7 +295,7 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         playmat_texture: state.playmat_texture,
         userSettings: state.userSettings,
-        accessToken: state.accessToken, // <-- add this
+        accessToken: state.accessToken,
       }),
     }
   )

@@ -1,25 +1,37 @@
 "use client";
-import React from 'react';
-
+import React, { useEffect, useState } from 'react';
+import { useAuthStore } from '@/store/authStore';
+import AuthModal from '@/components/AuthModal';
+import { useModalStore } from '@/store/modalStore'; // if you want to allow manual open/close
 const AuthHydrator = require('../components/AuthHydrator').default;
 const PlaymatHydrator = require('../components/PlaymatHydrator').default;
 const ToastProvider = require('../components/ToastProvider').ToastProvider;
 const Navigation = require('../components/Navigation').default;
-const AuthModal = require('../components/AuthModal').default;
 const SpeedInsights = require('@vercel/speed-insights/next').SpeedInsights;
 const Analytics = require('@vercel/analytics/next').Analytics;
-const { useAuthStore } = require('../store/authStore');
-const { useModalStore } = require('../store/modalStore');
+
 // If useModalStore is not exported from authStore, use the local definition:
 // const { create } = require('zustand');
 // const useModalStore = create((set) => ({ showAuthModal: false, setShowAuthModal: (show) => set({ showAuthModal: show }) }));
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s: { isAuthenticated: boolean }) => s.isAuthenticated);
-  const user = useAuthStore((s: { user: unknown }) => s.user);
+  const hydrating = useAuthStore((s: { hydrating: boolean }) => s.hydrating);
   const logout = useAuthStore((s: { logout: () => void }) => s.logout);
+  const user = useAuthStore((s: { user: any }) => s.user); // Add this line to get the user object
   const showAuthModal = useModalStore((s: { showAuthModal: boolean }) => s.showAuthModal);
   const setShowAuthModal = useModalStore((s: { setShowAuthModal: (show: boolean) => void }) => s.setShowAuthModal);
+  const [showModal, setShowModal] = useState(false);
+  const autoLoggedOut = useAuthStore((s: { autoLoggedOut: boolean }) => s.autoLoggedOut);
+
+  // Automatically show AuthModal when logged out and not hydrating
+
+  useEffect(() => {
+    // Only show modal if autoLoggedOut is true
+    setShowModal(autoLoggedOut);
+    // Also reset showAuthModal if logging out manually
+    if (!autoLoggedOut) setShowAuthModal(false);
+  }, [autoLoggedOut, setShowAuthModal]);
 
   return (
     <ToastProvider>
@@ -29,11 +41,18 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         isAuthenticated={isAuthenticated}
         user={user}
         onLogin={() => setShowAuthModal(true)}
-        onLogout={logout}
+        onLogout={() => {
+          logout();
+          setShowAuthModal(false);
+        }}
       />
       {children}
-      {showAuthModal && (
-        <AuthModal onClose={() => setShowAuthModal(false)} />
+      {(showModal || showAuthModal) && (
+        <AuthModal onClose={() => {
+          setShowModal(false);
+          setShowAuthModal(false);
+          useAuthStore.getState().setAutoLoggedOut(false);
+        }} />
       )}
       <Analytics />
       <SpeedInsights />

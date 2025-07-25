@@ -25,7 +25,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
         await login({
           email: formData.email || formData.username,
           password: formData.password,
-        });
+        }, rememberMe);
         const authError = useAuthStore.getState().error;
         if (!authError) {
           showToast('Login successful!', 'success');
@@ -130,6 +130,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
 
@@ -279,6 +280,17 @@ export default function AuthModal({ onClose }: AuthModalProps) {
               </div>
             </>
           )}
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={e => setRememberMe(e.target.checked)}
+              className="form-checkbox"
+            />
+            <label htmlFor="rememberMe" className="text-sm text-slate-300">Remember Me</label>
+          </div>
 
           {error && (
             <div className="bg-mtg-black border border-mtg-red text-mtg-red px-4 py-3 rounded-lg">

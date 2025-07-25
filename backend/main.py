@@ -37,7 +37,6 @@ app = FastAPI(title="SparkRoot API", version="1.0.0")
 app.add_middleware(SentryAsgiMiddleware)
 
 
-
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
@@ -314,9 +313,10 @@ async def login_user(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
 
 
 @app.get("/api/auth/me", response_model=UserResponse)
-async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
+async def get_current_user_info(
+    current_user: Dict[str, Any] = Depends(get_user_from_token),
+) -> Dict[str, Any]:
     """Get current user information"""
-    # Compose profile info for frontend, including email and updated_at
     profile_info: Dict[str, Any] = {
         "id": str(current_user["id"]),
         "email": str(current_user["email"]),
@@ -325,6 +325,8 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_user_
         "avatar_url": current_user.get("avatar_url"),
         "created_at": current_user.get("created_at"),
         "updated_at": current_user.get("updated_at"),
+        "role": current_user.get("role") or "",
+        "app_metadata": current_user.get("app_metadata") or {},
     }
     return profile_info
 
@@ -538,7 +540,7 @@ async def enrich_collection_pricing(
     except Exception as e:
         error_details = str(e)
         return cast(Dict[str, Any], {"success": False, "error": str(e), "details": error_details})
-    
+
 @app.post("/api/pricing/collection-value")
 async def get_collection_value(
     request: PricingRequest,
@@ -549,7 +551,7 @@ async def get_collection_value(
     except Exception as e:
         error_details = str(e)
         return {"success": False, "error": str(e), "details": error_details}
-    
+
 @app.post("/api/pricing/collection-value-public")
 async def get_collection_value_public(request: PricingRequest) -> Any:
     try:
