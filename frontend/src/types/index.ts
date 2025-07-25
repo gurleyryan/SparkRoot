@@ -41,6 +41,7 @@ export interface User {
     role?: string;
     [key: string]: unknown;
   };
+  role?: string;
 }
 
 export interface AuthResponse {

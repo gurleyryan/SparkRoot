@@ -456,6 +456,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                 profiles = profile_resp.json()
                 if profiles:
                     profile = profiles[0]
+        # --- PATCH: Always extract app_metadata and role from JWT ---
+        app_metadata = typing.cast(Dict[str, Any], payload.get("app_metadata") or {})
+        # Some providers put role directly on the payload, some in app_metadata
+        role = app_metadata.get("role") or payload.get("role") or ""
         return {
             "id": user_id,
             "email": email,
@@ -464,8 +468,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "avatar_url": profile.get("avatar_url") if profile else None,
             "created_at": profile.get("created_at") if profile else None,
             "access_token": token,
-            "role": payload.get("role"),
-            "app_metadata": payload.get("app_metadata"),
+            "role": role,
+            "app_metadata": app_metadata,
             "user_metadata": payload.get("user_metadata"),
         }
     except Exception as e:
