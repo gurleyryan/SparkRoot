@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from backend.utils import normalize_csv_format, expand_collection_by_quantity, enrich_single_row_with_scryfall, upsert_user_card, create_collection, update_collection, link_collection_card
 from backend.auth_supabase_rest import UserManager, get_user_from_token, get_current_user, create_access_token
 from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield, get_deck_statistics
-from backend.deckgen import find_valid_commanders, generate_commander_deck, enforce_bracket_rules
+from backend.deckgen import generate_commander_deck, find_valid_commanders
 from backend.deck_analysis import analyze_deck_quality
 from backend.pricing import enrich_collection_with_prices, calculate_collection_value
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
@@ -335,6 +335,26 @@ async def get_current_user_info(
     return profile_info
 
 
+@app.get("/api/cards")
+async def get_cards(game_changer: Optional[bool] = Query(None)) -> Dict[str, Any]:
+    """
+    Fetch cards from the cards table. Supports filtering by game_changer.
+    If game_changer is True, only return the latest printing per oracle_id.
+    """
+    from backend.supabase_db import db
+    if game_changer:
+        query = """
+            SELECT DISTINCT ON (oracle_id) *
+            FROM cards
+            WHERE game_changer = TRUE
+            ORDER BY oracle_id, released_at DESC
+        """
+        rows = await db.execute_query(query, (), fetch=True)
+    else:
+        query = "SELECT * FROM cards"
+        rows = await db.execute_query(query, (), fetch=True)
+    return {"success": True, "cards": rows}
+
 # Collection management endpoints
 @app.get("/api/collections")
 async def get_user_collections(request: Request, current_user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
@@ -594,15 +614,11 @@ file: UploadFile = File(...), current_user: Dict[str, Any] = Depends(get_user_fr
 
     return result if result is not None else cast(Dict[str, Any], {"success": False, "error": "Parsing failed."})
 
-
 @app.post("/api/find-commanders")
 async def find_commanders(request: DeckAnalysisRequest) -> Dict[str, Any]:
     try:
         collection = request.collection
-        df = pd.DataFrame(collection)  # type: ignore
-
-        # Use your existing commander detection logic
-        commanders = find_valid_commanders(df)
+        commanders = find_valid_commanders(collection)
 
         return {"success": True, "commanders": commanders, "count": len(commanders)}
 
@@ -616,9 +632,11 @@ async def generate_deck(request: DeckAnalysisRequest) -> Dict[str, Any]:
         collection = request.collection
         commander_id = request.commander_id
         bracket = request.bracket or 1
+        salt_threshold = getattr(request, "salt_threshold", 0)  # Add to DeckAnalysisRequest if needed
 
-        # Convert to DataFrame
+        # Convert to DataFrame and list of dicts
         df = pd.DataFrame(collection)
+        card_pool = cast(List[Dict[str, Any]], df.to_dict(orient="records"))  # type: ignore
 
         # Find the selected commander
         selected_commander = None
@@ -633,16 +651,17 @@ async def generate_deck(request: DeckAnalysisRequest) -> Dict[str, Any]:
         if not selected_commander:
             return {"success": False, "error": "Commander not found"}
 
-        # Enforce bracket rules in deck generation
-       
-
-        deck_data: Dict[str, Any] = generate_commander_deck(selected_commander, df)  # type: Dict[str, Any]
-        deck_data = enforce_bracket_rules(deck_data, bracket)
+        # Generate deck (deckgen.py handles salt fetching/filtering internally)
+        deck_data: Dict[str, Any] = generate_commander_deck(
+            selected_commander,
+            card_pool,
+            bracket=bracket,
+            house_rules=False,
+            salt_threshold=salt_threshold,
+        )
 
         # Use your existing analysis logic
         deck_analysis = analyze_deck_quality(deck_data)
-
-        # Use your existing statistics logic
         deck_stats = get_deck_statistics(deck_data)
 
         return {
