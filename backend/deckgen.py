@@ -534,6 +534,7 @@ def generate_commander_deck(
     house_rules: bool = False,
     salt_list: Optional[Dict[str, List[int]]] = None,
     salt_threshold: int = 0,
+    generation_settings: Optional[Dict[str, Any]] = None,  # Placeholder for user settings
 ) -> Dict[str, Any]:
     """
     Main function to generate a Commander deck from a user's collection and chosen commander.
@@ -665,6 +666,8 @@ def generate_commander_deck(
                 counts[t] += 1
         return counts
 
+    # --- Strictly fill all card type targets before allowing overflow ---
+    type_targets_met = lambda deck: all(type_counts(deck)[t] >= CARD_TYPE_TARGETS[t] for t in CARD_TYPE_TARGETS)  # type: ignore
     for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
         if cat == "lands":
             continue  # Lands already added
@@ -677,7 +680,7 @@ def generate_commander_deck(
         prioritized = theme_cat + synergy_cat + rest_cat
         count = 0
         # --- Strict pass: only add cards whose type is under its target ---
-        while count < max_count and len(deck) < 100:
+        while count < max_count and len(deck) < 100 and not type_targets_met(deck):
             type_count = type_counts(deck)
             under_types = {t for t, v in type_count.items() if v < CARD_TYPE_TARGETS[t]}
             found = False
@@ -698,21 +701,14 @@ def generate_commander_deck(
                 break
             if not found:
                 break  # No more under-target type cards available
-        # --- Overflow pass: only allow overflow if all types are at/above target or no other options ---
-        while count < max_count and len(deck) < 100:
-            type_count = type_counts(deck)
-            under_types = {t for t, v in type_count.items() if v < CARD_TYPE_TARGETS[t]}
+        # --- Overflow pass: only allow overflow if ALL type targets are met ---
+        while count < max_count and len(deck) < 100 and type_targets_met(deck):
             found = False
             for card in prioritized:
                 card_id = card.get("id")
                 if card["name"] in used_names or card_id in used_ids:
                     continue
                 t = get_type(card)
-                # Only allow overflow if no underrepresented types left in pool
-                if under_types:
-                    # If this card is not an underrepresented type, skip
-                    if t not in under_types:
-                        continue
                 deck.append(card)
                 used_names.add(card["name"])
                 used_ids.add(card_id)
@@ -737,6 +733,19 @@ def generate_commander_deck(
                 break
             else:
                 break
+    # --- FINAL TYPE ENFORCEMENT: If any CARD_TYPE_TARGETS are not met, fill them from the remaining pool, even if it exceeds category maxes ---
+    type_count = type_counts(deck)
+    for t, target in CARD_TYPE_TARGETS.items():
+        while type_count[t] < target and len(deck) < 99:
+            candidates = [c for c in filtered_pool if c["name"] not in used_names and c.get("id") not in used_ids and get_type(c) == t]
+            if not candidates:
+                break
+            best = sorted(candidates, key=lambda c: c.get("edhrec_rank", 999999))[0]
+            deck.append(best)
+            used_names.add(best["name"])
+            used_ids.add(best.get("id"))
+            type_count[t] += 1
+            print(f"[DEBUG]   (final type fill) Added {best.get('name')} to meet type target {t} ({type_count[t]}/{target})")
 
     # 8. Fill main theme (if not already filled), but ONLY if deck is not full and category maxes are not exceeded
     if "main_theme" in CATEGORY_TARGETS:
