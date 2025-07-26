@@ -585,40 +585,108 @@ def generate_commander_deck(
     commander_synergy = commander_functions(commander)
     print(f"[DEBUG] Commander provides these deck functions: {commander_synergy}")
 
-    # 6. Add cards by category min/max, prioritizing by edhrec_rank and synergy
+
+    # 6. SELECT LANDS FIRST, then fill other categories
+    # Determine number of lands to add (use max allowed, or enough to leave room for other categories)
+    min_lands, max_lands = CATEGORY_TARGETS["lands"]
+    # For now, use max_lands, but ensure we don't exceed 100 cards
+    num_lands = min(max_lands, 100 - len(deck))
+    land_pool = categorized.get("lands", [])
+    print(f"[DEBUG] Selecting lands FIRST: need {num_lands}, pool size: {len(land_pool)}")
+    lands = select_lands(commander, land_pool, num_lands)
+    print(f"[DEBUG] Selected {len(lands)} lands: {[l.get('name') for l in lands[:5]]}{'...' if len(lands) > 5 else ''}")
+    for land in lands:
+        land_id = land.get("id")
+        is_basic = "basic land" in (land.get("type_line", "").lower())
+        if is_basic:
+            # Allow multiple basics of the same name and id, up to owned quantity and deck size
+            count_in_deck = sum(1 for c in deck if c.get("id") == land_id)
+            owned_qty = int(land.get("quantity", 1))
+            if count_in_deck < owned_qty and len(deck) < 100:
+                deck.append(land)
+                print(f"[DEBUG]   Added basic land: {land.get('name')} (id={land_id}) [{count_in_deck+1}/{owned_qty}]")
+        else:
+            # Only add nonbasics if not already present by name or id
+            if land["name"] not in used_names and land_id not in used_ids and len(deck) < 100:
+                deck.append(land)
+                used_names.add(land["name"])
+                used_ids.add(land_id)
+                print(f"[DEBUG]   Added nonbasic land: {land.get('name')} (id={land_id})")
+
+    print(f"[DEBUG] Deck size after lands: {len(deck)}")
+    print(f"[DEBUG] Land count in deck: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}")
+
+    # 7. STRICT CATEGORY FILL with THEME/SYNERGY PRIORITY: For each category, prioritize theme+category, then synergy+category, then best by rank
+    # Prepare theme candidates for matching
+    commander_keywords = set(str(k).lower() for k in commander.get("keywords", []))
+    oracle = str(commander.get("oracle_text", "")).lower()
+    import re
+    oracle_words: Set[str] = set(re.findall(r"\b[a-zA-Z][a-zA-Z\-']*\b", oracle))
+    oracle_phrases: Set[str] = set()
+    oracle_tokens = oracle.split()
+    for i in range(len(oracle_tokens) - 1):
+        phrase = f"{oracle_tokens[i]} {oracle_tokens[i+1]}".lower()
+        oracle_phrases.add(phrase)
+    theme_candidates: Set[str] = set()
+    theme_candidates.update(str(k) for k in commander_keywords)
+    theme_candidates.update(str(w) for w in oracle_words)
+    theme_candidates.update(str(p) for p in oracle_phrases)
+    main_type = None
+    type_line = commander.get("type_line", "").lower()
+    if "creature" in type_line:
+        parts = type_line.split("—")
+        if len(parts) > 1:
+            type_words = parts[-1].strip().split()
+            if type_words:
+                main_type = type_words[0]
+    if main_type:
+        theme_candidates.add(main_type)
+    theme_candidates.add(str(theme))
+
+    def card_matches_theme(card: Dict[str, Any], candidates: Set[str]) -> bool:
+        card_text = card.get("type_line", "").lower() + " " + " ".join([str(k).lower() for k in card.get("keywords", [])])
+        return any(tc for tc in candidates if tc and len(tc) > 2 and tc in card_text)
+
     for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
         if cat == "lands":
-            continue  # Add lands last
-        print(f"[DEBUG] Filling category '{cat}' (min={min_count}, max={max_count})")
-        pool = sorted(categorized.get(cat, []), key=lambda c: (
-            0 if cat in commander_synergy else 1,  # Prefer synergy
-            c.get("edhrec_rank", 999999)
-        ))
+            continue  # Lands already added
+        print(f"[DEBUG] Strictly filling category '{cat}' (min={min_count}, max={max_count}) with theme/synergy priority")
+        # Build prioritized pool: theme+category > synergy+category > category by rank
+        pool = categorized.get(cat, [])
+        # 1. Theme+category
+        theme_cat = [c for c in pool if card_matches_theme(c, theme_candidates)]
+        # 2. Synergy+category (commander functions)
+        synergy_cat = [c for c in pool if cat in commander_synergy and c not in theme_cat]
+        # 3. Remaining by rank
+        rest_cat = [c for c in pool if c not in theme_cat and c not in synergy_cat]
+        rest_cat = sorted(rest_cat, key=lambda c: c.get("edhrec_rank", 999999))
+        # Combine
+        prioritized = theme_cat + synergy_cat + rest_cat
         count = 0
-        for card in pool:
+        for card in prioritized:
             card_id = card.get("id")
-            if card["name"] not in used_names and card_id not in used_ids and count < max_count:
+            if card["name"] not in used_names and card_id not in used_ids and count < max_count and len(deck) < 100:
                 deck.append(card)
                 used_names.add(card["name"])
                 used_ids.add(card_id)
                 count += 1
                 print(f"[DEBUG]   Added to '{cat}': {card.get('name')} (id={card_id})")
-            if count >= max_count:
+            if count >= max_count or len(deck) >= 100:
                 break
-        # If we didn't reach min_count, try to fill with any remaining eligible cards
-        if count < min_count:
-            for card in pool:
+        # If we didn't reach min_count, try to fill with any remaining eligible cards (by rank)
+        if count < min_count and len(deck) < 100:
+            for card in prioritized:
                 card_id = card.get("id")
-                if card["name"] not in used_names and card_id not in used_ids and count < min_count:
+                if card["name"] not in used_names and card_id not in used_ids and count < min_count and len(deck) < 100:
                     deck.append(card)
                     used_names.add(card["name"])
                     used_ids.add(card_id)
                     count += 1
                     print(f"[DEBUG]   (min fill) Added to '{cat}': {card.get('name')} (id={card_id})")
-                if count >= min_count:
+                if count >= min_count or len(deck) >= 100:
                     break
 
-    # 7. Fill main theme (if not already filled)
+    # 8. Fill main theme (if not already filled), but ONLY if deck is not full and category maxes are not exceeded
     if "main_theme" in CATEGORY_TARGETS:
         # Recompute theme candidates as in detect_theme
         commander_keywords = set(str(k).lower() for k in commander.get("keywords", []))
@@ -655,38 +723,24 @@ def generate_commander_deck(
         theme_pool = sorted(theme_pool, key=lambda c: c.get("edhrec_rank", 999999))
         theme_added = 0
         for card in theme_pool:
-            if card["name"] not in used_names and len(deck) < 100:
+            # Only add if deck is not full and adding this card does not exceed any category max
+            if card["name"] in used_names or len(deck) >= 100:
+                continue
+            # Check all categories for this card
+            cats = categorize_card(card)
+            can_add = True
+            for cat in cats:
+                if cat in CATEGORY_TARGETS:
+                    _, max_count = CATEGORY_TARGETS[cat]
+                    cat_count = sum(1 for c in deck if cat in categorize_card(c))
+                    if cat_count >= max_count:
+                        can_add = False
+                        break
+            if can_add:
                 deck.append(card)
                 used_names.add(card["name"])
                 theme_added += 1
-        print(f"[DEBUG] Added {theme_added} cards to main theme(s) {sorted(theme_candidates)}")
-
-    # 8. Add lands using advanced land logic
-    num_lands = max(min(38, 100 - len(deck)), 33)
-    land_pool = categorized.get("lands", [])
-    print(f"[DEBUG] Selecting lands: need {num_lands}, pool size: {len(land_pool)}")
-    lands = select_lands(commander, land_pool, num_lands)
-    print(f"[DEBUG] Selected {len(lands)} lands: {[l.get('name') for l in lands[:5]]}{'...' if len(lands) > 5 else ''}")
-    for land in lands:
-        land_id = land.get("id")
-        is_basic = "basic land" in (land.get("type_line", "").lower())
-        if is_basic:
-            # Allow multiple basics of the same name and id, up to owned quantity and deck size
-            count_in_deck = sum(1 for c in deck if c.get("id") == land_id)
-            owned_qty = int(land.get("quantity", 1))
-            if count_in_deck < owned_qty and len(deck) < 100:
-                deck.append(land)
-                print(f"[DEBUG]   Added basic land: {land.get('name')} (id={land_id}) [{count_in_deck+1}/{owned_qty}]")
-        else:
-            # Only add nonbasics if not already present by name or id
-            if land["name"] not in used_names and land_id not in used_ids and len(deck) < 100:
-                deck.append(land)
-                used_names.add(land["name"])
-                used_ids.add(land_id)
-                print(f"[DEBUG]   Added nonbasic land: {land.get('name')} (id={land_id})")
-
-    print(f"[DEBUG] Deck size after lands: {len(deck)}")
-    print(f"[DEBUG] Land count in deck: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}")
+        print(f"[DEBUG] Added {theme_added} theme/synergy cards (without exceeding category maxes)")
 
     # 9. Fill to 100 with best remaining cards (by edhrec_rank, prefer curve balance),
     # but do not exceed max for any CATEGORY_TARGETS category (especially creatures)
