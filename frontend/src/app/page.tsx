@@ -1,6 +1,8 @@
 "use client";
+import React from "react";
 import { useState, useEffect } from 'react';
 import type { MTGCard } from '@/types/index';
+import type { Deck as DeckBase } from '@/types';
 import Link from 'next/link';
 import { useModalStore } from '../store/modalStore';
 import CollectionUpload from '@/components/CollectionUpload';
@@ -40,30 +42,41 @@ export default function HomePage() {
   // DeckBuilder dashboard state
   const [cardGridType, setCardGridType] = useState<string | null>(null);
   const [deckCards, setDeckCards] = useState<MTGCard[]>([]);
+  const [generatedDeck, setGeneratedDeck] = useState<DeckBase & { analysis?: any } | null>(null);
   const [loading] = useState(false);
 
   // Handler for DeckBuilder to call when deck is generated
-  function handleDeckGenerated(cards: MTGCard[]) {
+  function handleDeckGenerated(deckOrCards: any) {
+    if (Array.isArray(deckOrCards)) {
+      setDeckCards(deckOrCards);
+      setGeneratedDeck(null);
+      setCardGridType('deck');
+      return;
+    }
+    setGeneratedDeck(deckOrCards);
+    setDeckCards(deckOrCards?.cards || []);
     setCardGridType('deck');
-    setDeckCards(cards);
   }
 
   // Handler to show Game Changers
   function handleShowGameChangers() {
     setCardGridType('gamechangers');
     setDeckCards([]);
+    setGeneratedDeck(null);
   }
 
   // Handler to hide Game Changers
   function handleHideGameChangers() {
     setCardGridType(null);
     setDeckCards([]);
+    setGeneratedDeck(null);
   }
 
   // Handler to clear CardGrid
   function handleClearGrid() {
     setCardGridType(null);
     setDeckCards([]);
+    setGeneratedDeck(null);
   }
 
   function setShowAuthModal(show: boolean) {
@@ -150,6 +163,12 @@ export default function HomePage() {
                     <div className="font-bold text-amber-400 text-lg">Generated Deck</div>
                     <button className="btn-secondary px-3 py-1 rounded border font-semibold" onClick={handleClearGrid}>Back to Deck Builder</button>
                   </div>
+                  {/* Show DeckDetail panel above CardGrid if generatedDeck is present */}
+                  {generatedDeck && (
+                    <div className="w-full max-w-6xl mx-auto mb-4">
+                      {React.createElement(require('@/components/DeckDetail').default, { deck: generatedDeck })}
+                    </div>
+                  )}
                   <CardGrid cards={deckCards} />
                 </>
               )}
