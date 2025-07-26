@@ -78,12 +78,16 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         typeof result === 'object' &&
         ('success' in result || 'deck' in result)
       ) {
-        const deckRaw = (result as { deck?: unknown }).deck;
+        // Correctly extract the deck array
+        const deckObj = (result as any).deck;
         let deckCards: MTGCard[] = [];
-        if (Array.isArray(deckRaw)) {
-          deckCards = deckRaw as MTGCard[];
-        } else if (deckRaw && typeof deckRaw === 'object') {
-          deckCards = Object.values(deckRaw) as MTGCard[];
+        if (deckObj && Array.isArray(deckObj.deck)) {
+          deckCards = deckObj.deck as MTGCard[];
+        }
+        // Optionally prepend the commander
+        const commander = (result as any).commander;
+        if (commander) {
+          deckCards = [commander, ...deckCards];
         }
         setDeck(deckCards);
         onDeckGenerated(deckCards);
