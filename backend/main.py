@@ -652,11 +652,13 @@ async def generate_deck(request: DeckAnalysisRequest) -> Dict[str, Any]:
             return {"success": False, "error": "Commander not found"}
 
         # Generate deck (deckgen.py handles salt fetching/filtering internally)
+        # Use house_rules from request if present, else default to False
+        house_rules = getattr(request, "house_rules", False)
         deck_data: Dict[str, Any] = generate_commander_deck(
             selected_commander,
             card_pool,
             bracket=bracket,
-            house_rules=False,
+            house_rules=house_rules,
             salt_threshold=salt_threshold,
         )
 
