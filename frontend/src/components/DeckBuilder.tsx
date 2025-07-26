@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useToast } from './ToastProvider';
 import BracketPicker from '@/components/BracketPicker';
@@ -23,7 +22,6 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [houseRules, setHouseRules] = useState(false);
-  // Salt weight thresholds: 0 = Allow all, 2 = <2, 3 = <3, 1 = No salty cards (very strict)
   const saltOptions = [
     { label: 'Allow all', value: 99 },
     { label: 'Salt weight < 3', value: 3 },
@@ -32,17 +30,36 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
   ];
   const [saltThreshold, setSaltThreshold] = useState(saltOptions[0].value);
   const [deck, setDeck] = useState<MTGCard[]>([]);
-  const { activeCollection } = useCollectionStore();
+  const { collections, userInventory } = useCollectionStore();
 
-  // Memoized list of possible commanders
+  // Local state for card source selection: 'inventory' or collection id
+  const [cardSourceType, setCardSourceType] = useState<string>(() => 'inventory');
+
+  // Find the selected collection (if any)
+  const selectedCollection = useMemo(() => {
+    if (cardSourceType === 'inventory') return null;
+    return collections.find(col => col.id === cardSourceType) || null;
+  }, [cardSourceType, collections]);
+
+  // Use selected collection or full inventory as card source
+  const cardSource = useMemo(() => {
+    if (selectedCollection && Array.isArray(selectedCollection.cards) && selectedCollection.cards.length > 0) {
+      return selectedCollection.cards;
+    }
+    if (userInventory && Array.isArray(userInventory)) {
+      return userInventory;
+    }
+    return [];
+  }, [selectedCollection, userInventory]);
+
+  // Memoized list of possible commanders (from cardSource)
   const commanderOptions = useMemo(() => {
-    if (!activeCollection || !Array.isArray(activeCollection.cards)) return [];
-    return activeCollection.cards.filter(
+    return cardSource.filter(
       (card: MTGCard) =>
         typeof card.type_line === 'string' &&
         card.type_line.toLowerCase().includes('legendary creature')
     );
-  }, [activeCollection]);
+  }, [cardSource]);
 
   const handleGenerateDeck = async () => {
     setLoading(true);
@@ -50,7 +67,7 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
     try {
       const apiClient = new ApiClient();
       const result: unknown = await apiClient.generateDeck(
-        activeCollection?.cards ? (activeCollection.cards as unknown as Record<string, unknown>[]) : [],
+        cardSource as unknown as Record<string, unknown>[],
         commanderId,
         bracket,
         houseRules,
@@ -76,7 +93,7 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         typeof result === 'object' &&
         ('error' in result || 'message' in result)
       ) {
-        const msg = ((result as { error?: string; message?: string }).error || 
+        const msg = ((result as { error?: string; message?: string }).error ||
           (result as { error?: string; message?: string }).message) ||
           'Failed to generate deck';
         setError(msg);
@@ -113,9 +130,43 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
   }, [gameChangersOpen]);
 
   return (
-    <div className="container mx-auto sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)"}}>
+    <div className="container mx-auto sleeve-morphism w-full flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
       <div className="container mx-auto w-full shadow-md px-4 py-0 flex flex-col">
         <h2 className="text-3xl font-mtg pt-4 pb-2 text-rarity-rare">Deck Builder</h2>
+        <div className="mb-4">
+          <label htmlFor="card-source-select" className="block text-slate-200 font-semibold mb-1">Choose Card Source</label>
+          <select
+            id="card-source-select"
+            className="w-full rounded-md border border-slate-600 bg-mtg-black text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mtg-blue"
+            value={cardSourceType}
+            onChange={e => setCardSourceType(e.target.value)}
+          >
+            {collections.map(col => (
+              <option key={col.id} value={col.id}>{col.name}</option>
+            ))}
+          </select>
+        </div>
+        {/* Commander selection dropdown */}
+        <div className="mb-4">
+          <label htmlFor="commander-select" className="block text-slate-200 font-semibold mb-1">Choose Commander</label>
+          <select
+            id="commander-select"
+            className="w-full rounded-md border border-slate-600 bg-mtg-black text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mtg-blue"
+            value={commanderId}
+            onChange={e => setCommanderId(e.target.value)}
+            disabled={commanderOptions.length === 0}
+          >
+            <option value="">-- Select a Commander --</option>
+            {commanderOptions.map((card) => (
+              <option key={card.id} value={card.id}>
+                {card.name}
+              </option>
+            ))}
+          </select>
+          {commanderOptions.length === 0 && (
+            <div className="text-red-400 mt-2">No eligible commanders found in this source.</div>
+          )}
+        </div>
         <div className="flex flex-col md:flex-row gap-4 pb-4 items-start">
           <div className="flex-1 min-w-[260px] flex flex-col gap-4">
             <div className="flex flex-row items-center gap-2 mb-2">
@@ -190,13 +241,6 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
             </div>
           </div>
         </div>
-        {/* Deck Preview */}
-        {deck && deck.length > 0 && (
-          <div className="mt-6">
-            <h3 className="text-xl font-bold text-mtg-white mb-2">Generated Deck</h3>
-            <CardGrid cards={deck} />
-          </div>
-        )}
       </div>
     </div>
   );

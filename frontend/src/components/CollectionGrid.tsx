@@ -9,30 +9,78 @@ import { useAuthStore } from "../store/authStore";
 type CollectionGridProps = Record<string, unknown>;
 
 const CollectionGrid: React.FC<CollectionGridProps> = () => {
-  // Fetch collections on mount for logged-in users
+  // Fetch collections and inventory on mount for logged-in users
   const accessToken = useAuthStore((state) => state.accessToken);
   const setCollections = useCollectionStore((state) => state.setCollections);
+  const setUserInventory = useCollectionStore((state) => state.setUserInventory);
+  const setActiveCollection = useCollectionStore((state) => state.setActiveCollection);
   useEffect(() => {
-    async function fetchCollections() {
+    async function fetchCollectionsAndInventory() {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/collections`, {
+        // Fetch collections
+        const collectionsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/collections`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        if (!res.ok) throw new Error('Failed to fetch collections');
-        const data = await res.json();
-        setCollections(data.collections || []);
+        if (!collectionsRes.ok) throw new Error('Failed to fetch collections');
+        const collectionsData = await collectionsRes.json();
+        const collections = collectionsData.collections || [];
+
+        // Fetch inventory (all cards)
+        let inventoryCards = [];
+        try {
+          const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/inventory`;
+          const invRes = await fetch(apiUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (invRes.ok) {
+            const invData = await invRes.json();
+            // Defensive: support both { inventory: { cards: [...] } } and { cards: [...] }
+            inventoryCards = Array.isArray(invData?.inventory?.cards)
+              ? invData.inventory.cards
+              : Array.isArray(invData?.cards)
+                ? invData.cards
+                : [];
+            setUserInventory(inventoryCards);
+          }
+        } catch (e) {
+          // Optionally handle inventory fetch error
+        }
+
+        // Add synthetic inventory collection if inventory exists
+        let allCollections = collections;
+        let inventoryCollection = null;
+        if (inventoryCards && inventoryCards.length > 0) {
+          inventoryCollection = {
+            id: 'inventory',
+            name: 'All Cards (Inventory)',
+            cards: inventoryCards,
+            description: 'All cards in your account inventory',
+            created_at: new Date(0).toISOString(),
+            updated_at: new Date(0).toISOString(),
+            user_id: '',
+            total_cards: inventoryCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0),
+            unique_cards: inventoryCards.length,
+          };
+          allCollections = [inventoryCollection, ...collections];
+        }
+        setCollections(allCollections);
+        // Default to inventory collection as active
+        if (inventoryCollection) {
+          setActiveCollection(inventoryCollection);
+        } else if (allCollections.length > 0) {
+          setActiveCollection(allCollections[0]);
+        }
       } catch (err) {
         // Optionally handle error
       }
     }
     if (accessToken) {
-      fetchCollections();
+      fetchCollectionsAndInventory();
     }
-  }, [accessToken, setCollections]);
+  }, [accessToken, setCollections, setUserInventory, setActiveCollection]);
   const {
     collections,
     activeCollection,
-    setActiveCollection,
     deleteCollection,
     viewMode,
     setViewMode,
@@ -160,7 +208,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
       )}
 
       {/* Main grid UI */}
-      <div className="container sleeve-morphism mx-auto flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+      <div className="mb-4 container sleeve-morphism mx-auto flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
         <div className="container mx-auto shadow-md px-4 flex flex-col">
           <div className="flex flex-col md:flex-row gap-4 pb-4 items-start">
             {/* Left column: buttons and collection dropdown */}
@@ -194,7 +242,6 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                 }}
                 className="form-input px-2 py-2 bg-mtg-black border border-mtg-blue rounded-lg text-white focus:border-rarity-mythic focus:outline-none cursor-pointer"
               >
-                <option value="">Select a collection...</option>
                 {collections.map(col => (
                   <option key={col.id} value={col.id}>{col.name}</option>
                 ))}

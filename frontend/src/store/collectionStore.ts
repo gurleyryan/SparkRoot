@@ -8,6 +8,7 @@ interface CollectionState {
   cards: MTGCard[];
   filteredCards: MTGCard[];
   stats: CollectionStats | null;
+  userInventory: MTGCard[];
   
   // UI State
   isLoading: boolean;
@@ -34,6 +35,9 @@ interface CollectionState {
   setSort: (sort: SortOptions) => void;
   setSearchQuery: (query: string) => void;
   setViewMode: (mode: 'grid' | 'list') => void;
+  
+  setUserInventory: (cards: MTGCard[]) => void;
+  clearUserInventory: () => void;
   
   applyFilters: () => void;
   setError: (error: string | null) => void;
@@ -66,6 +70,7 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   cards: [],
   filteredCards: [],
   stats: null,
+  userInventory: [],
   
   isLoading: false,
   error: null,
@@ -167,6 +172,13 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   },
   
   setViewMode: (viewMode) => set({ viewMode }),
+  
+  setUserInventory: (cards) => {
+    const safeCards = Array.isArray(cards) ? cards : [];
+    set({ userInventory: safeCards });
+  },
+  
+  clearUserInventory: () => set({ userInventory: [] }),
   
   applyFilters: () => {
     const { cards, filters, sort, searchQuery } = get();
@@ -290,3 +302,5 @@ function calculateStats(cards: MTGCard[]): CollectionStats {
   
   return stats;
 }
+
+export type { CollectionState };

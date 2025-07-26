@@ -333,6 +333,12 @@ export class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  async getInventory() {
+    const data: { inventory?: { cards?: unknown[] } } = await this.request('/api/inventory');
+    // Defensive: ensure cards is an array
+    return Array.isArray(data?.inventory?.cards) ? data.inventory.cards : [];
+  }
 }
 
 export default API_CONFIG;

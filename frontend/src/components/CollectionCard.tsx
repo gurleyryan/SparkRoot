@@ -19,7 +19,8 @@ const CollectionCard: React.FC<CollectionCardProps> = ({
 }) => {
   return (
     <div
-      className={`rounded-xl border border-rarity-rare bg-slate-900 shadow-md p-4 flex flex-col gap-2 cursor-pointer transition-all duration-150 hover:scale-105 ${selected ? "ring-2 ring-mtg-blue" : ""} ${className}`}
+      className={`sleeve-morphism shadow-md p-4 flex flex-col gap-2 cursor-pointer transition-all duration-150 hover:scale-101 ${selected ? "ring-2 ring-mtg-blue" : ""} ${className}`}
+      style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}
       onClick={() => onSelect?.(collection.id)}
     >
       <div className="flex justify-between items-center">
