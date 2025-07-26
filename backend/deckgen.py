@@ -565,8 +565,9 @@ def generate_commander_deck(
     # 3. Categorize pool
     categorized: Dict[str, List[Dict[str, Any]]] = {cat: [] for cat in CATEGORY_TARGETS}
     for card in filtered_pool:
-        cats = categorize_card(card)
-        for cat in cats:
+        if 'categories' not in card:
+            card['categories'] = categorize_card(card)
+        for cat in card['categories']:
             if cat in categorized:
                 categorized[cat].append(card)
     print("[DEBUG] Category counts:")
@@ -746,7 +747,7 @@ def generate_commander_deck(
     def trim_category(deck: List[Dict[str, Any]], cat: str, max_count: int):
         trimmed = False
         while True:
-            cat_cards = [c for c in deck if cat in categorize_card(c)]
+            cat_cards = [c for c in deck if 'categories' in c and cat in c['categories']]
             if len(cat_cards) <= max_count:
                 break
             to_remove = sorted(cat_cards, key=lambda c: c.get("edhrec_rank", 999999), reverse=True)[0]
@@ -758,10 +759,10 @@ def generate_commander_deck(
     def fill_category(deck: List[Dict[str, Any]], cat: str, min_count: int, pool: List[Dict[str, Any]], used_names: Set[str], used_ids: Set[Any]):
         added = False
         while True:
-            cat_cards = [c for c in deck if cat in categorize_card(c)]
+            cat_cards = [c for c in deck if 'categories' in c and cat in c['categories']]
             if len(cat_cards) >= min_count:
                 break
-            candidates = [c for c in pool if cat in categorize_card(c) and c["name"] not in used_names and c.get("id") not in used_ids]
+            candidates = [c for c in pool if 'categories' in c and cat in c['categories'] and c["name"] not in used_names and c.get("id") not in used_ids]
             if not candidates:
                 break
             best = sorted(candidates, key=lambda c: c.get("edhrec_rank", 999999))[0]
@@ -806,18 +807,21 @@ def generate_commander_deck(
         # Filter out cards that would exceed any category max
         valid_candidates: List[Dict[str, Any]] = []
         for c in candidates:
-            cats = categorize_card(c)
+            if 'categories' not in c:
+                c['categories'] = categorize_card(c)
+            cats = c['categories']
             can_add = True
             for cat in cats:
                 if cat in CATEGORY_TARGETS:
                     _, max_count = CATEGORY_TARGETS[cat]
-                    cat_count = sum(1 for d in deck if cat in categorize_card(d))
+                    cat_count = sum(1 for d in deck if 'categories' in d and cat in d['categories'])
                     if cat_count >= max_count:
                         can_add = False
                         break
             if can_add:
                 valid_candidates.append(c)
         if not valid_candidates:
+            print(f"[DEBUG]   No valid candidates left to fill deck to 99. Deck size: {len(deck)}")
             break
         best: Dict[str, Any] = sorted(valid_candidates, key=lambda c: c.get("edhrec_rank", 999999))[0]
         deck.append(best)
