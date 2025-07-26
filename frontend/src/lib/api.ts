@@ -259,10 +259,22 @@ export class ApiClient {
     });
   }
 
-  async generateDeck(collection: Array<Record<string, unknown>>, commanderId: string, bracket: number) {
+  async generateDeck(
+    collection: Array<Record<string, unknown>>,
+    commanderId: string,
+    bracket: number,
+    houseRules: boolean = false,
+    saltThreshold: number = 0
+  ) {
     return this.request(API_CONFIG.endpoints.generateDeck, {
       method: 'POST',
-      body: JSON.stringify({ collection, commander_id: commanderId, bracket }),
+      body: JSON.stringify({
+        collection,
+        commander_id: commanderId,
+        bracket,
+        house_rules: houseRules,
+        salt_threshold: saltThreshold,
+      }),
     });
   }
 

@@ -206,8 +206,8 @@ def filter_card_pool(
     commander: Dict[str, Any],
     bracket: int,
     house_rules: bool,
-    salt_list: Dict[str, List[int]],
-    salt_threshold: int = 0,
+    salt_list: Dict[str, Any],
+    salt_weight_threshold: float = 0.0,
 ) -> List[Dict[str, Any]]:
     """
     Filters the card pool to only include cards that:
@@ -242,10 +242,25 @@ def filter_card_pool(
             # Example: ban "unfun" cards (define your own list)
             if name in {"armageddon", "winter orb", "stasis"}:
                 continue
-        # Salt filtering: skip cards with too many salt years
-        salt_years = salt_list.get(card.get("name", ""), [])
-        card["salt_years"] = salt_years
-        if salt_threshold > 0 and len(salt_years) > salt_threshold:
+        # Salt filtering: skip cards with too high salt weight
+        from typing import cast, Dict
+        salt_info = cast(Dict[str, float], salt_list.get(card.get("name", ""), {}))
+        # salt_info should be a dict: {year: salt_score, ...}
+        salt_weight = 0.0
+        # Recency weights: latest year = 1.0, previous = 0.9, etc. (0.1 per year, min 0.1)
+        years: list[str] = sorted([str(y) for y in salt_info.keys()], reverse=True)
+        if years:
+            latest_year = max(int(y) for y in years if y.isdigit())
+            for y in years:
+                try:
+                    year = int(y)
+                    salt_score = float(salt_info[y])
+                    recency_weight = max(0.1, 1.0 - 0.1 * (latest_year - year))
+                    salt_weight += salt_score * recency_weight
+                except Exception:
+                    continue
+        card["salt_weight"] = salt_weight
+        if salt_weight_threshold > 0 and salt_weight > salt_weight_threshold:
             continue
         filtered.append(card)
     return filtered

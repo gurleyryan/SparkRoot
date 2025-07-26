@@ -56,13 +56,14 @@ const BRACKETS = [
 
 export interface BracketPickerProps {
   value: number;
-  onChange: (val: number) => void;
+  onChange: (value: number) => void;
   className?: string;
   onlyButtons?: boolean;
   onlyDescription?: boolean;
+  disabledBrackets?: number[];
 }
 
-const BracketPicker: React.FC<BracketPickerProps> = ({ value, onChange, className, onlyButtons, onlyDescription }) => {
+const BracketPicker: React.FC<BracketPickerProps> = ({ value, onChange, className, onlyButtons, onlyDescription, disabledBrackets }) => {
   // Only render bracket buttons
   if (onlyButtons) {
     return (
@@ -77,9 +78,13 @@ const BracketPicker: React.FC<BracketPickerProps> = ({ value, onChange, classNam
             <button
               key={b.value}
               type="button"
-              className={value === b.value ? 'btn-primary' : 'btn-secondary'}
+              className={
+                `${value === b.value ? 'btn-primary' : 'btn-secondary'} ` +
+                (disabledBrackets?.includes(b.value) ? ' opacity-50 cursor-not-allowed line-through' : '')
+              }
               onClick={() => onChange(b.value)}
               title={b.desc}
+              disabled={disabledBrackets?.includes(b.value)}
             >
               {b.label}
             </button>

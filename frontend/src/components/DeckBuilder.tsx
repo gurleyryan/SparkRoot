@@ -1,9 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
 import { useToast } from './ToastProvider';
 import BracketPicker from '@/components/BracketPicker';
 import { ApiClient } from '@/lib/api';
 import type { MTGCard } from '@/types/index';
 import { useCollectionStore } from '@/store/collectionStore';
+import CardGrid from './CardGrid';
 
 export interface DeckBuilderProps {
   onDeckGenerated: (cards: MTGCard[]) => void;
@@ -16,10 +18,20 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
   // Track if Game Changers is open (for toggle button label and behavior)
   const [gameChangersOpen, setGameChangersOpen] = useState(false);
   const showToast = useToast();
-  const [bracket, setBracket] = useState(2); // Default to Core
+  const [bracket, setBracket] = useState(1); // Default to 1 for House Rules
   const [commanderId, setCommanderId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [houseRules, setHouseRules] = useState(false);
+  // Salt weight thresholds: 0 = Allow all, 2 = <2, 3 = <3, 1 = No salty cards (very strict)
+  const saltOptions = [
+    { label: 'Allow all', value: 99 },
+    { label: 'Salt weight < 3', value: 3 },
+    { label: 'Salt weight < 2', value: 2 },
+    { label: 'No salty cards', value: 1 },
+  ];
+  const [saltThreshold, setSaltThreshold] = useState(saltOptions[0].value);
+  const [deck, setDeck] = useState<MTGCard[]>([]);
   const { activeCollection } = useCollectionStore();
 
   // Memoized list of possible commanders
@@ -40,7 +52,9 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
       const result: unknown = await apiClient.generateDeck(
         activeCollection?.cards ? (activeCollection.cards as unknown as Record<string, unknown>[]) : [],
         commanderId,
-        bracket
+        bracket,
+        houseRules,
+        saltThreshold
       );
       if (
         result &&
@@ -54,6 +68,7 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         } else if (deckRaw && typeof deckRaw === 'object') {
           deckCards = Object.values(deckRaw) as MTGCard[];
         }
+        setDeck(deckCards);
         onDeckGenerated(deckCards);
         showToast('Deck generated successfully!', 'success');
       } else if (
@@ -103,30 +118,57 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         <h2 className="text-3xl font-mtg pt-4 pb-2 text-rarity-rare">Deck Builder</h2>
         <div className="flex flex-col md:flex-row gap-4 pb-4 items-start">
           <div className="flex-1 min-w-[260px] flex flex-col gap-4">
-            <BracketPicker value={bracket} onChange={setBracket} className="mb-2" onlyButtons />
+            <div className="flex flex-row items-center gap-2 mb-2">
+              <input
+                id="house-rules-checkbox"
+                type="checkbox"
+                checked={houseRules}
+                onChange={e => {
+                  setHouseRules(e.target.checked);
+                  if (e.target.checked) setBracket(1);
+                }}
+                className="form-checkbox h-5 w-5 text-mtg-blue"
+                disabled={loadingProp || loading}
+              />
+              <label htmlFor="house-rules-checkbox" className="text-mtg-white font-semibold select-none cursor-pointer">Enable House Rules</label>
+            </div>
+            <BracketPicker
+              value={bracket}
+              onChange={setBracket}
+              className="mb-2"
+              onlyButtons
+              disabledBrackets={houseRules ? [2, 3, 4, 5] : []}
+            />
             <div className="flex flex-col gap-2">
-              <label htmlFor="commander-picker" className="block text-mtg-white font-semibold mb-1">Choose Commander</label>
+              <label htmlFor="salt-select" className="block text-mtg-white font-semibold mb-1">Salt Filtering:</label>
               <select
-                id="commander-picker"
+                id="salt-select"
                 className="form-input w-full px-3 py-2 rounded border border-mtg-blue bg-black text-white mb-1"
-                value={commanderId}
-                onChange={e => setCommanderId(e.target.value)}
+                value={saltThreshold}
+                onChange={e => setSaltThreshold(Number(e.target.value))}
+                disabled={loadingProp || loading}
               >
-                <option value="">-- Select a Commander --</option>
-                {commanderOptions.map(card => (
-                  <option key={card.id} value={card.id}>
-                    {card.name} {card.mana_cost ? `(${card.mana_cost})` : ''}
-                  </option>
+                {saltOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
+              <div className="text-xs text-slate-400">Choose how strictly to filter salty cards. "Salt weight" combines salt score, years included, and recency.</div>
               {commanderOptions.length === 0 && (
                 <div className="text-slate-400 text-sm mb-1">No eligible commanders found in your collection.</div>
               )}
               {error && <div className="text-red-500 mt-1">{error}</div>}
             </div>
+            <div className="flex flex-col gap-2 mt-2">
+            </div>
           </div>
           <div className="flex-1 min-w-[260px] flex flex-col gap-2">
-            <BracketPicker value={bracket} onChange={setBracket} className="mb-2" onlyDescription />
+            <BracketPicker
+              value={bracket}
+              onChange={setBracket}
+              className="mb-2"
+              onlyDescription
+              disabledBrackets={houseRules ? [2, 3, 4, 5] : []}
+            />
             <div className="flex flex-row gap-2 items-start mt-2 w-full">
               <button
                 className="btn-primary text-sm py-3 grow basis-3/4"
@@ -148,6 +190,13 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
             </div>
           </div>
         </div>
+        {/* Deck Preview */}
+        {deck && deck.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-xl font-bold text-mtg-white mb-2">Generated Deck</h3>
+            <CardGrid cards={deck} />
+          </div>
+        )}
       </div>
     </div>
   );
