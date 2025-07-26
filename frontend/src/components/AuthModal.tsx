@@ -195,11 +195,11 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Sign In: Only email/username and password. Sign Up: All fields. */}
+          {/* Sign In: Only email and password. Sign Up: All fields. */}
           {isLogin ? (
             <>
               <div>
-                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Email or Username</label>
+                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Email</label>
                 <input
                   type="text"
                   name="email"
