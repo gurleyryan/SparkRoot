@@ -1,4 +1,5 @@
-from typing import Dict, Any, List, Set, Optional
+from typing import Dict, Any, List, Set, Optional, cast
+from collections import Counter
 import os
 
 def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, List[int]]:
@@ -105,7 +106,6 @@ def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> 
     print(f"[DEBUG] detect_theme: commander type_line='{type_line}', keywords={commander.get('keywords', [])}")
     if "tribal" in type_line or "creature" in type_line:
         # Find most common creature type in the card pool
-        from collections import Counter
         types: List[str] = []
         for card in card_pool:
             if "creature" in (card.get("type_line", "").lower()):
@@ -163,7 +163,6 @@ def analyze_mana_curve(deck: List[Dict[str, Any]]) -> Dict[int, int]:
     Analyzes the mana curve of the deck.
     Returns a dictionary mapping converted mana cost (cmc) to the count of cards at that cost.
     """
-    from collections import Counter
     cmcs = [int(card.get("cmc", 0)) for card in deck if "cmc" in card]
     return dict(Counter(cmcs))
 
@@ -178,14 +177,24 @@ def select_lands(commander: Dict[str, Any], pool: List[Dict[str, Any]], num_land
     lands: List[Dict[str, Any]] = []
     def is_type(card: Dict[str, Any], t: str) -> bool:
         return t in str(card.get("type_line", "").lower())
-    # Utility and special lands
-    utility = [c for c in pool if is_type(c, "utility") or "utility" in c.get("keywords", [])]
+    # Use categories assigned by categorize_card
+
+    def has_cat(card: Dict[str, Any], cat: str) -> bool:
+        # Helper to check if a card has a category in its 'categories' set
+        return cat in card.get('categories', set())
+
+    # Assign categories to all cards in pool if not already present
+    for c in pool:
+        if 'categories' not in c:
+            c['categories'] = categorize_card(c)
+
+    utility = [c for c in pool if has_cat(c, "utility")]
     basics = [c for c in pool if is_type(c, "basic land")]
-    duals = [c for c in pool if "dual" in c.get("keywords", []) or ("land" in c.get("type_line", "") and len(set(c.get("color_identity", []))) == 2)]
-    fetches = [c for c in pool if "fetch" in c.get("keywords", [])]
-    rainbow = [c for c in pool if "rainbow" in c.get("keywords", []) or ("land" in c.get("type_line", "") and len(set(c.get("color_identity", []))) > 2)]
-    command_tower = [c for c in pool if c.get("name", "").lower() == "command tower"]
-    trilands = [c for c in pool if "triland" in c.get("keywords", []) or ("land" in c.get("type_line", "") and len(set(c.get("color_identity", []))) == 3)]
+    duals = [c for c in pool if has_cat(c, "dual")]
+    fetches = [c for c in pool if has_cat(c, "fetch")]
+    rainbow = [c for c in pool if has_cat(c, "rainbow")]
+    command_tower = [c for c in pool if has_cat(c, "command_tower")]
+    trilands = [c for c in pool if has_cat(c, "triland")]
     print(f"[DEBUG] select_lands: utility={len(utility)}, basics={len(basics)}, duals={len(duals)}, fetches={len(fetches)}, rainbow={len(rainbow)}, command_tower={len(command_tower)}, trilands={len(trilands)}")
 
     # Add non-basic lands first, no duplicates
@@ -219,25 +228,27 @@ def select_lands(commander: Dict[str, Any], pool: List[Dict[str, Any]], num_land
         lands += rainbow[:10]
         print(f"[DEBUG] select_lands: color_count=5, added command_tower, utility, fetches, rainbow")
 
-    # Remove duplicates, keep order
-    seen: Set[str] = set()
+    # Remove duplicates by unique id, keep order
+    seen_ids: Set[str] = set()
     final_lands: List[Dict[str, Any]] = []
     for c in lands:
-        n = c.get("name", "")
-        if n not in seen and len(final_lands) < num_lands:
+        cid = str(c.get("id"))
+        if cid not in seen_ids and len(final_lands) < num_lands:
             final_lands.append(c)
-            seen.add(n)
-            print(f"[DEBUG] select_lands: added nonbasic land {n}")
+            seen_ids.add(cid)
+            print(f"[DEBUG] select_lands: added nonbasic land {c.get('name')} (id={cid})")
 
-    # Fill remaining slots with basic lands, respecting user quantity
+    # Fill remaining slots with basic lands, respecting all unique printings and their quantities
     print(f"[DEBUG] select_lands: filling with basics, need {num_lands - len(final_lands)} more lands")
-    from typing import Dict as TypingDict, Any as TypingAny, List as TypingList
-    basics_by_color: TypingDict[str, TypingList[TypingDict[str, TypingAny]]] = {"W": [], "U": [], "B": [], "R": [], "G": []}
-    basics_quantities: TypingDict[str, int] = {}
+    basics_by_color: Dict[str, List[Dict[str, Any]]] = {"W": [], "U": [], "B": [], "R": [], "G": []}
+    basics_quantities: Dict[str, int] = {}
+    basics_by_id: Dict[str, Dict[str, Any]] = {}
     for c in basics:
         name = c.get("name", "").lower()
+        cid = str(c.get("id"))
         qty = int(c.get("quantity", 1))
-        basics_quantities[name] = qty
+        basics_quantities[cid] = qty
+        basics_by_id[cid] = c
         if "plains" in name:
             basics_by_color["W"].append(c)
         elif "island" in name:
@@ -248,10 +259,10 @@ def select_lands(commander: Dict[str, Any], pool: List[Dict[str, Any]], num_land
             basics_by_color["R"].append(c)
         elif "forest" in name:
             basics_by_color["G"].append(c)
-        print(f"[DEBUG] select_lands: found basic {name} (qty={qty})")
+        print(f"[DEBUG] select_lands: found basic {name} (id={cid}, qty={qty})")
 
     num_needed = num_lands - len(final_lands)
-    basics_used: TypingDict[str, int] = {name: 0 for name in basics_quantities}
+    basics_used: Dict[str, int] = {cid: 0 for cid in basics_quantities}
     if num_needed > 0:
         color_list = list(colors) if colors else ["C"]
         added = 0
@@ -259,27 +270,26 @@ def select_lands(commander: Dict[str, Any], pool: List[Dict[str, Any]], num_land
         while added < num_needed:
             color = color_list[color_idx % len(color_list)]
             color_idx += 1
-            # Try to add a basic of this color with available quantity
+            # Try to add a basic of this color with available quantity, all printings
             found = False
             for c in basics_by_color.get(color, []):
-                name = c.get("name", "").lower()
-                if basics_used[name] < basics_quantities[name]:
+                cid = str(c.get("id"))
+                if basics_used[cid] < basics_quantities[cid]:
                     final_lands.append(dict(c))
-                    basics_used[name] += 1
+                    basics_used[cid] += 1
                     added += 1
                     found = True
-                    print(f"[DEBUG] select_lands: added {name} for color {color} ({basics_used[name]}/{basics_quantities[name]})")
+                    print(f"[DEBUG] select_lands: added {c.get('name')} (id={cid}) for color {color} ({basics_used[cid]}/{basics_quantities[cid]})")
                     break
             if not found:
-                # Try any basic with available quantity
-                for c in basics:
-                    name = c.get("name", "").lower()
-                    if basics_used[name] < basics_quantities[name]:
+                # Try any basic with available quantity, all printings
+                for cid, c in basics_by_id.items():
+                    if basics_used[cid] < basics_quantities[cid]:
                         final_lands.append(dict(c))
-                        basics_used[name] += 1
+                        basics_used[cid] += 1
                         added += 1
                         found = True
-                        print(f"[DEBUG] select_lands: added fallback basic {name} ({basics_used[name]}/{basics_quantities[name]})")
+                        print(f"[DEBUG] select_lands: added fallback {c.get('name')} (id={cid}) ({basics_used[cid]}/{basics_quantities[cid]})")
                         break
             if not found:
                 print(f"[DEBUG] select_lands: no more basics available to fill lands (added {added} of {num_needed})")
@@ -338,7 +348,6 @@ def filter_card_pool(
                 print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (house rules ban: unfun card)")
                 continue
         # Salt filtering: skip cards with too high salt weight
-        from typing import cast, Dict
         salt_info = cast(Dict[str, float], salt_list.get(card.get("name", ""), {}))
         # salt_info should be a dict: {year: salt_score, ...}
         salt_weight = 0.0
@@ -373,6 +382,7 @@ def categorize_card(card: Dict[str, Any]) -> Set[str]:
     categories: Set[str] = set()
     keywords: List[str] = [str(k).lower() for k in list(card.get("keywords") or [])]
     type_line: str = str(card.get("type_line") or "").lower()
+    name: str = str(card.get("name") or "").lower()
     # Ramp: mana acceleration or ramp keywords
     if "ramp" in keywords or "mana" in keywords or "mana" in type_line:
         categories.add("ramp")
@@ -405,7 +415,48 @@ def categorize_card(card: Dict[str, Any]) -> Set[str]:
     if "wincon" in keywords:
         categories.add("wincon")
         print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'wincon'")
-    # Lands
+    # Land subtypes for advanced land selection
+    if "land" in type_line:
+        categories.add("lands")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'lands'")
+        # Command Tower
+        if name == "command tower":
+            categories.add("command_tower")
+            print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'command_tower'")
+        # Rainbow lands: 3+ color identity or known rainbow names
+        if len(set(card.get("color_identity", []))) > 2 or "rainbow" in keywords or name in {"cascading cataracts", "the world tree", "chromatic lantern"}:
+            categories.add("rainbow")
+            print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'rainbow'")
+        # Dual lands: 2 color identity, not basic
+        if len(set(card.get("color_identity", []))) == 2 and "basic land" not in type_line:
+            categories.add("dual")
+            print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'dual'")
+        # Triland: 3 color identity, not basic
+        if len(set(card.get("color_identity", []))) == 3 and "basic land" not in type_line:
+            categories.add("triland")
+            print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'triland'")
+        # Fetch lands: common fetch names or "fetch" in keywords
+        fetch_names = ["flooded strand", "polluted delta", "windswept heath", "wooded foothills", "bloodstained mire", "marsh flats", "scalding tarn", "verdant catacombs", "arid mesa", "misty rainforest", "prismatic vista", "evolving wilds", "terramorphic expanse"]
+        if name in fetch_names or "fetch" in keywords:
+            categories.add("fetch")
+            print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'fetch'")
+        # Utility lands: not basic, not dual, not triland, not rainbow, not fetch, not command tower
+        if (
+            "basic land" not in type_line
+            and "dual" not in categories
+            and "triland" not in categories
+            and "rainbow" not in categories
+            and "fetch" not in categories
+            and "command_tower" not in categories
+        ):
+            categories.add("utility")
+            print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'utility'")
+    # Creature
+    if "creature" in type_line:
+        categories.add("creature")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'creature'")
+    print(f"[DEBUG] categorize_card: {card.get('name')} categories = {categories}")
+    return categories
     if "land" in type_line:
         categories.add("lands")
         print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'lands'")
