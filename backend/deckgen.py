@@ -104,22 +104,70 @@ def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> 
     """
     type_line = commander.get("type_line", "").lower()
     print(f"[DEBUG] detect_theme: commander type_line='{type_line}', keywords={commander.get('keywords', [])}")
-    if "tribal" in type_line or "creature" in type_line:
-        # Find most common creature type in the card pool
-        types: List[str] = []
+
+
+    # Dynamically extract all unique keywords from commander's keywords and oracle_text
+    commander_keywords = set(str(k).lower() for k in commander.get("keywords", []))
+    oracle = str(commander.get("oracle_text", "")).lower()
+    # Extract single-word and two-word phrases from oracle text for possible theme candidates
+    import re
+    oracle_words: Set[str] = set(re.findall(r"\b[a-zA-Z][a-zA-Z\-']*\b", oracle))
+    oracle_phrases: Set[str] = set()
+    oracle_tokens = oracle.split()
+    for i in range(len(oracle_tokens) - 1):
+        phrase = f"{oracle_tokens[i]} {oracle_tokens[i+1]}".lower()
+        oracle_phrases.add(phrase)
+    # Combine all possible theme candidates, ensure all are str
+    theme_candidates: Set[str] = set()
+    theme_candidates.update(str(k) for k in commander_keywords)
+    theme_candidates.update(str(w) for w in oracle_words)
+    theme_candidates.update(str(p) for p in oracle_phrases)
+
+    # 1. Try to match the commander's main type (e.g., Sphinx, Human, etc.)
+    main_type = None
+    if "creature" in type_line:
+        # Extract the main creature type (last word after em dash)
+        parts = type_line.split("—")
+        if len(parts) > 1:
+            type_words = parts[-1].strip().split()
+            if type_words:
+                main_type = type_words[0]
+                print(f"[DEBUG] detect_theme: main_type from type_line is '{main_type}'")
+    # 2. If main_type found, check if it's common in the pool
+    if main_type:
+        count = sum(1 for card in card_pool if main_type in card.get("type_line", "").lower())
+        if count > 2:
+            print(f"[DEBUG] detect_theme: using main_type '{main_type}' as theme (count in pool: {count})")
+            return main_type
+
+    # 3. Check for any theme candidate in commander's keywords or oracle text
+    for candidate in theme_candidates:
+        if not candidate or len(candidate) < 3:
+            continue
+        # Check if candidate is present in any card's type_line or keywords
         for card in card_pool:
-            if "creature" in (card.get("type_line", "").lower()):
-                for t in (card.get("type_line", "").replace("Legendary Creature", "").replace("Creature", "").split("—")[-1].split()):
-                    types.append(t.strip())
-        if types:
-            most_common = Counter(types).most_common(1)[0][0]
-            print(f"[DEBUG] detect_theme: most common creature type is '{most_common}'")
-            return most_common
-    # Otherwise, use first keyword or ability word
-    keywords = commander.get("keywords", [])
-    if keywords:
-        print(f"[DEBUG] detect_theme: using first keyword '{keywords[0]}' as theme")
-        return str(keywords[0]).lower()
+            if candidate in card.get("type_line", "").lower() or candidate in " ".join([str(k).lower() for k in card.get("keywords", [])]):
+                print(f"[DEBUG] detect_theme: using commander keyword/oracle '{candidate}' as theme")
+                return candidate
+
+    # 4. Otherwise, use most common creature type or keyword in pool
+    types: List[str] = []
+    pool_keywords: List[str] = []
+    for card in card_pool:
+        if "creature" in (card.get("type_line", "").lower()):
+            for t in (card.get("type_line", "").replace("Legendary Creature", "").replace("Creature", "").split("—")[-1].split()):
+                types.append(t.strip())
+        # Collect all keywords from pool
+        pool_keywords.extend([str(k).lower() for k in card.get("keywords", [])])
+    if types:
+        most_common = Counter(types).most_common(1)[0][0]
+        print(f"[DEBUG] detect_theme: most common creature type is '{most_common}'")
+        return most_common
+    if pool_keywords:
+        most_common_kw = Counter(pool_keywords).most_common(1)[0][0]
+        print(f"[DEBUG] detect_theme: most common keyword in pool is '{most_common_kw}'")
+        return most_common_kw
+
     print("[DEBUG] detect_theme: no theme detected, using 'generic'")
     return "generic"
 
@@ -561,7 +609,38 @@ def generate_commander_deck(
 
     # 7. Fill main theme (if not already filled)
     if "main_theme" in CATEGORY_TARGETS:
-        theme_pool = [c for c in filtered_pool if theme in (c.get("type_line", "").lower() + " " + " ".join([str(k).lower() for k in c.get("keywords", [])]))]
+        # Recompute theme candidates as in detect_theme
+        commander_keywords = set(str(k).lower() for k in commander.get("keywords", []))
+        oracle = str(commander.get("oracle_text", "")).lower()
+        import re
+        oracle_words: Set[str] = set(re.findall(r"\b[a-zA-Z][a-zA-Z\-']*\b", oracle))
+        oracle_phrases: Set[str] = set()
+        oracle_tokens = oracle.split()
+        for i in range(len(oracle_tokens) - 1):
+            phrase = f"{oracle_tokens[i]} {oracle_tokens[i+1]}".lower()
+            oracle_phrases.add(phrase)
+        theme_candidates: Set[str] = set()
+        theme_candidates.update(str(k) for k in commander_keywords)
+        theme_candidates.update(str(w) for w in oracle_words)
+        theme_candidates.update(str(p) for p in oracle_phrases)
+        # Always include the main_type and theme string
+        main_type = None
+        type_line = commander.get("type_line", "").lower()
+        if "creature" in type_line:
+            parts = type_line.split("—")
+            if len(parts) > 1:
+                type_words = parts[-1].strip().split()
+                if type_words:
+                    main_type = type_words[0]
+        if main_type:
+            theme_candidates.add(main_type)
+        theme_candidates.add(str(theme))
+
+        def card_matches_theme(card: Dict[str, Any], candidates: Set[str]) -> bool:
+            card_text = card.get("type_line", "").lower() + " " + " ".join([str(k).lower() for k in card.get("keywords", [])])
+            return any(tc for tc in candidates if tc and len(tc) > 2 and tc in card_text)
+
+        theme_pool = [c for c in filtered_pool if card_matches_theme(c, theme_candidates)]
         theme_pool = sorted(theme_pool, key=lambda c: c.get("edhrec_rank", 999999))
         theme_added = 0
         for card in theme_pool:
@@ -569,7 +648,7 @@ def generate_commander_deck(
                 deck.append(card)
                 used_names.add(card["name"])
                 theme_added += 1
-        print(f"[DEBUG] Added {theme_added} cards to main theme '{theme}'")
+        print(f"[DEBUG] Added {theme_added} cards to main theme(s) {sorted(theme_candidates)}")
 
     # 8. Add lands using advanced land logic
     num_lands = max(min(38, 100 - len(deck)), 33)
@@ -597,16 +676,47 @@ def generate_commander_deck(
 
     print(f"[DEBUG] Deck size after lands: {len(deck)}")
     print(f"[DEBUG] Land count in deck: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}")
-    # 9. Fill to 100 with best remaining cards (by edhrec_rank, prefer curve balance)
+
+    # 9. Fill to 100 with best remaining cards (by edhrec_rank, prefer curve balance),
+    # but do not exceed max for any category (especially creatures)
+    # Build current category counts
+    def get_category_counts(deck_cards: List[Dict[str, Any]]) -> Dict[str, int]:
+        counts: Dict[str, int] = {cat: 0 for cat in CATEGORY_TARGETS}
+        for card in deck_cards:
+            cats = categorize_card(card)
+            for cat in cats:
+                if cat in counts:
+                    counts[cat] += 1
+        return counts
+
     while len(deck) < 100:
         remaining = [c for c in filtered_pool if c["name"] not in used_names]
         if not remaining:
             break
-        # Prefer cards that help mana curve (2-3 cmc)
-        next_card = sorted(remaining, key=lambda c: (abs(int(c.get("cmc", 3)) - 3), c.get("edhrec_rank", 999999)))[0]
-        deck.append(next_card)
-        used_names.add(next_card["name"])
-        print(f"[DEBUG]   Added filler card: {next_card.get('name')} (id={next_card.get('id')})")
+        # Sort by mana curve and edhrec_rank
+        sorted_remaining = sorted(remaining, key=lambda c: (abs(int(c.get("cmc", 3)) - 3), c.get("edhrec_rank", 999999)))
+        added = False
+        category_counts = get_category_counts(deck)
+        for next_card in sorted_remaining:
+            cats = categorize_card(next_card)
+            # Only add if adding this card does not push any category over its max
+            exceeds = False
+            for cat in cats:
+                if cat in CATEGORY_TARGETS:
+                    _, max_count = CATEGORY_TARGETS[cat]
+                    if category_counts[cat] >= max_count:
+                        exceeds = True
+                        break
+            if not exceeds:
+                deck.append(next_card)
+                used_names.add(next_card["name"])
+                print(f"[DEBUG]   Added filler card: {next_card.get('name')} (id={next_card.get('id')})")
+                added = True
+                break
+        if not added:
+            # No eligible card found that doesn't exceed a max, break to avoid infinite loop
+            print("[DEBUG]   No eligible filler card found that does not exceed category max. Stopping filler.")
+            break
 
     print(f"[DEBUG] Final deck size: {len(deck[:99])} (should be 99 + commander)")
     print(f"[DEBUG] Final land count: {sum(1 for c in deck[:99] if 'land' in (c.get('type_line','').lower()))}")
