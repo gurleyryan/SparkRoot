@@ -89,6 +89,17 @@ CATEGORY_TARGETS = {
     "main_theme": (0, 99),   # Main deck theme (tribal, etc.)
 }
 
+# CARD_TYPE_TARGETS defines the ideal number of each card type in a 100-card deck (percentages rounded to nearest card)
+CARD_TYPE_TARGETS = {
+    "land": 36,         # 36%
+    "creature": 29,     # 29%
+    "instant": 10,      # 10%
+    "sorcery": 8,       # 8%
+    "enchantment": 6,   # 6%
+    "artifact": 6,      # 6%
+    "planeswalker": 4,  # 4%
+}
+
 # LAND_TYPE_PRIORITY defines the preferred order for selecting lands to ensure color fixing and deck consistency.
 LAND_TYPE_PRIORITY = [
     "command_tower", "rainbow", "dual", "fetch", "triland", "utility", "basic"
@@ -657,17 +668,17 @@ def generate_commander_deck(
     lands = select_lands(commander, land_pool, num_lands)
     print(f"[DEBUG] Selected {len(lands)} lands: {[l.get('name') for l in lands[:5]]}{'...' if len(lands) > 5 else ''}")
     for land in lands:
-        # For basics, allow all unique printings and up to the user's owned quantity
         land_id = land.get("id")
         is_basic = "basic land" in (land.get("type_line", "").lower())
         if is_basic:
-            # Count how many of this id are already in deck
+            # Allow multiple basics of the same name and id, up to owned quantity and deck size
             count_in_deck = sum(1 for c in deck if c.get("id") == land_id)
             owned_qty = int(land.get("quantity", 1))
             if count_in_deck < owned_qty and len(deck) < 100:
                 deck.append(land)
                 print(f"[DEBUG]   Added basic land: {land.get('name')} (id={land_id}) [{count_in_deck+1}/{owned_qty}]")
         else:
+            # Only add nonbasics if not already present by name or id
             if land["name"] not in used_names and land_id not in used_ids and len(deck) < 100:
                 deck.append(land)
                 used_names.add(land["name"])
@@ -678,52 +689,100 @@ def generate_commander_deck(
     print(f"[DEBUG] Land count in deck: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}")
 
     # 9. Fill to 100 with best remaining cards (by edhrec_rank, prefer curve balance),
-    # but do not exceed max for any category (especially creatures)
-    # Build current category counts
-    def get_category_counts(deck_cards: List[Dict[str, Any]]) -> Dict[str, int]:
-        counts: Dict[str, int] = {cat: 0 for cat in CATEGORY_TARGETS}
-        for card in deck_cards:
-            cats = categorize_card(card)
-            for cat in cats:
-                if cat in counts:
-                    counts[cat] += 1
-        return counts
-
-    while len(deck) < 100:
-        remaining = [c for c in filtered_pool if c["name"] not in used_names]
-        if not remaining:
-            break
-        # Sort by mana curve and edhrec_rank
-        sorted_remaining = sorted(remaining, key=lambda c: (abs(int(c.get("cmc", 3)) - 3), c.get("edhrec_rank", 999999)))
-        added = False
-        category_counts = get_category_counts(deck)
-        for next_card in sorted_remaining:
-            cats = categorize_card(next_card)
-            # Only add if adding this card does not push any category over its max
-            exceeds = False
-            for cat in cats:
-                if cat in CATEGORY_TARGETS:
-                    _, max_count = CATEGORY_TARGETS[cat]
-                    if category_counts[cat] >= max_count:
-                        exceeds = True
-                        break
-            if not exceeds:
-                deck.append(next_card)
-                used_names.add(next_card["name"])
-                print(f"[DEBUG]   Added filler card: {next_card.get('name')} (id={next_card.get('id')})")
-                added = True
+    # but do not exceed max for any CATEGORY_TARGETS category (especially creatures)
+    # Use CARD_TYPE_TARGETS as a soft guide only
+    # --- FINAL ENFORCEMENT: Ensure all CATEGORY_TARGETS are respected ---
+    # Remove cards from categories that exceed their max (prioritize lowest synergy/rank)
+    def trim_category(deck: List[Dict[str, Any]], cat: str, max_count: int):
+        # Remove cards of this category until at or below max_count
+        trimmed = False
+        while True:
+            cat_cards = [c for c in deck if cat in categorize_card(c)]
+            if len(cat_cards) <= max_count:
                 break
-        if not added:
-            # No eligible card found that doesn't exceed a max, break to avoid infinite loop
-            print("[DEBUG]   No eligible filler card found that does not exceed category max. Stopping filler.")
-            break
+            # Remove lowest edhrec_rank or last added
+            to_remove = sorted(cat_cards, key=lambda c: c.get("edhrec_rank", 999999), reverse=True)[0]
+            deck.remove(to_remove)
+            trimmed = True
+            print(f"[DEBUG]   Trimmed {cat}: {to_remove.get('name')}")
+        return trimmed
 
-    print(f"[DEBUG] Final deck size: {len(deck[:99])} (should be 99 + commander)")
-    print(f"[DEBUG] Final land count: {sum(1 for c in deck[:99] if 'land' in (c.get('type_line','').lower()))}")
+    # Add cards to categories that are below their min (prioritize highest synergy/rank)
+    def fill_category(
+        deck: List[Dict[str, Any]],
+        cat: str,
+        min_count: int,
+        pool: List[Dict[str, Any]],
+        used_names: Set[str],
+        used_ids: Set[Any],
+    ):
+        added = False
+        while True:
+            cat_cards = [c for c in deck if cat in categorize_card(c)]
+            if len(cat_cards) >= min_count:
+                break
+            # Find best available card in pool
+            candidates = [c for c in pool if cat in categorize_card(c) and c["name"] not in used_names and c.get("id") not in used_ids]
+            if not candidates:
+                break
+            best = sorted(candidates, key=lambda c: c.get("edhrec_rank", 999999))[0]
+            deck.append(best)
+            used_names.add(best["name"])
+            used_ids.add(best.get("id"))
+            added = True
+            print(f"[DEBUG]   Filled {cat}: {best.get('name')}")
+        return added
+
+    # Enforce all CATEGORY_TARGETS
+    for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
+        if cat == "lands":
+            continue  # Handle lands separately
+        trim_category(deck, cat, max_count)
+    for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
+        if cat == "lands":
+            continue
+        fill_category(deck, cat, min_count, filtered_pool, used_names, used_ids)
+
+    # Enforce land count strictly
+    land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
+    min_lands, max_lands = CATEGORY_TARGETS["lands"]
+    # Remove excess lands
+    while len(land_cards) > max_lands:
+        # Remove lowest edhrec_rank or last added
+        to_remove = sorted(land_cards, key=lambda c: c.get("edhrec_rank", 999999), reverse=True)[0]
+        deck.remove(to_remove)
+        print(f"[DEBUG]   Trimmed land: {to_remove.get('name')}")
+        land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
+    # Add lands if below min
+    land_pool = [c for c in filtered_pool if "land" in str(c.get("type_line", "")).lower() and c["name"] not in used_names and c.get("id") not in used_ids]
+    while len(land_cards) < min_lands and land_pool:
+        best = sorted(land_pool, key=lambda c: c.get("edhrec_rank", 999999))[0]
+        deck.append(best)
+        used_names.add(best["name"])
+        used_ids.add(best.get("id"))
+        print(f"[DEBUG]   Filled land: {best.get('name')}")
+        land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
+        land_pool = [c for c in filtered_pool if "land" in str(c.get("type_line", "")).lower() and c["name"] not in used_names and c.get("id") not in used_ids]
+
+    # Final trim if deck is over 99 (excluding commander)
+    while len(deck) > 99:
+        # Remove lowest synergy/rank non-land, non-creature, non-essential
+        non_essential = [c for c in deck if "land" not in str(c.get("type_line", "")).lower() and "creature" not in str(c.get("type_line", "")).lower()]
+        if non_essential:
+            to_remove = sorted(non_essential, key=lambda c: c.get("edhrec_rank", 999999), reverse=True)[0]
+            deck.remove(to_remove)
+            print(f"[DEBUG]   Final trim: {to_remove.get('name')}")
+        else:
+            # If only lands/creatures left, remove last added
+            deck.pop()
+            print(f"[DEBUG]   Final trim: removed last card")
+
+    print(f"[DEBUG] Final deck size: {len(deck)} (should be 99 + commander)")
+    print(f"[DEBUG] Final land count: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}")
     return {
         "commander": commander,
-        "deck": deck[:99],
-        "deck_size": len(deck[:99]),
-        "total_cards": len(deck[:99]) + 1,
+        "deck": deck,
+        "deck_size": len(deck),
+        "total_cards": len(deck) + 1,
         "bracket": bracket,
     }

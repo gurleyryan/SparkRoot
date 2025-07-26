@@ -115,7 +115,7 @@ def analyze_card_types(deck: List[Dict[str, Any]]) -> Dict[str, Any]:
         'planeswalkers': 0,
         'lands': 0
     }
-    
+
     # Count card types
     for card in deck:
         type_line = card.get('type_line', '').lower()
@@ -133,26 +133,26 @@ def analyze_card_types(deck: List[Dict[str, Any]]) -> Dict[str, Any]:
             type_counts['planeswalkers'] += 1
         elif 'land' in type_line:
             type_counts['lands'] += 1
-    
+
     total_cards = len(deck)
     type_percentages: dict[str, float] = {k: float(v / total_cards * 100) for k, v in type_counts.items()}
-    
-    # Ideal type distribution for balanced Commander deck
+
+    # Ideal type distribution for balanced Commander deck (matches CARD_TYPE_TARGETS in deckgen.py)
     ideal_types = {
-        'creatures': 25,      # ~25% creatures
-        'instants': 15,       # ~15% instants
-        'sorceries': 10,      # ~10% sorceries
-        'enchantments': 8,    # ~8% enchantments
-        'artifacts': 8,       # ~8% artifacts
-        'planeswalkers': 4,   # ~4% planeswalkers
-        'lands': 30          # ~30% lands
+        'lands': 36,         # 36 lands
+        'creatures': 29,     # 29 creatures
+        'instants': 10,      # 10 instants
+        'sorceries': 8,      # 8 sorceries
+        'enchantments': 6,   # 6 enchantments
+        'artifacts': 6,      # 6 artifacts
+        'planeswalkers': 4   # 4 planeswalkers
     }
-    
+
     # Calculate balance score
-    total_deviation = sum(abs(type_percentages[t] - ideal_types[t]) for t in ideal_types)
+    total_deviation = sum(abs(type_percentages[t] - (ideal_types[t] / 99 * 100)) for t in ideal_types)
     balance_score = max(0, 100 - (total_deviation / 3))  # Scale deviation
-    
-    ideal_types_float = {k: float(v) for k, v in ideal_types.items()}
+
+    ideal_types_float = {k: float(v / 99 * 100) for k, v in ideal_types.items()}
     return {
         'score': round(balance_score, 1),
         'distribution': type_counts,

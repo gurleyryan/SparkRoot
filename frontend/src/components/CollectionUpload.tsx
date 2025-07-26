@@ -199,7 +199,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   }
 
   return (
-    <div className="sleeve-morphism max-w-4xl mx-auto" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+    <div className="sleeve-morphism max-w-4xl mx-auto p-6" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
       {/* Collection Name */}
       <div className="mb-4">
         <label className="block font-semibold mb-1">Collection Name</label>
