@@ -106,7 +106,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
   const [cardSortField, setCardSortField] = useState<"name" | "cmc" | "rarity" | "set">("name");
   const [cardSortDir, setCardSortDir] = useState<"asc" | "desc">("asc");
 
-  // Compute filtered/sorted cards for opened collection
+  // Compute filtered/sorted cards for opened collection, grouped by id and summed quantity
   const filteredSortedCards = React.useMemo(() => {
     if (!openedCollection?.cards) return [];
     let cards = [...openedCollection.cards];
@@ -128,8 +128,19 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
     if (rarityFilter) {
       cards = cards.filter(card => card.rarity === rarityFilter);
     }
+    // Group by id and sum quantity
+    const map = new Map<string, any>();
+    for (const card of cards) {
+      const key = card.id || card.name;
+      if (map.has(key)) {
+        map.get(key).quantity = (map.get(key).quantity || 1) + (card.quantity || 1);
+      } else {
+        map.set(key, { ...card, quantity: card.quantity || 1 });
+      }
+    }
+    let grouped = Array.from(map.values());
     // Sort
-    cards.sort((a, b) => {
+    grouped.sort((a, b) => {
       let cmp = 0;
       if (cardSortField === "name") {
         cmp = a.name.localeCompare(b.name);
@@ -137,13 +148,13 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
         cmp = (a.cmc ?? 0) - (b.cmc ?? 0);
       } else if (cardSortField === "rarity") {
         const order = { common: 1, uncommon: 2, rare: 3, mythic: 4 };
-        cmp = (order[a.rarity] ?? 0) - (order[b.rarity] ?? 0);
+        cmp = (order[a.rarity as keyof typeof order] ?? 0) - (order[b.rarity as keyof typeof order] ?? 0);
       } else if (cardSortField === "set") {
         cmp = a.set.localeCompare(b.set);
       }
       return cardSortDir === "asc" ? cmp : -cmp;
     });
-    return cards;
+    return grouped;
   }, [openedCollection, cardSearchQuery, colorFilter, rarityFilter, cardSortField, cardSortDir]);
 
   // Sort collections based on active sort field and direction

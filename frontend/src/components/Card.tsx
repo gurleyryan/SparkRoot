@@ -15,9 +15,10 @@ export type MTGCardWithFaces = MTGCard & {
 export interface CardProps {
   card: MTGCardWithFaces;
   className?: string;
+  quantity?: number; // context-aware quantity (deck, collection, etc)
 }
 
-const Card: React.FC<CardProps> = ({ card, className = "" }) => {
+const Card: React.FC<CardProps> = ({ card, className = "", quantity }) => {
   // Debug: log card data to inspect Tergrid and DFCs
   if (typeof window !== 'undefined') {
     // Only log in browser, not SSR
@@ -91,6 +92,9 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
   // Compute classes for the card image wrapper: pop out if hovered or expanded
   const popOutClass = expanded ? 'scale-105 border-8' : '';
 
+  // Context-aware quantity: prefer prop, then card.quantity, undefined otherwise
+  const displayQuantity = typeof quantity === 'number' ? quantity : (typeof card.quantity === 'number' ? card.quantity : undefined);
+
   return (
     <div ref={cardRef} className={`relative ${className}`} tabIndex={0}>
       <button
@@ -126,9 +130,9 @@ const Card: React.FC<CardProps> = ({ card, className = "" }) => {
               {faceIndex === 0 ? faces[0]?.name || 'Front' : faces[1]?.name || 'Back'}
             </div>
           )}
-          {typeof card.quantity === "number" && card.quantity > 1 && (
+          {typeof displayQuantity === 'number' && displayQuantity > 1 && (
             <div className="absolute top-2 right-2 bg-mtg-blue text-white rounded-full px-2 py-1 text-xs font-bold shadow">
-              x{card.quantity}
+              x{displayQuantity}
             </div>
           )}
         </div>

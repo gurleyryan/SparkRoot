@@ -61,6 +61,26 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
     );
   }, [cardSource]);
 
+  // Utility: group and count cards by id (for deck display)
+  function groupDeckCards(cards: MTGCard[]): Array<MTGCard & { quantity: number }> {
+    const map = new Map<string, { card: MTGCard; quantity: number }>();
+    for (const card of cards) {
+      // Use id as key (unique printing/art)
+      const key = card.id || card.name;
+      if (map.has(key)) {
+        map.get(key)!.quantity += 1;
+      } else {
+        map.set(key, { card, quantity: 1 });
+      }
+    }
+    // For Commander, always show quantity 1 (even if duplicated)
+    // For basics, show actual quantity per unique printing
+    return Array.from(map.values()).map(({ card, quantity }) => {
+      const isBasic = card.type_line && card.type_line.toLowerCase().includes('basic land');
+      return { ...card, quantity: isBasic ? quantity : 1 };
+    });
+  }
+
   const handleGenerateDeck = async () => {
     setLoading(true);
     setError('');
@@ -82,7 +102,6 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         if ((result as any).deck && (result as any).analysis) {
           const deckObj = (result as any).deck;
           const commander = (result as any).commander;
-          // Always ensure 'cards' property exists and is an array
           let cards: MTGCard[] = [];
           if (deckObj && Array.isArray(deckObj.deck)) {
             cards = deckObj.deck as MTGCard[];
@@ -90,13 +109,15 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
           if (commander) {
             cards = [commander, ...cards];
           }
+          // Group and count for deck display
+          const grouped = groupDeckCards(cards);
           const fullDeck = {
             ...deckObj,
             commander,
             analysis: (result as any).analysis,
-            cards,
+            cards: grouped,
           };
-          setDeck(cards);
+          setDeck(grouped);
           onDeckGenerated(fullDeck);
           showToast('Deck generated successfully!', 'success');
           return;
@@ -111,8 +132,9 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         if (commander) {
           deckCards = [commander, ...deckCards];
         }
-        setDeck(deckCards);
-        onDeckGenerated(deckCards);
+        const grouped = groupDeckCards(deckCards);
+        setDeck(grouped);
+        onDeckGenerated(grouped);
         showToast('Deck generated successfully!', 'success');
       } else if (
         result &&

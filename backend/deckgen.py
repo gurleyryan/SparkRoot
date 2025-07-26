@@ -2,6 +2,7 @@ from typing import Dict, Any, List, Set, Optional
 import os
 
 def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, List[int]]:
+    print(f"[DEBUG] fetch_salt_list_from_supabase called with card_pool size: {len(card_pool)}")
     """
     Fetches the salt list from Supabase and returns a dict mapping card name to years_included.
     Only includes cards present in the user's card pool for efficiency.
@@ -9,13 +10,14 @@ def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, 
     try:
         from supabase import create_client
     except ImportError:
-        print("supabase-py is not installed. Salt filtering will be skipped.")
+        print("[DEBUG] supabase-py is not installed. Salt filtering will be skipped.")
         return {}
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print("Set SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment to fetch salt list.")
+        print("[DEBUG] Set SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment to fetch salt list.")
         return {}
+    print("[DEBUG] Connecting to Supabase for salt list fetch...")
     supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     salt_map: Dict[str, List[int]] = {}
     page = 0
@@ -27,10 +29,13 @@ def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, 
         cid = str(card.get("id"))
         pool_ids.add(cid)
         name_by_id[cid] = card.get("name", "")
+    print(f"[DEBUG] Pool ids for salt mapping: {len(pool_ids)}")
     while True:
+        print(f"[DEBUG] Fetching salt page {page}...")
         resp = supabase.table("salt").select("card_id,years_included").range(page * page_size, (page + 1) * page_size - 1).execute()
         data = resp.data
         if not data:
+            print(f"[DEBUG] No more salt data at page {page}.")
             break
         for row in data:
             cid = str(row["card_id"])
@@ -38,12 +43,16 @@ def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, 
                 name: str = name_by_id.get(cid, "")
                 if name:
                     salt_map[name] = row.get("years_included", [])
+                    print(f"[DEBUG]   Mapped salt for {name} (id={cid}): {row.get('years_included', [])}")
         if len(data) < page_size:
+            print(f"[DEBUG] Last salt page fetched: {page}")
             break
         page += 1
+    print(f"[DEBUG] Finished salt mapping. Total mapped: {len(salt_map)}")
     return salt_map
 
 def find_valid_commanders(card_pool: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    print(f"[DEBUG] find_valid_commanders called with card_pool size: {len(card_pool)}")
     """
     Returns a list of cards from the card pool that are legal commanders:
     - Legendary creatures
@@ -55,8 +64,11 @@ def find_valid_commanders(card_pool: List[Dict[str, Any]]) -> List[Dict[str, Any
         oracle = str(card.get("oracle_text", "")).lower()
         if "legendary creature" in type_line:
             valid_commanders.append(card)
+            print(f"[DEBUG]   Found valid legendary creature commander: {card.get('name')}")
         elif "planeswalker" in type_line and "can be your commander" in oracle:
             valid_commanders.append(card)
+            print(f"[DEBUG]   Found valid planeswalker commander: {card.get('name')}")
+    print(f"[DEBUG] Total valid commanders found: {len(valid_commanders)}")
     return valid_commanders
 
 # CATEGORY_TARGETS defines the minimum and maximum number of cards for each functional category in a Commander deck.
@@ -82,6 +94,7 @@ LAND_TYPE_PRIORITY = [
 ]
 
 def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> str:
+    print(f"[DEBUG] detect_theme called for commander: {commander.get('name')} | pool size: {len(card_pool)}")
     """
     Detects the main deck theme based on the commander's type line and keywords.
     - If the commander is tribal or a creature, tries to infer the most common creature type in the pool.
@@ -89,6 +102,7 @@ def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> 
     - Returns 'generic' if no theme is detected.
     """
     type_line = commander.get("type_line", "").lower()
+    print(f"[DEBUG] detect_theme: commander type_line='{type_line}', keywords={commander.get('keywords', [])}")
     if "tribal" in type_line or "creature" in type_line:
         # Find most common creature type in the card pool
         from collections import Counter
@@ -99,14 +113,18 @@ def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> 
                     types.append(t.strip())
         if types:
             most_common = Counter(types).most_common(1)[0][0]
+            print(f"[DEBUG] detect_theme: most common creature type is '{most_common}'")
             return most_common
     # Otherwise, use first keyword or ability word
     keywords = commander.get("keywords", [])
     if keywords:
+        print(f"[DEBUG] detect_theme: using first keyword '{keywords[0]}' as theme")
         return str(keywords[0]).lower()
+    print("[DEBUG] detect_theme: no theme detected, using 'generic'")
     return "generic"
 
 def commander_functions(commander: Dict[str, Any]) -> Set[str]:
+    print(f"[DEBUG] commander_functions called for commander: {commander.get('name')}")
     """
     Detects which deck functions the commander provides (e.g., draw, removal, ramp, wincon).
     This is used to avoid overfilling categories already covered by the commander.
@@ -118,18 +136,26 @@ def commander_functions(commander: Dict[str, Any]) -> Set[str]:
     # Check for each function in keywords, type_line, or oracle text
     if any(k in keywords+ [type_line, oracle] for k in ["draw", "card draw", "loot"]):
         provided.add("draw")
+        print("[DEBUG] commander_functions: provides 'draw'")
     if any(k in keywords+ [type_line, oracle] for k in ["destroy", "exile", "removal", "kill"]):
         provided.add("removal")
+        print("[DEBUG] commander_functions: provides 'removal'")
     if any(k in keywords+ [type_line, oracle] for k in ["ramp", "mana", "land"]):
         provided.add("ramp")
+        print("[DEBUG] commander_functions: provides 'ramp'")
     if any(k in keywords+ [type_line, oracle] for k in ["wincon", "win", "combo"]):
         provided.add("wincon")
+        print("[DEBUG] commander_functions: provides 'wincon'")
     if any(k in keywords+ [type_line, oracle] for k in ["recursion", "return", "graveyard"]):
         provided.add("recursion")
+        print("[DEBUG] commander_functions: provides 'recursion'")
     if any(k in keywords+ [type_line, oracle] for k in ["sweeper", "boardwipe"]):
         provided.add("sweeper")
+        print("[DEBUG] commander_functions: provides 'sweeper'")
     if any(k in keywords+ [type_line, oracle] for k in ["pillowfort", "protection", "hexproof"]):
         provided.add("pillowfort")
+        print("[DEBUG] commander_functions: provides 'pillowfort'")
+    print(f"[DEBUG] commander_functions: provided set = {provided}")
     return provided
 
 def analyze_mana_curve(deck: List[Dict[str, Any]]) -> Dict[int, int]:
@@ -142,17 +168,17 @@ def analyze_mana_curve(deck: List[Dict[str, Any]]) -> Dict[int, int]:
     return dict(Counter(cmcs))
 
 def select_lands(commander: Dict[str, Any], pool: List[Dict[str, Any]], num_lands: int) -> List[Dict[str, Any]]:
+    print(f"[DEBUG] select_lands called for commander: {commander.get('name')} | colors: {commander.get('color_identity', [])} | num_lands: {num_lands}")
     """
     Selects the optimal mix of lands for the deck based on the commander's color identity and the deck-building guide.
     Prioritizes color fixing and utility lands, and ensures the correct number of lands are chosen.
     """
     colors = set(commander.get("color_identity", []))
     color_count = len(colors)
-    # Always include Command Tower for 2+ color
     lands: List[Dict[str, Any]] = []
     def is_type(card: Dict[str, Any], t: str) -> bool:
         return t in str(card.get("type_line", "").lower())
-    # Utility lands
+    # Utility and special lands
     utility = [c for c in pool if is_type(c, "utility") or "utility" in c.get("keywords", [])]
     basics = [c for c in pool if is_type(c, "basic land")]
     duals = [c for c in pool if "dual" in c.get("keywords", []) or ("land" in c.get("type_line", "") and len(set(c.get("color_identity", []))) == 2)]
@@ -160,16 +186,18 @@ def select_lands(commander: Dict[str, Any], pool: List[Dict[str, Any]], num_land
     rainbow = [c for c in pool if "rainbow" in c.get("keywords", []) or ("land" in c.get("type_line", "") and len(set(c.get("color_identity", []))) > 2)]
     command_tower = [c for c in pool if c.get("name", "").lower() == "command tower"]
     trilands = [c for c in pool if "triland" in c.get("keywords", []) or ("land" in c.get("type_line", "") and len(set(c.get("color_identity", []))) == 3)]
-    # Land mix by color count
+    print(f"[DEBUG] select_lands: utility={len(utility)}, basics={len(basics)}, duals={len(duals)}, fetches={len(fetches)}, rainbow={len(rainbow)}, command_tower={len(command_tower)}, trilands={len(trilands)}")
+
+    # Add non-basic lands first, no duplicates
     if color_count == 1:
         lands += utility[:10]
-        lands += basics[:num_lands - len(lands)]
+        print(f"[DEBUG] select_lands: color_count=1, added {len(utility[:10])} utility lands")
     elif color_count == 2:
         lands += command_tower[:1]
         lands += utility[:5]
         lands += duals[:5]
         lands += fetches[:5]
-        lands += basics[:num_lands - len(lands)]
+        print(f"[DEBUG] select_lands: color_count=2, added command_tower, utility, duals, fetches")
     elif color_count == 3:
         lands += command_tower[:1]
         lands += utility[:2]
@@ -177,19 +205,20 @@ def select_lands(commander: Dict[str, Any], pool: List[Dict[str, Any]], num_land
         lands += fetches[:5]
         lands += trilands[:5]
         lands += rainbow[:5]
-        lands += basics[:num_lands - len(lands)]
+        print(f"[DEBUG] select_lands: color_count=3, added command_tower, utility, duals, fetches, trilands, rainbow")
     elif color_count == 4:
         lands += command_tower[:1]
         lands += utility[:1]
         lands += fetches[:10]
         lands += rainbow[:10]
-        lands += basics[:num_lands - len(lands)]
+        print(f"[DEBUG] select_lands: color_count=4, added command_tower, utility, fetches, rainbow")
     elif color_count == 5:
         lands += command_tower[:1]
         lands += utility[:1]
         lands += fetches[:10]
         lands += rainbow[:10]
-        lands += basics[:num_lands - len(lands)]
+        print(f"[DEBUG] select_lands: color_count=5, added command_tower, utility, fetches, rainbow")
+
     # Remove duplicates, keep order
     seen: Set[str] = set()
     final_lands: List[Dict[str, Any]] = []
@@ -198,6 +227,65 @@ def select_lands(commander: Dict[str, Any], pool: List[Dict[str, Any]], num_land
         if n not in seen and len(final_lands) < num_lands:
             final_lands.append(c)
             seen.add(n)
+            print(f"[DEBUG] select_lands: added nonbasic land {n}")
+
+    # Fill remaining slots with basic lands, respecting user quantity
+    print(f"[DEBUG] select_lands: filling with basics, need {num_lands - len(final_lands)} more lands")
+    from typing import Dict as TypingDict, Any as TypingAny, List as TypingList
+    basics_by_color: TypingDict[str, TypingList[TypingDict[str, TypingAny]]] = {"W": [], "U": [], "B": [], "R": [], "G": []}
+    basics_quantities: TypingDict[str, int] = {}
+    for c in basics:
+        name = c.get("name", "").lower()
+        qty = int(c.get("quantity", 1))
+        basics_quantities[name] = qty
+        if "plains" in name:
+            basics_by_color["W"].append(c)
+        elif "island" in name:
+            basics_by_color["U"].append(c)
+        elif "swamp" in name:
+            basics_by_color["B"].append(c)
+        elif "mountain" in name:
+            basics_by_color["R"].append(c)
+        elif "forest" in name:
+            basics_by_color["G"].append(c)
+        print(f"[DEBUG] select_lands: found basic {name} (qty={qty})")
+
+    num_needed = num_lands - len(final_lands)
+    basics_used: TypingDict[str, int] = {name: 0 for name in basics_quantities}
+    if num_needed > 0:
+        color_list = list(colors) if colors else ["C"]
+        added = 0
+        color_idx = 0
+        while added < num_needed:
+            color = color_list[color_idx % len(color_list)]
+            color_idx += 1
+            # Try to add a basic of this color with available quantity
+            found = False
+            for c in basics_by_color.get(color, []):
+                name = c.get("name", "").lower()
+                if basics_used[name] < basics_quantities[name]:
+                    final_lands.append(dict(c))
+                    basics_used[name] += 1
+                    added += 1
+                    found = True
+                    print(f"[DEBUG] select_lands: added {name} for color {color} ({basics_used[name]}/{basics_quantities[name]})")
+                    break
+            if not found:
+                # Try any basic with available quantity
+                for c in basics:
+                    name = c.get("name", "").lower()
+                    if basics_used[name] < basics_quantities[name]:
+                        final_lands.append(dict(c))
+                        basics_used[name] += 1
+                        added += 1
+                        found = True
+                        print(f"[DEBUG] select_lands: added fallback basic {name} ({basics_used[name]}/{basics_quantities[name]})")
+                        break
+            if not found:
+                print(f"[DEBUG] select_lands: no more basics available to fill lands (added {added} of {num_needed})")
+                break
+    # Truncate if over
+    print(f"[DEBUG] select_lands: returning {len(final_lands[:num_lands])} lands (final)")
     return final_lands[:num_lands]
 
 
@@ -216,17 +304,21 @@ def filter_card_pool(
     - Pass house rules and salt filtering
     Returns a list of eligible cards for deck construction.
     """
+    print(f"[DEBUG] filter_card_pool called for commander: {commander.get('name')} | bracket: {bracket} | house_rules: {house_rules} | input pool size: {len(cards)}")
     commander_colors = set(commander.get("color_identity", []))
     filtered: List[Dict[str, Any]] = []
     for card in cards:
         # Color identity: skip cards with colors outside the commander's identity
         if not set(card.get("color_identity", [])).issubset(commander_colors):
+            print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (color identity mismatch)")
             continue
         # Legalities: skip cards not legal in Commander
         if card.get("legalities", {}).get("commander") != "legal":
+            print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (not legal in Commander)")
             continue
         # Bracket/game changer: enforce bracket rules for Game Changers
         if bracket in [1, 2] and card.get("game_changer", False):
+            print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (game changer, bracket {bracket})")
             continue
         if bracket == 3 and card.get("game_changer", False):
             # We'll enforce max 3 later in deck filling
@@ -235,12 +327,15 @@ def filter_card_pool(
         if house_rules:
             name = card.get("name", "").lower()
             if name == "sol ring":
+                print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (house rules ban: sol ring)")
                 continue
             # Example: ban nonland tutors (very basic, can be improved)
             if "tutor" in name and "land" not in name:
+                print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (house rules ban: nonland tutor)")
                 continue
             # Example: ban "unfun" cards (define your own list)
             if name in {"armageddon", "winter orb", "stasis"}:
+                print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (house rules ban: unfun card)")
                 continue
         # Salt filtering: skip cards with too high salt weight
         from typing import cast, Dict
@@ -261,12 +356,15 @@ def filter_card_pool(
                     continue
         card["salt_weight"] = salt_weight
         if salt_weight_threshold > 0 and salt_weight > salt_weight_threshold:
+            print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (salt_weight {salt_weight} > threshold {salt_weight_threshold})")
             continue
         filtered.append(card)
+    print(f"[DEBUG] filter_card_pool: Final filtered pool size: {len(filtered)}")
     return filtered
 
 
 def categorize_card(card: Dict[str, Any]) -> Set[str]:
+    print(f"[DEBUG] categorize_card called for card: {card.get('name')} | type_line: {card.get('type_line')}")
     """
     Categorizes a card into one or more functional deck categories (e.g., ramp, draw, removal).
     Uses keywords and type line to determine the card's role(s) in the deck.
@@ -278,33 +376,44 @@ def categorize_card(card: Dict[str, Any]) -> Set[str]:
     # Ramp: mana acceleration or ramp keywords
     if "ramp" in keywords or "mana" in keywords or "mana" in type_line:
         categories.add("ramp")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'ramp'")
     # Draw: card draw/advantage
     if "draw" in keywords:
         categories.add("draw")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'draw'")
     # Removal: destroy, exile, bounce, counter
     if any(k in keywords for k in ["destroy", "exile", "bounce", "counter"]):
         categories.add("removal")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'removal'")
     # Boardwipe: mass removal
     if "boardwipe" in keywords or "sweeper" in keywords:
         categories.add("boardwipe")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'boardwipe'")
     # Graveyard hate
     if "graveyard" in keywords:
         categories.add("graveyard_hate")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'graveyard_hate'")
     # Recursion
     if "recursion" in keywords:
         categories.add("recursion")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'recursion'")
     # Pillowfort: protection/hexproof
     if any(k in keywords for k in ["hexproof", "shroud", "protection"]):
         categories.add("pillowfort")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'pillowfort'")
     # Wincon: win condition
     if "wincon" in keywords:
         categories.add("wincon")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'wincon'")
     # Lands
     if "land" in type_line:
         categories.add("lands")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'lands'")
     # Creature
     if "creature" in type_line:
         categories.add("creature")
+        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'creature'")
+    print(f"[DEBUG] categorize_card: {card.get('name')} categories = {categories}")
     return categories
 
 
@@ -330,15 +439,18 @@ def generate_commander_deck(
     9. Fill to 100 cards, preferring cards that balance the mana curve.
     Returns a dictionary with the commander, deck, deck size, and bracket info.
     """
+    print(f"[DEBUG] generate_commander_deck: Commander submitted: {commander.get('name')} (id={commander.get('id')}) | Bracket: {bracket} | House rules: {house_rules}")
     # 1. Filter pool for color identity, legalities, and salt
     if salt_list is None:
         salt_list = fetch_salt_list_from_supabase(card_pool)
     filtered_pool = filter_card_pool(
         card_pool, commander, bracket, house_rules, salt_list, salt_threshold
     )
+    print(f"[DEBUG] Filtered pool size: {len(filtered_pool)} | Sample: {[c.get('name') for c in filtered_pool[:5]]}")
 
     # 2. Detect theme
     theme = detect_theme(commander, filtered_pool)
+    print(f"[DEBUG] Detected deck theme: {theme}")
 
     # 3. Categorize pool
     categorized: Dict[str, List[Dict[str, Any]]] = {cat: [] for cat in CATEGORY_TARGETS}
@@ -347,49 +459,93 @@ def generate_commander_deck(
         for cat in cats:
             if cat in categorized:
                 categorized[cat].append(card)
+    print("[DEBUG] Category counts:")
+    for cat, cards in categorized.items():
+        print(f"  [DEBUG]   {cat}: {len(cards)} cards")
 
     # 4. Start with commander(s)
     deck = [commander]
     used_names = set([commander["name"]])
+    used_ids = set([commander.get("id")])  # Track unique card ids for basics
+    print(f"[DEBUG] Starting deck with commander: {commander.get('name')} (id={commander.get('id')})")
+    print(f"[DEBUG] used_names initialized: {used_names}")
+    print(f"[DEBUG] used_ids initialized: {used_ids}")
 
     # 5. Commander functions (synergy)
     commander_synergy = commander_functions(commander)
+    print(f"[DEBUG] Commander provides these deck functions: {commander_synergy}")
 
     # 6. Add cards by category min/max, prioritizing by edhrec_rank and synergy
     for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
         if cat == "lands":
             continue  # Add lands last
+        print(f"[DEBUG] Filling category '{cat}' (min={min_count}, max={max_count})")
         pool = sorted(categorized.get(cat, []), key=lambda c: (
             0 if cat in commander_synergy else 1,  # Prefer synergy
             c.get("edhrec_rank", 999999)
         ))
         count = 0
         for card in pool:
-            if card["name"] not in used_names and count < max_count:
+            card_id = card.get("id")
+            if card["name"] not in used_names and card_id not in used_ids and count < max_count:
                 deck.append(card)
                 used_names.add(card["name"])
+                used_ids.add(card_id)
                 count += 1
-            if count >= min_count:
+                print(f"[DEBUG]   Added to '{cat}': {card.get('name')} (id={card_id})")
+            if count >= max_count:
                 break
+        # If we didn't reach min_count, try to fill with any remaining eligible cards
+        if count < min_count:
+            for card in pool:
+                card_id = card.get("id")
+                if card["name"] not in used_names and card_id not in used_ids and count < min_count:
+                    deck.append(card)
+                    used_names.add(card["name"])
+                    used_ids.add(card_id)
+                    count += 1
+                    print(f"[DEBUG]   (min fill) Added to '{cat}': {card.get('name')} (id={card_id})")
+                if count >= min_count:
+                    break
 
     # 7. Fill main theme (if not already filled)
     if "main_theme" in CATEGORY_TARGETS:
         theme_pool = [c for c in filtered_pool if theme in (c.get("type_line", "").lower() + " " + " ".join([str(k).lower() for k in c.get("keywords", [])]))]
         theme_pool = sorted(theme_pool, key=lambda c: c.get("edhrec_rank", 999999))
+        theme_added = 0
         for card in theme_pool:
             if card["name"] not in used_names and len(deck) < 100:
                 deck.append(card)
                 used_names.add(card["name"])
+                theme_added += 1
+        print(f"[DEBUG] Added {theme_added} cards to main theme '{theme}'")
 
     # 8. Add lands using advanced land logic
     num_lands = max(min(38, 100 - len(deck)), 33)
     land_pool = categorized.get("lands", [])
+    print(f"[DEBUG] Selecting lands: need {num_lands}, pool size: {len(land_pool)}")
     lands = select_lands(commander, land_pool, num_lands)
+    print(f"[DEBUG] Selected {len(lands)} lands: {[l.get('name') for l in lands[:5]]}{'...' if len(lands) > 5 else ''}")
     for land in lands:
-        if land["name"] not in used_names and len(deck) < 100:
-            deck.append(land)
-            used_names.add(land["name"])
+        # For basics, allow all unique printings and up to the user's owned quantity
+        land_id = land.get("id")
+        is_basic = "basic land" in (land.get("type_line", "").lower())
+        if is_basic:
+            # Count how many of this id are already in deck
+            count_in_deck = sum(1 for c in deck if c.get("id") == land_id)
+            owned_qty = int(land.get("quantity", 1))
+            if count_in_deck < owned_qty and len(deck) < 100:
+                deck.append(land)
+                print(f"[DEBUG]   Added basic land: {land.get('name')} (id={land_id}) [{count_in_deck+1}/{owned_qty}]")
+        else:
+            if land["name"] not in used_names and land_id not in used_ids and len(deck) < 100:
+                deck.append(land)
+                used_names.add(land["name"])
+                used_ids.add(land_id)
+                print(f"[DEBUG]   Added nonbasic land: {land.get('name')} (id={land_id})")
 
+    print(f"[DEBUG] Deck size after lands: {len(deck)}")
+    print(f"[DEBUG] Land count in deck: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}")
     # 9. Fill to 100 with best remaining cards (by edhrec_rank, prefer curve balance)
     while len(deck) < 100:
         remaining = [c for c in filtered_pool if c["name"] not in used_names]
@@ -399,7 +555,10 @@ def generate_commander_deck(
         next_card = sorted(remaining, key=lambda c: (abs(int(c.get("cmc", 3)) - 3), c.get("edhrec_rank", 999999)))[0]
         deck.append(next_card)
         used_names.add(next_card["name"])
+        print(f"[DEBUG]   Added filler card: {next_card.get('name')} (id={next_card.get('id')})")
 
+    print(f"[DEBUG] Final deck size: {len(deck[:99])} (should be 99 + commander)")
+    print(f"[DEBUG] Final land count: {sum(1 for c in deck[:99] if 'land' in (c.get('type_line','').lower()))}")
     return {
         "commander": commander,
         "deck": deck[:99],
@@ -407,29 +566,3 @@ def generate_commander_deck(
         "total_cards": len(deck[:99]) + 1,
         "bracket": bracket,
     }
-    """
-    Fetches the salt list from Supabase and returns a dict mapping card_id to salt info.
-    """
-    SUPABASE_URL = os.getenv("SUPABASE_URL")
-    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print("Set SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment to fetch salt list.")
-        return {}
-    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    salt_map = {}
-    page = 0
-    page_size = 1000
-    while True:
-        resp = supabase.table("salt").select("card_id,Salt,years_included").range(page * page_size, (page + 1) * page_size - 1).execute()
-        data = resp.data
-        if not data:
-            break
-        for row in data:
-            salt_map[row["card_id"]] = {
-                "Salt": row.get("Salt"),
-                "years_included": row.get("years_included", [])
-            }
-        if len(data) < page_size:
-            break
-        page += 1
-    return salt_map
