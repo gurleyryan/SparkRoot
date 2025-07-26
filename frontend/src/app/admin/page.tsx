@@ -10,14 +10,14 @@ export default function AdminPage() {
     <div className="min-h-screen bg-black text-mtg-white">
       {!isAdmin ? (
         <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="sleeve-morphism p-8 rounded-xl shadow-xl max-w-md w-full text-center">
+          <div className="sleeve-morphism p-8 rounded-xl shadow-xl w-full text-center">
             <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
             <p>You do not have permission to view this page.</p>
           </div>
         </div>
       ) : (
         <main id="main-content" className="container mx-auto py-10 px-4">
-          <div className="sleeve-morphism p-8 rounded-xl shadow-xl max-w-5xl mx-auto w-full">
+          <div className="sleeve-morphism p-8 rounded-xl shadow-xl mx-auto w-full">
             <h2 className="text-4xl font-bold mb-2 text-center text-rarity-mythic drop-shadow-lg">Admin Dashboard</h2>
             <p className="text-lg text-mtg-gray-200 mb-8 text-center">Manage users, decks, collections, and moderate content.</p>
 

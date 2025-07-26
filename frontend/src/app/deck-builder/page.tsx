@@ -70,13 +70,13 @@ export default function DeckBuilderPage() {
       <div className="w-full flex flex-col items-center gap-4 mt-8 min-h-[200px]">
         {cardGridType === 'deck' && deckCards.length > 0 && (
           <>
-            <div className="flex w-full justify-between items-center max-w-6xl mx-auto mb-2 px-2 sm:px-0">
+            <div className="flex w-full justify-between items-center mx-auto mb-2 px-2 sm:px-0">
               <div className="font-bold text-amber-400 text-lg">Generated Deck</div>
               <button className="btn-secondary px-3 py-1 rounded border font-semibold" onClick={handleClearGrid}>Exile Deck</button>
             </div>
             {/* DeckDetail panel appears above CardGrid if deckDetailId or generatedDeck is present */}
             {(deckDetailId || generatedDeck) && (
-              <div className="w-full max-w-6xl mx-auto mb-4">
+              <div className="w-full mx-auto mb-4">
                 {deckDetailId
                   ? React.createElement(require('@/components/DeckDetail').default, { deckId: deckDetailId })
                   : React.createElement(require('@/components/DeckDetail').default, { deck: generatedDeck })}

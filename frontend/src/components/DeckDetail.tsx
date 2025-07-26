@@ -1,14 +1,17 @@
 
 import React, { useState, useEffect } from "react";
+import Image from 'next/image';
+import LiquidSleeve from "./LiquidSleeve";
 import ConfirmModal from "./ConfirmModal";
 import DetailModal from "./DetailModal";
 import { ApiClient } from "@/lib/api";
 import { useToast } from "./ToastProvider";
 import type { Deck as DeckBase } from "@/types";
 
-// Extend Deck type to allow analysis property (optional, any for now)
+// Extend Deck type to allow analysis and color_identity properties
 type Deck = DeckBase & {
   analysis?: any;
+  color_identity?: string[];
 };
 
 interface DeckDetailProps {
@@ -167,105 +170,174 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
   if (error) return <div className="text-red-500">{error}</div>;
   if (!displayDeck) return <div className="text-mtg-white">Deck not found.</div>;
 
+  // Mana color accent for border
+  const manaTheme = (() => {
+    const ci = displayDeck.color_identity;
+    if (Array.isArray(ci) && ci.length === 1) {
+      const map = {
+        W: "white",
+        U: "blue",
+        B: "black",
+        R: "red",
+        G: "green",
+      } as const;
+      return (map[ci[0] as keyof typeof map] || "blue") as
+        | "white"
+        | "blue"
+        | "black"
+        | "red"
+        | "green";
+    } else if (Array.isArray(ci) && ci.length > 1) {
+      return "multicolor" as const;
+    } else {
+      return "colorless" as const;
+    }
+  })();
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-mtg-white mb-4">Deck Details</h1>
-      <div className="bg-mtg-gray rounded-xl p-6 text-mtg-white">
-        <div className="mb-4"><b>Deck ID:</b> {displayDeck.id}</div>
-        <div className="mb-4"><b>Name:</b> {displayDeck.name}</div>
-        <div className="mb-4"><b>Commander:</b> {displayDeck.commander?.name || "Unknown"}</div>
-        <div className="mb-4"><b>Cards:</b> {displayDeck.cards.length}</div>
-        <div className="mb-4"><b>Description:</b> {displayDeck.description || "-"}</div>
-        <div className="flex gap-4 mt-6">
-          <button className="btn-primary" onClick={() => setShowDetails(true)}>Edit</button>
-          <button className="btn-secondary" onClick={handleExport}>Export</button>
-          <button className="btn-secondary text-red-500 border-red-500" onClick={() => setShowDelete(true)}>Delete</button>
-        </div>
+    <div className="flex flex-col items-center justify-center py-4 px-2">
+      <div className="w-full mx-auto">
+        <LiquidSleeve manaTheme={manaTheme} className="p-0 md:p-1">
+          <div className="relative rounded-2xl bg-black/60 bg-blur p-6 md:p-8 border-mtg-gold/30 shadow-lg overflow-hidden">
+            <Image src="/logo.svg" alt="SparkRoot Logo" className="m-auto" width={32} height={32} />
+            <h1 className="text-3xl md:text-4xl font-bold text-mtg-gold text-center tracking-wide mb-2 drop-shadow-lg font-mtg">Deck Details</h1>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+              <div className="text-mtg-white/80 text-lg font-semibold font-mtg">{displayDeck.name}</div>
+              <div className="text-mtg-gold/80 text-sm font-mtg">Deck ID: {displayDeck.id}</div>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+              <div className="text-mtg-white/80">Commander: <span className="font-bold text-mtg-gold">{displayDeck.commander?.name || "Unknown"}</span></div>
+              <div className="text-mtg-white/60">Cards: {displayDeck.cards.length}</div>
+            </div>
+            <div className="mb-4 text-mtg-white/80 italic">{displayDeck.description || <span className="text-mtg-white/40">No description.</span>}</div>
+            <div className="flex gap-3 justify-center mb-6">
+              <button className="btn-primary px-5 py-2 text-lg font-mtg" onClick={() => setShowDetails(true)}>Edit</button>
+              <button className="btn-secondary px-5 py-2 text-lg font-mtg" onClick={handleExport}>Export</button>
+              <button className="btn-secondary px-5 py-2 text-lg font-mtg text-red-500 border-red-500" onClick={() => setShowDelete(true)}>Delete</button>
+            </div>
+            {/* Deck Analysis Panel */}
+            {displayDeck.analysis && (
+              <div className="mt-2">
+                <LiquidSleeve manaTheme={manaTheme} className="p-6 mt-2">
+                  <h3 className="text-2xl font-bold mb-4 text-mtg-gold font-mtg drop-shadow text-center">Deck Analysis</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Column 1: Score, Balance, Recommendations */}
+                    <div className="flex flex-col gap-4">
+                      {/* Score */}
+                      <div className="bg-black/40 rounded-xl p-4 flex flex-col items-center border border-mtg-gold/10">
+                        <div className="text-mtg-gold text-3xl font-bold font-mtg">{displayDeck.analysis.overall_score}</div>
+                        <div className="text-mtg-white/80 text-sm">Overall Score</div>
+                        <div className="text-mtg-gold/70 text-s mt-1">Grade: {displayDeck.analysis.grade}</div>
+                      </div>
+                      {/* Balance */}
+                      <div className="bg-black/40 rounded-xl p-4 border border-mtg-white/10">
+                        <div className="text-mtg-white text-lg font-bold font-mtg mb-1">Balance</div>
+                        <div className="text-mtg-white/80 text-s mb-1">Score: {displayDeck.analysis.balance?.score}</div>
+                        <ul className="text-s ml-2">
+                          {displayDeck.analysis.balance?.categories &&
+                            Object.entries(displayDeck.analysis.balance.categories).map(([cat, val]) => (
+                              <li key={cat}>{cat}: {val} (Ideal: {displayDeck.analysis.balance.ideal_targets?.[cat] ?? "?"})</li>
+                            ))}
+                        </ul>
+                      </div>
+                      {/* Recommendations */}
+                      {displayDeck.analysis.recommendations && displayDeck.analysis.recommendations.length > 0 && (
+                        <div className="bg-black/40 rounded-xl p-4 border border-mtg-gold/10">
+                          <div className="text-mtg-gold text-lg font-bold font-mtg mb-1">Recommendations</div>
+                          <ul className="text-s ml-2">
+                            {displayDeck.analysis.recommendations.map((rec: string, i: number) => (
+                              <li key={i}>{rec}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    {/* Column 2: Mana Curve */}
+                    <div className="bg-black/40 rounded-xl p-4 border border-mtg-blue/10 self-start">
+                      <div className="text-mtg-blue text-lg font-bold font-mtg mb-1">Mana Curve</div>
+                      <div className="text-mtg-white/80 text-s mb-1">Avg CMC: {displayDeck.analysis.mana_curve?.average_cmc}</div>
+                      <div className="flex flex-row gap-6">
+                        <div>
+                          <div className="text-mtg-white/60 text-s">Distribution:</div>
+                          <ul className="text-s ml-2">
+                            {displayDeck.analysis.mana_curve?.distribution &&
+                              Object.entries(displayDeck.analysis.mana_curve.distribution).map(([cmc, pct]) => (
+                                <li key={cmc}>CMC {cmc}: {Number(pct).toFixed(1)}%</li>
+                              ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <div className="text-mtg-white/60 text-s">Ideal:</div>
+                          <ul className="text-s ml-2">
+                            {displayDeck.analysis.mana_curve?.ideal_distribution &&
+                              Object.entries(displayDeck.analysis.mana_curve.ideal_distribution).map(([cmc, pct]) => (
+                                <li key={cmc}>CMC {cmc}: {Number(pct).toFixed(1)}%</li>
+                              ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Column 3: Card Types + Strengths */}
+                    <div className="flex flex-col gap-4">
+                      {/* Card Types */}
+                      <div className="bg-black/40 rounded-xl p-4 border border-mtg-green/10">
+                        <div className="text-mtg-green text-lg font-bold font-mtg mb-1">Card Types</div>
+                        <ul className="text-s ml-2">
+                          {displayDeck.analysis.card_types?.distribution &&
+                            Object.entries(displayDeck.analysis.card_types.distribution).map(([type, count]) => (
+                              <li key={type}>
+                                {type}: {Number(count)} ({displayDeck.analysis.card_types.percentages?.[type] ? Number(displayDeck.analysis.card_types.percentages[type]).toFixed(1) : "?"}%)
+                              </li>
+                            ))}
+                        </ul>
+                        <div className="text-mtg-white/60 text-s mt-1">Ideal:</div>
+                        <ul className="text-s ml-2">
+                          {displayDeck.analysis.card_types?.ideal_percentages &&
+                            Object.entries(displayDeck.analysis.card_types.ideal_percentages).map(([type, pct]) => (
+                              <li key={type}>{type}: {Number(pct).toFixed(1)}%</li>
+                            ))}
+                        </ul>
+                      </div>
+                      {/* Strengths */}
+                      {displayDeck.analysis.strengths && (
+                        <div className="bg-black/40 rounded-xl p-4 border border-green-400/20">
+                          <div className="text-green-400 font-bold mb-1">Strengths</div>
+                          <div className="text-mtg-white/90 text-s">{displayDeck.analysis.strengths.join(", ")}</div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Column 4: Synergies + Weaknesses */}
+                    <div className="flex flex-col gap-4">
+                      {/* Synergies & Themes */}
+                      <div className="bg-black/40 rounded-xl p-4 border border-mtg-red/10">
+                        <div className="text-mtg-red text-lg font-bold font-mtg mb-1">Synergies</div>
+                        <div className="text-mtg-white/80 text-s mb-1">Tribe: {displayDeck.analysis.synergies?.primary_tribe} ({displayDeck.analysis.synergies?.tribal_count})</div>
+                        <div className="text-mtg-white/60 text-s">Themes:</div>
+                        <ul className="text-s ml-2">
+                          {displayDeck.analysis.synergies?.themes &&
+                            Object.entries(displayDeck.analysis.synergies.themes).map(([theme, pct]) => (
+                              <li key={theme}>{theme}: {Number(pct).toFixed(1)}%</li>
+                            ))}
+                        </ul>
+                        <div className="text-mtg-white/60 text-s mt-1">Strongest: <span className="text-mtg-gold font-bold">{displayDeck.analysis.synergies?.strongest_theme}</span></div>
+                      </div>
+                      {/* Weaknesses */}
+                      {displayDeck.analysis.weaknesses && (
+                        <div className="bg-black/40 rounded-xl p-4 border border-red-400/20">
+                          <div className="text-red-400 font-bold mb-1">Weaknesses</div>
+                          <div className="text-mtg-white/90 text-s">{displayDeck.analysis.weaknesses.join(", ")}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </LiquidSleeve>
+              </div>
+            )}
+          </div>
+        </LiquidSleeve>
       </div>
-      {/* Deck Analysis Panel */}
-      {displayDeck.analysis && (
-        <div className="bg-slate-900 rounded-xl p-4 my-4 text-slate-100">
-          <h3 className="text-xl font-bold mb-2">Deck Analysis</h3>
-          <div className="mb-2">
-            <strong>Overall Score:</strong> {displayDeck.analysis.overall_score} ({displayDeck.analysis.grade})
-          </div>
-          <div className="mb-2">
-            <strong>Mana Curve:</strong> Avg CMC: {displayDeck.analysis.mana_curve?.average_cmc}
-            <ul className="ml-4">
-              {displayDeck.analysis.mana_curve?.distribution &&
-                Object.entries(displayDeck.analysis.mana_curve.distribution).map(([cmc, pct]) => (
-                  <li key={cmc}>CMC {cmc}: {Number(pct).toFixed(1)}%</li>
-                ))}
-            </ul>
-            <strong>Ideal Distribution:</strong>
-            <ul className="ml-4">
-              {displayDeck.analysis.mana_curve?.ideal_distribution &&
-                Object.entries(displayDeck.analysis.mana_curve.ideal_distribution).map(([cmc, pct]) => (
-                  <li key={cmc}>CMC {cmc}: {Number(pct).toFixed(1)}%</li>
-                ))}
-            </ul>
-          </div>
-          <div className="mb-2">
-            <strong>Card Types:</strong>
-            <ul className="ml-4">
-              {displayDeck.analysis.card_types?.distribution &&
-                Object.entries(displayDeck.analysis.card_types.distribution).map(([type, count]) => (
-                  <li key={type}>
-                    {type}: {Number(count)} ({displayDeck.analysis.card_types.percentages?.[type] ? Number(displayDeck.analysis.card_types.percentages[type]).toFixed(1) : "?"}%)
-                  </li>
-                ))}
-            </ul>
-            <strong>Ideal Percentages:</strong>
-            <ul className="ml-4">
-              {displayDeck.analysis.card_types?.ideal_percentages &&
-                Object.entries(displayDeck.analysis.card_types.ideal_percentages).map(([type, pct]) => (
-                  <li key={type}>{type}: {Number(pct).toFixed(1)}%</li>
-                ))}
-            </ul>
-          </div>
-          <div className="mb-2">
-            <strong>Synergies:</strong> {displayDeck.analysis.synergies?.primary_tribe} ({displayDeck.analysis.synergies?.tribal_count})
-            <br />
-            <strong>Themes:</strong>
-            <ul className="ml-4">
-              {displayDeck.analysis.synergies?.themes &&
-                Object.entries(displayDeck.analysis.synergies.themes).map(([theme, pct]) => (
-                  <li key={theme}>{theme}: {Number(pct).toFixed(1)}%</li>
-                ))}
-            </ul>
-            <strong>Strongest Theme:</strong> {displayDeck.analysis.synergies?.strongest_theme}
-          </div>
-          <div className="mb-2">
-            <strong>Balance:</strong> Score: {displayDeck.analysis.balance?.score}
-            <ul className="ml-4">
-              {displayDeck.analysis.balance?.categories &&
-                Object.entries(displayDeck.analysis.balance.categories).map(([cat, val]) => (
-                  <li key={cat}>{cat}: {val} (Ideal: {displayDeck.analysis.balance.ideal_targets?.[cat] ?? "?"})</li>
-                ))}
-            </ul>
-          </div>
-          {displayDeck.analysis.recommendations && displayDeck.analysis.recommendations.length > 0 && (
-            <div className="mb-2">
-              <strong>Recommendations:</strong>
-              <ul className="ml-4">
-                {displayDeck.analysis.recommendations.map((rec: string, i: number) => (
-                  <li key={i}>{rec}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {displayDeck.analysis.strengths && (
-            <div className="mb-2">
-              <strong>Strengths:</strong> {displayDeck.analysis.strengths.join(", ")}
-            </div>
-          )}
-          {displayDeck.analysis.weaknesses && (
-            <div className="mb-2">
-              <strong>Weaknesses:</strong> {displayDeck.analysis.weaknesses.join(", ")}
-            </div>
-          )}
-        </div>
-      )}
+
+      {/* Export Modal */}
       {/* Export Modal */}
       {showExport && (
         <DetailModal open={showExport} title="Export Deck" onClose={() => setShowExport(false)}>

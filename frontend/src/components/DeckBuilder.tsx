@@ -78,13 +78,35 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         typeof result === 'object' &&
         ('success' in result || 'deck' in result)
       ) {
-        // Correctly extract the deck array
+        // If the API returns a full deck object with analysis, pass it up
+        if ((result as any).deck && (result as any).analysis) {
+          const deckObj = (result as any).deck;
+          const commander = (result as any).commander;
+          // Always ensure 'cards' property exists and is an array
+          let cards: MTGCard[] = [];
+          if (deckObj && Array.isArray(deckObj.deck)) {
+            cards = deckObj.deck as MTGCard[];
+          }
+          if (commander) {
+            cards = [commander, ...cards];
+          }
+          const fullDeck = {
+            ...deckObj,
+            commander,
+            analysis: (result as any).analysis,
+            cards,
+          };
+          setDeck(cards);
+          onDeckGenerated(fullDeck);
+          showToast('Deck generated successfully!', 'success');
+          return;
+        }
+        // Fallback: just pass the cards array
         const deckObj = (result as any).deck;
         let deckCards: MTGCard[] = [];
         if (deckObj && Array.isArray(deckObj.deck)) {
           deckCards = deckObj.deck as MTGCard[];
         }
-        // Optionally prepend the commander
         const commander = (result as any).commander;
         if (commander) {
           deckCards = [commander, ...deckCards];

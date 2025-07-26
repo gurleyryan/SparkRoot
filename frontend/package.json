@@ -18,6 +18,7 @@
   "dependencies": {
     "@babel/core": "^7.28.0",
     "@next/bundle-analyzer": "^15.4.1",
+    "@react-three/fiber": "^9.2.0",
     "@sentry/nextjs": "^9.39.0",
     "@supabase/supabase-js": "^2.52.0",
     "@tanstack/react-query": "^5.83.0",
@@ -27,6 +28,7 @@
     "clsx": "^2.1.1",
     "eslint-plugin-next": "^0.0.0",
     "eslint-plugin-react": "^7.37.5",
+    "framer-motion": "^12.23.9",
     "mana-font": "^1.18.0",
     "next": "^15.4.2",
     "react": "19.1.0",
@@ -34,6 +36,7 @@
     "react-dropzone": "^14.3.8",
     "recharts": "^3.1.0",
     "tailwind-merge": "^3.3.1",
+    "three": "^0.178.0",
     "typescript-eslint": "^8.37.0",
     "zod": "^4.0.5",
     "zustand": "^5.0.6"
@@ -49,6 +52,7 @@
     "@types/node": "^24.0.14",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.178.1",
     "@typescript-eslint/eslint-plugin": "^8.37.0",
     "@typescript-eslint/parser": "^8.37.0",
     "autoprefixer": "^10.4.21",
