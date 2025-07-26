@@ -648,44 +648,95 @@ def generate_commander_deck(
         card_text = card.get("type_line", "").lower() + " " + " ".join([str(k).lower() for k in card.get("keywords", [])])
         return any(tc for tc in candidates if tc and len(tc) > 2 and tc in card_text)
 
+    # --- CARD TYPE TARGET ENFORCEMENT LOGIC ---
+
+    def get_type(card: Dict[str, Any]) -> str:
+        type_line = str(card.get("type_line", "")).lower()
+        for t in ["creature", "sorcery", "instant", "enchantment", "artifact", "planeswalker", "land"]:
+            if t in type_line:
+                return t
+        return "other"
+
+    def type_counts(deck: List[Dict[str, Any]]) -> Dict[str, int]:
+        counts = {t: 0 for t in CARD_TYPE_TARGETS}
+        for c in deck:
+            t = get_type(c)
+            if t in counts:
+                counts[t] += 1
+        return counts
+
     for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
         if cat == "lands":
             continue  # Lands already added
-        print(f"[DEBUG] Strictly filling category '{cat}' (min={min_count}, max={max_count}) with theme/synergy priority")
-        # Build prioritized pool: theme+category > synergy+category > category by rank
+        print(f"[DEBUG] Strictly filling category '{cat}' (min={min_count}, max={max_count}) with theme/synergy priority and type targets (strict)")
         pool = categorized.get(cat, [])
-        # 1. Theme+category
         theme_cat = [c for c in pool if card_matches_theme(c, theme_candidates)]
-        # 2. Synergy+category (commander functions)
         synergy_cat = [c for c in pool if cat in commander_synergy and c not in theme_cat]
-        # 3. Remaining by rank
         rest_cat = [c for c in pool if c not in theme_cat and c not in synergy_cat]
         rest_cat = sorted(rest_cat, key=lambda c: c.get("edhrec_rank", 999999))
-        # Combine
         prioritized = theme_cat + synergy_cat + rest_cat
         count = 0
-        for card in prioritized:
-            card_id = card.get("id")
-            if card["name"] not in used_names and card_id not in used_ids and count < max_count and len(deck) < 100:
+        # --- Strict pass: only add cards whose type is under its target ---
+        while count < max_count and len(deck) < 100:
+            type_count = type_counts(deck)
+            under_types = {t for t, v in type_count.items() if v < CARD_TYPE_TARGETS[t]}
+            found = False
+            for card in prioritized:
+                card_id = card.get("id")
+                if card["name"] in used_names or card_id in used_ids:
+                    continue
+                t = get_type(card)
+                if t in CARD_TYPE_TARGETS and t not in under_types:
+                    continue  # skip, type already at or above target
+                # Add this card
                 deck.append(card)
                 used_names.add(card["name"])
                 used_ids.add(card_id)
                 count += 1
-                print(f"[DEBUG]   Added to '{cat}': {card.get('name')} (id={card_id})")
-            if count >= max_count or len(deck) >= 100:
+                print(f"[DEBUG]   (type-priority) Added to '{cat}' (type {t}): {card.get('name')} (id={card_id})")
+                found = True
                 break
-        # If we didn't reach min_count, try to fill with any remaining eligible cards (by rank)
-        if count < min_count and len(deck) < 100:
+            if not found:
+                break  # No more under-target type cards available
+        # --- Overflow pass: only allow overflow if all types are at/above target or no other options ---
+        while count < max_count and len(deck) < 100:
+            type_count = type_counts(deck)
+            under_types = {t for t, v in type_count.items() if v < CARD_TYPE_TARGETS[t]}
+            found = False
             for card in prioritized:
                 card_id = card.get("id")
-                if card["name"] not in used_names and card_id not in used_ids and count < min_count and len(deck) < 100:
-                    deck.append(card)
-                    used_names.add(card["name"])
-                    used_ids.add(card_id)
-                    count += 1
-                    print(f"[DEBUG]   (min fill) Added to '{cat}': {card.get('name')} (id={card_id})")
-                if count >= min_count or len(deck) >= 100:
-                    break
+                if card["name"] in used_names or card_id in used_ids:
+                    continue
+                t = get_type(card)
+                # Only allow overflow if no underrepresented types left in pool
+                if under_types:
+                    # If this card is not an underrepresented type, skip
+                    if t not in under_types:
+                        continue
+                deck.append(card)
+                used_names.add(card["name"])
+                used_ids.add(card_id)
+                count += 1
+                print(f"[DEBUG]   (overflow) Added to '{cat}' (type {t}): {card.get('name')} (id={card_id})")
+                found = True
+                break
+            if not found:
+                break
+        # --- Ensure min_count is met ---
+        while count < min_count and len(deck) < 100:
+            for card in prioritized:
+                card_id = card.get("id")
+                if card["name"] in used_names or card_id in used_ids:
+                    continue
+                deck.append(card)
+                used_names.add(card["name"])
+                used_ids.add(card_id)
+                count += 1
+                t = get_type(card)
+                print(f"[DEBUG]   (min fill) Added to '{cat}' (type {t}): {card.get('name')} (id={card_id})")
+                break
+            else:
+                break
 
     # 8. Fill main theme (if not already filled), but ONLY if deck is not full and category maxes are not exceeded
     if "main_theme" in CATEGORY_TARGETS:
@@ -800,12 +851,13 @@ def generate_commander_deck(
         land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
         land_pool = [c for c in filtered_pool if "land" in str(c.get("type_line", "")).lower() and c["name"] not in used_names and c.get("id") not in used_ids]
 
-    # FINAL FILL: Fill to 99 cards (excluding commander) with best available cards by edhrec_rank, not exceeding any category max
+    # FINAL FILL: Fill to 99 cards (excluding commander) with best available cards, strictly prioritizing underrepresented types
     while len(deck) < 99:
-        # Find all candidates not already in deck, not exceeding any category max
         candidates: List[Dict[str, Any]] = [c for c in filtered_pool if c["name"] not in used_names and c.get("id") not in used_ids]
         # Filter out cards that would exceed any category max
         valid_candidates: List[Dict[str, Any]] = []
+        type_count = type_counts(deck)
+        under_types = {t for t, v in type_count.items() if v < CARD_TYPE_TARGETS[t]}
         for c in candidates:
             if 'categories' not in c:
                 c['categories'] = categorize_card(c)
@@ -818,8 +870,13 @@ def generate_commander_deck(
                     if cat_count >= max_count:
                         can_add = False
                         break
-            if can_add:
-                valid_candidates.append(c)
+            if not can_add:
+                continue
+            t = get_type(c)
+            # Only allow overflow if no underrepresented types left in pool
+            if under_types and t not in under_types:
+                continue
+            valid_candidates.append(c)
         if not valid_candidates:
             print(f"[DEBUG]   No valid candidates left to fill deck to 99. Deck size: {len(deck)}")
             break
@@ -827,7 +884,8 @@ def generate_commander_deck(
         deck.append(best)
         used_names.add(best["name"])
         used_ids.add(best.get("id"))
-        print(f"[DEBUG]   Final fill: {best.get('name')}")
+        t = get_type(best)
+        print(f"[DEBUG]   Final fill: {best.get('name')} (type {t})")
 
     # Final trim if deck is over 99 (excluding commander)
     while len(deck) > 99:
