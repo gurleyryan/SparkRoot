@@ -35,7 +35,7 @@ interface AuthState {
     rememberMe?: boolean
   ) => Promise<void>;
   setPlaymatTexture: (texture: string) => Promise<void>;
-  register: (data: { username: string; email: string; password: string; full_name?: string }) => Promise<void>;
+  register: (data: { username: string; email: string; password: string; full_name?: string }) => Promise<{ data: any; error: any } | undefined>;
   logout: (auto?: boolean) => void;
   clearError: () => void;
   checkAuth: () => Promise<void>;
@@ -180,7 +180,6 @@ export const useAuthStore = create<AuthState>()(
       register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
-          // Default to rememberMe = true for registration (or add as a parameter if you want)
           const supabase = getSupabaseClient(true);
           const { data, error } = await supabase.auth.signUp({
             email: userData.email,
@@ -192,44 +191,48 @@ export const useAuthStore = create<AuthState>()(
               },
             },
           });
-          if (error || !data.session) {
+          // If error, set error and return
+          if (error) {
             set({ error: error?.message || 'Registration failed', isLoading: false });
-            throw new Error(error?.message || 'Registration failed');
+            return { data, error };
           }
-          const jwt = data.session.access_token;
-          if (!data.user) {
-            set({ error: 'User data missing after registration.', isLoading: false });
-            throw new Error('User data missing after registration.');
-          }
-          set({
-            user: {
-              ...data.user,
-              id: data.user.id ?? '',
-              email: data.user.email ?? '',
-            },
-            isAuthenticated: true,
-            accessToken: jwt,
-            isLoading: false,
-            error: null,
-          });
-          try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
-            const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
-            const resp = await fetch(`${baseUrl}/api/auth/me`, {
-              headers: { Authorization: `Bearer ${jwt}` },
+          // If session exists, treat as logged in
+          if (data && data.session && data.user) {
+            const jwt = data.session.access_token;
+            set({
+              user: {
+                ...data.user,
+                id: data.user.id ?? '',
+                email: data.user.email ?? '',
+              },
+              isAuthenticated: true,
+              accessToken: jwt,
+              isLoading: false,
+              error: null,
             });
-            if (resp.ok) {
-              const user = await resp.json();
-              set({ user });
+            try {
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+              const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+              const resp = await fetch(`${baseUrl}/api/auth/me`, {
+                headers: { Authorization: `Bearer ${jwt}` },
+              });
+              if (resp.ok) {
+                const user = await resp.json();
+                set({ user });
+              }
+            } catch {
+              // ignore, fallback to Supabase user
             }
-          } catch {
-            // ignore, fallback to Supabase user
           }
+          set({ isLoading: false });
+          return { data, error };
         } catch (err: unknown) {
           if (err instanceof Error) {
             set({ error: err.message || 'Registration failed', isLoading: false });
+            return { data: null, error: err };
           } else {
             set({ error: 'Registration failed', isLoading: false });
+            return { data: null, error: 'Registration failed' };
           }
         }
       },

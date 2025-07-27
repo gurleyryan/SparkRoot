@@ -32,7 +32,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           setIsLoading(false);
           onClose();
         } else {
-          // Show error from authStore
+          // ...existing code...
           let msg = authError;
           if (msg && typeof msg === 'string') {
             if (msg.match(/unique.*email/i)) {
@@ -58,19 +58,16 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           setIsLoading(false);
         }
       } else {
-        await register({
+        // Enhanced registration flow
+        const result = await register({
           username: formData.username,
           email: formData.email,
           password: formData.password,
           full_name: formData.fullName,
         });
         const authError = useAuthStore.getState().error;
-        if (!authError) {
-          showToast('Registration successful! You are now logged in.', 'success');
-          setIsLoading(false);
-          onClose();
-        } else {
-          // Show error from authStore
+        // If error, show error as before
+        if (authError) {
           let msg = authError;
           if (msg && typeof msg === 'string') {
             if (msg.match(/unique.*email/i)) {
@@ -94,6 +91,26 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           setError(msg);
           showToast(msg, 'error');
           setIsLoading(false);
+        } else {
+          // If result.data.session is missing, show confirmation message
+          // (Supabase returns user object but no session if email confirmation is required)
+          if (result && result.data && !result.data.session) {
+            showToast('Registration successful! Please check your email to confirm your account before logging in.', 'success');
+            setIsLoading(false);
+            setError('');
+            // Optionally, close modal or keep open for login
+            // onClose();
+          } else if (result && result.data && result.data.session && result.data.user) {
+            showToast('Registration successful! You are now logged in.', 'success');
+            setIsLoading(false);
+            setError('');
+            onClose();
+          } else {
+            // fallback: unknown state
+            showToast('Registration complete. Please check your email.', 'success');
+            setIsLoading(false);
+            setError('');
+          }
         }
       }
     } catch (error: unknown) {
