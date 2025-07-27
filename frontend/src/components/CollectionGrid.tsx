@@ -343,7 +343,12 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                   &larr; Back to Collections
                 </button>
                 <h3 className="text-2xl font-bold text-rarity-rare">{openedCollection.name}</h3>
-                <span className="text-rarity-uncommon">{openedCollection.cards?.length ?? 0} cards</span>
+                <span className="text-rarity-uncommon">
+                  Cards: {openedCollection?.total_cards ?? openedCollection?.cards?.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0) ?? 0}
+                </span>
+                <span className="text-rarity-uncommon">
+                  Unique: {Array.isArray(openedCollection?.cards) ? new Set(openedCollection.cards.map((card: any) => card.id || card.name)).size : (openedCollection?.unique_cards ?? 0)}
+                </span>
               </div>
               {/* Card search, filter, and sort controls */}
               <div className="flex flex-wrap gap-2 items-center bg-slate-800/60 p-2 rounded-lg">
