@@ -874,16 +874,38 @@ async def upload_collection_progress(
                 set_code = row.get("Set code")
                 name_val = row.get("Name")
 
-                # Prefer direct Scryfall ID, else robust lookup
+
+                # Prefer direct Scryfall ID, else robust lookup by (name + set code + collector number), else name
                 if scryfall_id:
                     card_id = scryfall_id
                 else:
-                    ids = card_lookup.lookup(name_val or "")
-                    if ids:
-                        card_id = ids[0]
+                    # Try to match by (name + set code + collector number) if available
+                    set_code_val = (row.get("Set code") or "").strip().lower()
+                    collector_number_val = (row.get("Collector number") or "").strip().lower()
+                    matched = None
+                    if set_code_val and collector_number_val and hasattr(card_lookup, "card_list") and card_lookup.card_list:
+                        for c in card_lookup.card_list:
+                            # Defensive: check all fields exist and match
+                            c_name = (c.get("name") or "").strip().lower()
+                            c_set = (c.get("set") or "").strip().lower()
+                            c_collector = (str(c.get("collector_number")) or "").strip().lower()
+                            if (
+                                c_name == (name_val or "").strip().lower()
+                                and c_set == set_code_val
+                                and c_collector == collector_number_val
+                            ):
+                                matched = c.get("id")
+                                break
+                    if matched:
+                        card_id = matched
                     else:
-                        fuzzy = card_lookup.fuzzy_lookup(name_val or "")
-                        print(f"[progress-upload] Fuzzy matches for '{name_val}': {fuzzy}", file=sys.stderr)
+                        # Fallback: lookup by name only
+                        ids = card_lookup.lookup(name_val or "")
+                        if ids:
+                            card_id = ids[0]
+                        else:
+                            fuzzy = card_lookup.fuzzy_lookup(name_val or "")
+                            print(f"[progress-upload] Fuzzy matches for '{name_val}': {fuzzy}", file=sys.stderr)
 
                 if not card_id:
                     print(f"[progress-upload] Card not found for row {idx+1}", file=sys.stderr)
