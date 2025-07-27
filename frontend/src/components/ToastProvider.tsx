@@ -28,7 +28,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed z-50 top-6 right-6 flex flex-col gap-3 items-end pointer-events-none">
+      <div className="sleeve-morphism fixed z-50 top-6 right-6 flex flex-col gap-3 items-end pointer-events-none" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
         {toasts.map((toast) => (
           <div
             key={toast.id}

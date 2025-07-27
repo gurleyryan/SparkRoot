@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import Recovery from "./Recovery";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from "./ToastProvider";
 
@@ -8,6 +10,8 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ onClose }: AuthModalProps) {
+  const router = useRouter();
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const showToast = useToast();
   // Accessible form submit handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,6 +141,17 @@ export default function AuthModal({ onClose }: AuthModalProps) {
       setIsLoading(false);
     }
   };
+  // Recovery mode: show password reset form
+  // Recovery state: 'none' | 'request' | 'reset'
+  const [recoveryState, setRecoveryState] = useState<'none' | 'request' | 'reset'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('type') === 'recovery' || params.get('recovery') === '1') {
+        return 'reset';
+      }
+    }
+    return 'none';
+  });
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
@@ -178,21 +193,53 @@ export default function AuthModal({ onClose }: AuthModalProps) {
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-    // Focus first input
-    setTimeout(() => {
-      firstInputRef.current?.focus();
-    }, 0);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [onClose]);
 
-
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function handleChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    const { name, value, type, checked } = event.target;
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: type === 'checkbox' ? checked : value
     }));
-  };
+    setError('');
+  }
+
+  // Password reset request form state
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetRequestLoading, setResetRequestLoading] = useState(false);
+  const [resetRequestError, setResetRequestError] = useState("");
+  const [resetRequestSent, setResetRequestSent] = useState(false);
+  // Supabase client for password reset
+  const { createClient } = require("@supabase/supabase-js");
+
+  async function handleResetRequest(e: React.FormEvent) {
+    e.preventDefault();
+    setResetRequestError("");
+    setResetRequestLoading(true);
+    setResetRequestSent(false);
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
+      if (error) {
+        setResetRequestError(error.message);
+        showToast(error.message, "error");
+      } else {
+        setResetRequestSent(true);
+        showToast("Password reset email sent! Please check your inbox.", "success");
+      }
+    } catch (err: any) {
+      setResetRequestError(err.message || "Failed to send reset email.");
+      showToast(err.message || "Failed to send reset email.", "error");
+    } finally {
+      setResetRequestLoading(false);
+    }
+  }
 
   return (
     <div className="modal-backdrop fixed inset-0 z-40 flex items-center justify-center">
@@ -202,7 +249,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
       >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-mtg text-mtg-white">
-            {isLogin ? 'Sign In' : 'Create Account'}
+            {recoveryState === 'reset' ? 'Reset Password' : recoveryState === 'request' ? 'Request Password Reset' : isLogin ? 'Sign In' : 'Create Account'}
           </h2>
           <button
             onClick={onClose}
@@ -211,137 +258,180 @@ export default function AuthModal({ onClose }: AuthModalProps) {
             ×
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Sign In: Only email and password. Sign Up: All fields. */}
-          {isLogin ? (
-            <>
-              <div>
-                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Email</label>
-                <input
-                  type="text"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
-                  required
-                />
-              </div>
-            </>
-          ) : (
-            <>
+        {/* Render modal content */}
+        {recoveryState === 'reset' ? (
+          <Recovery onSuccess={() => {
+            setRecoveryState('none');
+            setIsLogin(true);
+          }} />
+        ) : recoveryState === 'request' ? (
+          <>
+            <form onSubmit={handleResetRequest} className="space-y-4">
               <div>
                 <label className="block text-rarity-uncommon mb-2 font-mtg-body">Email</label>
                 <input
                   type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
+                  value={resetEmail}
+                  onChange={e => setResetEmail(e.target.value)}
                   className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Username</label>
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Full Name</label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-rarity-uncommon mb-2 font-mtg-body">Confirm Password</label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
-                  required
-                />
-              </div>
-            </>
-          )}
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="rememberMe"
-              checked={rememberMe}
-              onChange={e => setRememberMe(e.target.checked)}
-              className="form-checkbox"
-            />
-            <label htmlFor="rememberMe" className="text-sm text-slate-300">Remember Me</label>
-          </div>
-
-          {error && (
-            <div className="bg-mtg-black border border-mtg-red text-mtg-red px-4 py-3 rounded-lg">
-              {error}
+              {resetRequestError && (
+                <div className="bg-mtg-black border border-mtg-red text-mtg-red px-4 py-3 rounded-lg">{resetRequestError}</div>
+              )}
+              {resetRequestSent && (
+                <div className="bg-mtg-black border border-mtg-green text-mtg-green px-4 py-3 rounded-lg">Password reset email sent! Please check your inbox.</div>
+              )}
+              <button
+                type="submit"
+                disabled={resetRequestLoading}
+                className="w-full bg-rarity-rare hover:bg-rarity-mythic text-rarity-common hover:text-rarity-uncommon disabled:bg-rarity-common font-semibold py-3 px-6 rounded-lg transition-colors"
+              >
+                {resetRequestLoading ? 'Please wait...' : 'Send Password Reset Email'}
+              </button>
+            </form>
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setRecoveryState('none')}
+                className="w-full bg-rarity-common hover:bg-rarity-uncommon text-rarity-rare hover:text-rarity-common font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                Back to Sign In
+              </button>
             </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-rarity-rare hover:bg-rarity-mythic text-rarity-common hover:text-rarity-uncommon disabled:bg-rarity-common font-semibold py-3 px-6 rounded-lg transition-colors"
-          >
-            <i className="ms ms-w text-mtg-white mr-2"></i>
-            {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="w-full bg-rarity-common hover:bg-rarity-uncommon text-rarity-rare hover:text-rarity-common disabled:bg-rarity-common font-semibold py-2 px-4 rounded-lg transition-colors"
-          >
-            <i className="ms ms-g text-mtg-green mr-2"></i>
-            {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-          </button>
-        </div>
-
-        {/*
-        <div className="mt-4 text-center">
-          <p className="text-gray-400 text-sm font-mtg-body">
-            Demo mode - Authentication simulated locally
-          </p>
-        </div>
-        */}
+          </>
+        ) : (
+          <>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Sign In: Only email and password. Sign Up: All fields. */}
+              {isLogin ? (
+                <>
+                  <div>
+                    <label className="block text-rarity-uncommon mb-2 font-mtg-body">Email</label>
+                    <input
+                      type="text"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-rarity-uncommon mb-2 font-mtg-body">Password</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <button
+                      type="button"
+                      className="text-sm text-mtg-blue hover:underline"
+                      onClick={() => setRecoveryState('request')}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-rarity-uncommon mb-2 font-mtg-body">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-rarity-uncommon mb-2 font-mtg-body">Username</label>
+                    <input
+                      type="text"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-rarity-uncommon mb-2 font-mtg-body">Full Name</label>
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleChange}
+                      className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-rarity-uncommon mb-2 font-mtg-body">Password</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-rarity-uncommon mb-2 font-mtg-body">Confirm Password</label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className="w-full bg-rarity-common border border-rarity-uncommon rounded-lg px-4 py-3 text-mtg-white focus:border-mtg-blue focus:outline-none"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  className="form-checkbox"
+                />
+                <label htmlFor="rememberMe" className="text-sm text-slate-300">Remember Me</label>
+              </div>
+              {error && (
+                <div className="bg-mtg-black border border-mtg-red text-mtg-red px-4 py-3 rounded-lg">
+                  {error}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-rarity-rare hover:bg-rarity-mythic text-rarity-common hover:text-rarity-uncommon disabled:bg-rarity-common font-semibold py-3 px-6 rounded-lg transition-colors"
+              >
+                <i className="ms ms-w text-mtg-white mr-2"></i>
+                {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
+              </button>
+            </form>
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setIsLogin(!isLogin)}
+                className="w-full bg-rarity-common hover:bg-rarity-uncommon text-rarity-rare hover:text-rarity-common disabled:bg-rarity-common font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                <i className="ms ms-g text-mtg-green mr-2"></i>
+                {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
