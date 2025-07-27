@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from "./ToastProvider";
 
+
 interface AuthModalProps {
   onClose: () => void;
+  recoveryState?: 'none' | 'request' | 'reset';
 }
 
-export default function AuthModal({ onClose }: AuthModalProps) {
+export default function AuthModal({ onClose, recoveryState: propRecoveryState }: AuthModalProps) {
   const router = useRouter();
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const showToast = useToast();
@@ -150,15 +152,12 @@ export default function AuthModal({ onClose }: AuthModalProps) {
   const [signupCountdown, setSignupCountdown] = useState(3);
   // Recovery mode: show password reset form
   // Recovery state: 'none' | 'request' | 'reset'
-  const [recoveryState, setRecoveryState] = useState<'none' | 'request' | 'reset'>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('type') === 'recovery' || params.get('recovery') === '1') {
-        return 'reset';
-      }
-    }
-    return 'none';
-  });
+  const [recoveryState, setRecoveryState] = useState<'none' | 'request' | 'reset'>(
+    propRecoveryState || 'none'
+  );
+  useEffect(() => {
+    if (propRecoveryState) setRecoveryState(propRecoveryState);
+  }, [propRecoveryState]);
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
