@@ -1,11 +1,13 @@
-from typing import Dict, Any, List, Set, Optional, cast
+from typing import Dict, Any, List, Set, Optional
 from collections import Counter
 import os
+from backend.cursor import CardLookup
 
-def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, List[int]]:
+def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, float]:
     print(f"[DEBUG] fetch_salt_list_from_supabase called with card_pool size: {len(card_pool)}")
     """
-    Fetches the salt list from Supabase and returns a dict mapping card name to years_included.
+    Fetches the salt list from Supabase and returns a dict mapping card name to weighted salt score.
+    Weighted salt = Salt score * number of years included.
     Only includes cards present in the user's card pool for efficiency.
     """
     try:
@@ -20,10 +22,9 @@ def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, 
         return {}
     print("[DEBUG] Connecting to Supabase for salt list fetch...")
     supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    salt_map: Dict[str, List[int]] = {}
+    salt_map: Dict[str, float] = {}
     page = 0
     page_size = 1000
-    # Build set of card ids in pool for efficient mapping
     pool_ids: Set[str] = set()
     name_by_id: Dict[str, str] = {}
     for card in card_pool:
@@ -33,7 +34,7 @@ def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, 
     print(f"[DEBUG] Pool ids for salt mapping: {len(pool_ids)}")
     while True:
         print(f"[DEBUG] Fetching salt page {page}...")
-        resp = supabase.table("salt").select("card_id,years_included").range(page * page_size, (page + 1) * page_size - 1).execute()
+        resp = supabase.table("salt").select("card_id,Salt,years_included").range(page * page_size, (page + 1) * page_size - 1).execute()
         data = resp.data
         if not data:
             print(f"[DEBUG] No more salt data at page {page}.")
@@ -42,9 +43,12 @@ def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, 
             cid = str(row["card_id"])
             if cid in pool_ids:
                 name: str = name_by_id.get(cid, "")
+                salt_score = float(row.get("Salt", 0.0))
+                years = row.get("years_included", [])
+                weighted_salt = salt_score * len(years) if years else salt_score
                 if name:
-                    salt_map[name] = row.get("years_included", [])
-                    print(f"[DEBUG]   Mapped salt for {name} (id={cid}): {row.get('years_included', [])}")
+                    salt_map[name] = weighted_salt
+                    print(f"[DEBUG]   Mapped salt for {name} (id={cid}): Salt={salt_score}, Years={years}, Weighted={weighted_salt}")
         if len(data) < page_size:
             print(f"[DEBUG] Last salt page fetched: {page}")
             break
@@ -113,37 +117,48 @@ def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> 
     - Otherwise, uses the first keyword or ability word as the theme.
     - Returns 'generic' if no theme is detected.
     """
+    import re
+    GENERIC_TYPES = {"human", "wizard", "soldier", "warrior", "shaman"}
+    GENERIC_KEYWORDS = {"flying", "trample", "haste", "deathtouch", "first strike", "vigilance", "reach", "menace", "hexproof", "indestructible", "lifelink"}
     type_line = commander.get("type_line", "").lower()
     print(f"[DEBUG] detect_theme: commander type_line='{type_line}', keywords={commander.get('keywords', [])}")
 
-
-    # Dynamically extract all unique keywords from commander's keywords and oracle_text
+    # Extract keywords and phrases
     commander_keywords = set(str(k).lower() for k in commander.get("keywords", []))
     oracle = str(commander.get("oracle_text", "")).lower()
-    # Extract single-word and two-word phrases from oracle text for possible theme candidates
-    import re
     oracle_words: Set[str] = set(re.findall(r"\b[a-zA-Z][a-zA-Z\-']*\b", oracle))
     oracle_phrases: Set[str] = set()
     oracle_tokens = oracle.split()
     for i in range(len(oracle_tokens) - 1):
         phrase = f"{oracle_tokens[i]} {oracle_tokens[i+1]}".lower()
         oracle_phrases.add(phrase)
-    # Combine all possible theme candidates, ensure all are str
-    theme_candidates: Set[str] = set()
-    theme_candidates.update(str(k) for k in commander_keywords)
-    theme_candidates.update(str(w) for w in oracle_words)
-    theme_candidates.update(str(p) for p in oracle_phrases)
+    # Theme candidates, prioritized: commander keywords, two-word phrases, single words
+    theme_candidates: List[str] = []
+    theme_candidates.extend([str(k) for k in commander_keywords])
+    theme_candidates.extend([str(p) for p in oracle_phrases])
+    theme_candidates.extend([str(w) for w in oracle_words])
 
     # 1. Try to match the commander's main type (e.g., Sphinx, Human, etc.)
     main_type = None
     if "creature" in type_line:
-        # Extract the main creature type (last word after em dash)
         parts = type_line.split("—")
         if len(parts) > 1:
             type_words = parts[-1].strip().split()
             if type_words:
-                main_type = type_words[0]
-                print(f"[DEBUG] detect_theme: main_type from type_line is '{main_type}'")
+                # Count all types in pool, not just the first
+                type_counts: Counter[str] = Counter()
+                for t in type_words:
+                    count = sum(1 for card in card_pool if t in card.get("type_line", "").lower())
+                    type_counts[t] = count
+                if type_counts:
+                    # Prefer non-generic types if possible
+                    for t, _ in type_counts.most_common():
+                        if t not in GENERIC_TYPES:
+                            main_type = t
+                            break
+                    if not main_type:
+                        main_type = type_counts.most_common(1)[0][0]
+                    print(f"[DEBUG] detect_theme: main_type from type_line is '{main_type}'")
     # 2. If main_type found, check if it's common in the pool
     if main_type:
         count = sum(1 for card in card_pool if main_type in card.get("type_line", "").lower())
@@ -151,7 +166,7 @@ def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> 
             print(f"[DEBUG] detect_theme: using main_type '{main_type}' as theme (count in pool: {count})")
             return main_type
 
-    # 3. Check for any theme candidate in commander's keywords or oracle text
+    # 3. Check for any theme candidate in prioritized order
     for candidate in theme_candidates:
         if not candidate or len(candidate) < 3:
             continue
@@ -161,7 +176,7 @@ def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> 
                 print(f"[DEBUG] detect_theme: using commander keyword/oracle '{candidate}' as theme")
                 return candidate
 
-    # 4. Otherwise, use most common creature type or keyword in pool
+    # 4. Otherwise, use most common creature type or non-generic keyword in pool
     types: List[str] = []
     pool_keywords: List[str] = []
     for card in card_pool:
@@ -171,10 +186,22 @@ def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> 
         # Collect all keywords from pool
         pool_keywords.extend([str(k).lower() for k in card.get("keywords", [])])
     if types:
-        most_common = Counter(types).most_common(1)[0][0]
+        # Prefer non-generic types
+        type_counts = Counter(types)
+        for t, _ in type_counts.most_common():
+            if t not in GENERIC_TYPES:
+                print(f"[DEBUG] detect_theme: most common non-generic creature type is '{t}'")
+                return t
+        most_common = type_counts.most_common(1)[0][0]
         print(f"[DEBUG] detect_theme: most common creature type is '{most_common}'")
         return most_common
     if pool_keywords:
+        # Prefer non-generic keywords
+        filtered_keywords = [kw for kw in pool_keywords if kw not in GENERIC_KEYWORDS]
+        if filtered_keywords:
+            most_common_kw = Counter(filtered_keywords).most_common(1)[0][0]
+            print(f"[DEBUG] detect_theme: most common non-generic keyword in pool is '{most_common_kw}'")
+            return most_common_kw
         most_common_kw = Counter(pool_keywords).most_common(1)[0][0]
         print(f"[DEBUG] detect_theme: most common keyword in pool is '{most_common_kw}'")
         return most_common_kw
@@ -407,21 +434,7 @@ def filter_card_pool(
                 print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (house rules ban: unfun card)")
                 continue
         # Salt filtering: skip cards with too high salt weight
-        salt_info = cast(Dict[str, float], salt_list.get(card.get("name", ""), {}))
-        # salt_info should be a dict: {year: salt_score, ...}
-        salt_weight = 0.0
-        # Recency weights: latest year = 1.0, previous = 0.9, etc. (0.1 per year, min 0.1)
-        years: list[str] = sorted([str(y) for y in salt_info.keys()], reverse=True)
-        if years:
-            latest_year = max(int(y) for y in years if y.isdigit())
-            for y in years:
-                try:
-                    year = int(y)
-                    salt_score = float(salt_info[y])
-                    recency_weight = max(0.1, 1.0 - 0.1 * (latest_year - year))
-                    salt_weight += salt_score * recency_weight
-                except Exception:
-                    continue
+        salt_weight = salt_list.get(card.get("name", ""), 0.0)
         card["salt_weight"] = salt_weight
         if salt_weight_threshold > 0 and salt_weight > salt_weight_threshold:
             print(f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (salt_weight {salt_weight} > threshold {salt_weight_threshold})")
@@ -516,15 +529,6 @@ def categorize_card(card: Dict[str, Any]) -> Set[str]:
         print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'creature'")
     print(f"[DEBUG] categorize_card: {card.get('name')} categories = {categories}")
     return categories
-    if "land" in type_line:
-        categories.add("lands")
-        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'lands'")
-    # Creature
-    if "creature" in type_line:
-        categories.add("creature")
-        print(f"[DEBUG] categorize_card: {card.get('name')} categorized as 'creature'")
-    print(f"[DEBUG] categorize_card: {card.get('name')} categories = {categories}")
-    return categories
 
 
 def generate_commander_deck(
@@ -532,7 +536,7 @@ def generate_commander_deck(
     card_pool: List[Dict[str, Any]],
     bracket: int = 2,
     house_rules: bool = False,
-    salt_list: Optional[Dict[str, List[int]]] = None,
+    salt_list: Optional[Dict[str, float]] = None,
     salt_threshold: int = 0,
     generation_settings: Optional[Dict[str, Any]] = None,  # Placeholder for user settings
 ) -> Dict[str, Any]:
@@ -551,11 +555,25 @@ def generate_commander_deck(
     Returns a dictionary with the commander, deck, deck size, and bracket info.
     """
     print(f"[DEBUG] generate_commander_deck: Commander submitted: {commander.get('name')} (id={commander.get('id')}) | Bracket: {bracket} | House rules: {house_rules}")
+    # Canonicalize/enrich card_pool using CardLookup
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    if SUPABASE_URL is None or SUPABASE_SERVICE_KEY is None:
+        raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables must be set.")
+    lookup = CardLookup(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    lookup.fetch_all_cards()
+    canonical_pool: List[Dict[str, Any]] = []
+    for card in card_pool:
+        ids = lookup.lookup(card.get('name', ''))
+        if ids:
+            card['canonical_id'] = ids[0]
+        canonical_pool.append(card)
+    # Use canonical_pool for all further processing
     # 1. Filter pool for color identity, legalities, and salt
     if salt_list is None:
-        salt_list = fetch_salt_list_from_supabase(card_pool)
+        salt_list = fetch_salt_list_from_supabase(canonical_pool)
     filtered_pool = filter_card_pool(
-        card_pool, commander, bracket, house_rules, salt_list, salt_threshold
+        canonical_pool, commander, bracket, house_rules, salt_list, salt_threshold
     )
     print(f"[DEBUG] Filtered pool size: {len(filtered_pool)} | Sample: {[c.get('name') for c in filtered_pool[:5]]}")
 
@@ -692,6 +710,9 @@ def generate_commander_deck(
                 if t in CARD_TYPE_TARGETS and t not in under_types:
                     continue  # skip, type already at or above target
                 # Add this card
+                if bracket == 3 and card.get("game_changer", False):
+                    if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                        continue
                 deck.append(card)
                 used_names.add(card["name"])
                 used_ids.add(card_id)
@@ -709,6 +730,9 @@ def generate_commander_deck(
                 if card["name"] in used_names or card_id in used_ids:
                     continue
                 t = get_type(card)
+                if bracket == 3 and card.get("game_changer", False):
+                    if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                        continue
                 deck.append(card)
                 used_names.add(card["name"])
                 used_ids.add(card_id)
@@ -724,6 +748,9 @@ def generate_commander_deck(
                 card_id = card.get("id")
                 if card["name"] in used_names or card_id in used_ids:
                     continue
+                if bracket == 3 and card.get("game_changer", False):
+                    if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                        continue
                 deck.append(card)
                 used_names.add(card["name"])
                 used_ids.add(card_id)
@@ -741,6 +768,9 @@ def generate_commander_deck(
             if not candidates:
                 break
             best = sorted(candidates, key=lambda c: c.get("edhrec_rank", 999999))[0]
+            if bracket == 3 and best.get("game_changer", False):
+                if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                    continue
             deck.append(best)
             used_names.add(best["name"])
             used_ids.add(best.get("id"))
@@ -798,6 +828,9 @@ def generate_commander_deck(
                         can_add = False
                         break
             if can_add:
+                if bracket == 3 and card.get("game_changer", False):
+                    if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                        continue
                 deck.append(card)
                 used_names.add(card["name"])
                 theme_added += 1
@@ -826,6 +859,9 @@ def generate_commander_deck(
             if not candidates:
                 break
             best = sorted(candidates, key=lambda c: c.get("edhrec_rank", 999999))[0]
+            if bracket == 3 and best.get("game_changer", False):
+                if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                    continue
             deck.append(best)
             used_names.add(best["name"])
             used_ids.add(best.get("id"))
@@ -890,6 +926,9 @@ def generate_commander_deck(
             print(f"[DEBUG]   No valid candidates left to fill deck to 99. Deck size: {len(deck)}")
             break
         best: Dict[str, Any] = sorted(valid_candidates, key=lambda c: c.get("edhrec_rank", 999999))[0]
+        if bracket == 3 and best.get("game_changer", False):
+                if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                    continue
         deck.append(best)
         used_names.add(best["name"])
         used_ids.add(best.get("id"))
