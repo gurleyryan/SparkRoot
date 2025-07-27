@@ -38,8 +38,14 @@ const CollectionCard: React.FC<CollectionCardProps> = ({
       )}
       <div className="flex gap-4 text-xs text-slate-400 pt-2">
         <span>Cards: {collection.total_cards ?? collection.cards?.length ?? 0}</span>
-        <span>Unique: {collection.unique_cards ?? collection.cards?.length ?? 0}</span>
-        <span>Created: {new Date(collection.created_at).toLocaleDateString()}</span>
+        <span>Unique: {Array.isArray(collection.cards) ? new Set((collection.cards as any[]).map(card => card.id || card.name)).size : (collection.unique_cards ?? (Array.isArray(collection.cards) ? (collection.cards as any[]).length : 0))}</span>
+        {collection.created_at &&
+          (typeof collection.created_at === "number"
+            ? collection.created_at !== 0
+            : collection.created_at !== "0") &&
+          !isNaN(new Date(collection.created_at).getTime()) && (
+          <span>Created: {new Date(collection.created_at).toLocaleDateString()}</span>
+        )}
       </div>
     </div>
   );
