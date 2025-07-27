@@ -106,6 +106,10 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
   const [cardSortField, setCardSortField] = useState<"name" | "cmc" | "rarity" | "set">("name");
   const [cardSortDir, setCardSortDir] = useState<"asc" | "desc">("asc");
 
+  // Pagination state for CardGrid
+  const [currentPage, setCurrentPage] = useState(1);
+  const [cardsPerPage, setCardsPerPage] = useState(100);
+
   // Compute filtered/sorted cards for opened collection, grouped by id and summed quantity
   const filteredSortedCards = React.useMemo(() => {
     if (!openedCollection?.cards) return [];
@@ -156,6 +160,16 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
     });
     return grouped;
   }, [openedCollection, cardSearchQuery, colorFilter, rarityFilter, cardSortField, cardSortDir]);
+
+  // Pagination logic for CardGrid
+  const totalCards = filteredSortedCards.length;
+  const totalPages = Math.max(1, Math.ceil(totalCards / cardsPerPage));
+  const pagedCards = filteredSortedCards.slice((currentPage - 1) * cardsPerPage, currentPage * cardsPerPage);
+
+  // Reset to page 1 if filters or cardsPerPage change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [openedCollection, cardSearchQuery, colorFilter, rarityFilter, cardsPerPage]);
 
   // Sort collections based on active sort field and direction
   const sortedCollections = [...collections].sort((a, b) => {
@@ -350,7 +364,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                   Unique: {Array.isArray(openedCollection?.cards) ? new Set(openedCollection.cards.map((card: any) => card.id || card.name)).size : (openedCollection?.unique_cards ?? 0)}
                 </span>
               </div>
-              {/* Card search, filter, and sort controls */}
+              {/* Card search, filter, sort, and pagination controls */}
               <div className="flex flex-wrap gap-2 items-center bg-slate-800/60 p-2 rounded-lg">
                 <input
                   type="text"
@@ -402,9 +416,32 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                 >
                   {cardSortDir === 'asc' ? '⬆️ Asc' : '⬇️ Desc'}
                 </button>
+                <label className="ml-4 text-sm text-slate-300">Cards per page:</label>
+                <select
+                  className="select select-bordered select-sm"
+                  value={cardsPerPage}
+                  onChange={e => setCardsPerPage(Number(e.target.value))}
+                >
+                  <option value={100}>100</option>
+                  <option value={500}>500</option>
+                  <option value={1000}>1000</option>
+                </select>
+                <div className="flex items-center gap-1 ml-4">
+                  <button
+                    className="btn btn-xs btn-outline"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  >Prev</button>
+                  <span className="px-2 text-slate-300">Page {currentPage} / {totalPages}</span>
+                  <button
+                    className="btn btn-xs btn-outline"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  >Next</button>
+                </div>
               </div>
             </div>
-            <CardGrid cards={filteredSortedCards} />
+            <CardGrid cards={pagedCards} />
           </>
         ) : (
           <div className="m-auto">
