@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { Metadata } from "next";
 import { Cinzel, Source_Sans_3, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
@@ -94,7 +94,6 @@ export const themeColor = "#DCBF7D";
 
 import ClientShell from './ClientShell';
 
-
 // Server Component RootLayout
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -103,7 +102,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="stylesheet" href="/fonts/mana-font/mana.min.css" />
       </head>
       <body className="text-white antialiased font-mtg-body min-h-screen">
-        <ClientShell>{children}</ClientShell>
+        <Suspense fallback={null}>
+          <ClientShell>{children}</ClientShell>
+        </Suspense>
       </body>
     </html>
   );
