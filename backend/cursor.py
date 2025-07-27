@@ -60,7 +60,7 @@ class CardLookup:
         while True:
             query = (
                 self.supabase.table("cards")
-                .select("id,name,printed_name,card_faces")
+                .select("id,name,printed_name,card_faces,set,collector_number")
                 .order("id")
             )
             if last_id is not None:
