@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 import jwt
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import os
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr
@@ -357,20 +357,6 @@ class UserManager:
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         """Verify a password against its hash"""
         return pwd_context.verify(plain_password, hashed_password)
-    
-    @staticmethod
-    def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-        """Create a JWT access token"""
-        to_encode: Dict[str, Any] = data.copy()
-        if expires_delta:
-            expire: datetime = datetime.now(timezone.utc) + expires_delta
-        else:
-            expire: datetime = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        # Ensure 'sub' is always set to user email for token validation
-        sub_value = data.get("sub") or data.get("email")
-        to_encode.update({"exp": int(expire.timestamp()), "sub": sub_value})
-        encoded_jwt: str = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)  # type: ignore
-        return encoded_jwt
 
     @staticmethod
     async def authenticate_user(email_or_username: str, password: str) -> Optional[Dict[str, Any]]:
@@ -479,11 +465,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 # Alias for backward compatibility
 get_user_from_token = get_current_user
-
-# Helper functions for backward compatibility
-def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None):
-    """Create access token - wrapper for UserManager method"""
-    return UserManager.create_access_token(data, expires_delta)
 
 # Simple UserSettings model for compatibility
 class UserSettings(BaseModel):
