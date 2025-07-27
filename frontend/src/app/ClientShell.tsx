@@ -44,7 +44,15 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, '?'));
         if (hashParams.get('type') === 'recovery' || hashParams.get('recovery') === '1') {
           foundRecovery = true;
+          // Store a flag so we can detect after hash is cleared
+          sessionStorage.setItem('supabase_recovery', '1');
         }
+      }
+      // If hash is empty, check for the flag
+      if (!foundRecovery && !window.location.hash && sessionStorage.getItem('supabase_recovery') === '1') {
+        foundRecovery = true;
+        // Optionally clear the flag after use
+        sessionStorage.removeItem('supabase_recovery');
       }
       if (foundRecovery) {
         setShowModal(true);
