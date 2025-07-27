@@ -27,13 +27,14 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
 
         // Fetch inventory (all cards)
         let inventoryCards = [];
+        let invData: any = null;
         try {
           const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/inventory`;
           const invRes = await fetch(apiUrl, {
             headers: { Authorization: `Bearer ${accessToken}` },
           });
           if (invRes.ok) {
-            const invData = await invRes.json();
+            invData = await invRes.json();
             // Defensive: support both { inventory: { cards: [...] } } and { cards: [...] }
             inventoryCards = Array.isArray(invData?.inventory?.cards)
               ? invData.inventory.cards
@@ -50,17 +51,26 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
         let allCollections = collections;
         let inventoryCollection = null;
         if (inventoryCards && inventoryCards.length > 0) {
-          inventoryCollection = {
-            id: 'inventory',
-            name: 'All Cards (Inventory)',
-            cards: inventoryCards,
-            description: 'All cards in your account inventory',
-            created_at: new Date(0).toISOString(),
-            updated_at: new Date(0).toISOString(),
-            user_id: '',
-            total_cards: inventoryCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0),
-            unique_cards: inventoryCards.length,
-          };
+          // If you have the backend inventory object (e.g., invData.inventory), use its fields:
+          if (invData?.inventory) {
+            inventoryCollection = {
+              ...invData.inventory,
+              name: 'All Cards (Inventory)',
+              description: 'All cards in your account inventory',
+            };
+          } else {
+            inventoryCollection = {
+              id: 'inventory',
+              name: 'All Cards (Inventory)',
+              cards: inventoryCards,
+              description: 'All cards in your account inventory',
+              created_at: null,
+              updated_at: null,
+              user_id: '',
+              total_cards: inventoryCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0),
+              unique_cards: new Set(inventoryCards.map((c: any) => c.id || c.name)).size,
+            };
+          }
           allCollections = [inventoryCollection, ...collections];
         }
         setCollections(allCollections);
@@ -367,7 +377,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                 <span className="text-rarity-uncommon">
                   Unique: {
                     Array.isArray(openedCollection?.cards)
-                      ? openedCollection.cards.length
+                      ? new Set(openedCollection.cards.map((c: any) => c.id || c.name)).size
                       : openedCollection?.unique_cards ?? 0
                   }
                 </span>

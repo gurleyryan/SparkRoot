@@ -467,7 +467,7 @@ async def get_user_inventory(request: Request, current_user: Dict[str, Any] = De
                 "created_at": None,
                 "updated_at": None,
                 "total_cards": total_quantity,
-                "unique_cards": len(cards),
+                "unique_cards": len({c.get("id") or c.get("name") for c in cards}),
             }
         return {"success": True, "inventory": inventory}
     except Exception as e:
