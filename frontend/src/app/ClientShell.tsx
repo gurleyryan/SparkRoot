@@ -26,22 +26,39 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   const autoLoggedOut = useAuthStore((s: { autoLoggedOut: boolean }) => s.autoLoggedOut);
   const [recoveryState, setRecoveryState] = useState<'none' | 'reset'>('none');
 
-  // Show AuthModal if recovery link is present
+
+  // Show AuthModal if recovery link is present in search or hash
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      let foundRecovery = false;
+      // Check search params
       const params = new URLSearchParams(window.location.search);
       if (params.get('type') === 'recovery' || params.get('recovery') === '1') {
+        foundRecovery = true;
+      }
+      // Check hash fragment (for some OAuth/redirect flows)
+      if (!foundRecovery && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, '?'));
+        if (hashParams.get('type') === 'recovery' || hashParams.get('recovery') === '1') {
+          foundRecovery = true;
+        }
+      }
+      if (foundRecovery) {
         setShowModal(true);
         setRecoveryState('reset');
       }
     }
   }, []);
 
-  // Automatically show AuthModal when logged out and not hydrating
+  // Automatically show AuthModal when logged out and not hydrating,
+  // but do NOT close modal if in recovery mode
   useEffect(() => {
-    setShowModal(autoLoggedOut);
-    if (!autoLoggedOut) setShowAuthModal(false);
-  }, [autoLoggedOut, setShowAuthModal]);
+    // Only auto-show modal for logout if not in recovery mode
+    if (recoveryState !== 'reset') {
+      setShowModal(autoLoggedOut);
+      if (!autoLoggedOut) setShowAuthModal(false);
+    }
+  }, [autoLoggedOut, setShowAuthModal, recoveryState]);
 
   return (
     <ToastProvider>
