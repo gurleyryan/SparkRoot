@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import AuthModal from '@/components/AuthModal';
 import { useModalStore } from '@/store/modalStore';
+import { usePathname, useSearchParams } from 'next/navigation';
+
 const AuthHydrator = require('../components/AuthHydrator').default;
 const PlaymatHydrator = require('../components/PlaymatHydrator').default;
 const ToastProvider = require('../components/ToastProvider').ToastProvider;
@@ -25,18 +27,19 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   const [showModal, setShowModal] = useState(false);
   const autoLoggedOut = useAuthStore((s: { autoLoggedOut: boolean }) => s.autoLoggedOut);
   const [recoveryState, setRecoveryState] = useState<'none' | 'reset'>('none');
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
 
   // Show AuthModal if recovery link is present in search or hash
   useEffect(() => {
     if (typeof window !== 'undefined') {
       let foundRecovery = false;
-      // Check search params
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('type') === 'recovery' || params.get('recovery') === '1') {
+      // Check search params (from Next.js router)
+      if (searchParams?.get('type') === 'recovery' || searchParams?.get('recovery') === '1') {
         foundRecovery = true;
       }
-      // Check hash fragment (for some OAuth/redirect flows)
+      // Fallback: Check hash fragment
       if (!foundRecovery && window.location.hash) {
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, '?'));
         if (hashParams.get('type') === 'recovery' || hashParams.get('recovery') === '1') {
@@ -48,7 +51,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         setRecoveryState('reset');
       }
     }
-  }, []);
+  }, [pathname, searchParams]);
 
   // Automatically show AuthModal when logged out and not hydrating,
   // but do NOT close modal if in recovery mode
