@@ -9,14 +9,13 @@ import traceback
 import glob
 import uvicorn
 import sys
-from datetime import timedelta
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Body, status, Form, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse
 from pydantic import BaseModel
 from backend.utils import normalize_csv_format, expand_collection_by_quantity, enrich_single_row_with_scryfall, upsert_user_card, create_collection, update_collection, link_collection_card
-from backend.auth_supabase_rest import UserManager, get_user_from_token, get_current_user, create_access_token
+from backend.auth_supabase_rest import UserManager, get_user_from_token, get_current_user
 from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield, get_deck_statistics
 from backend.deckgen import generate_commander_deck, find_valid_commanders
 from backend.deck_analysis import analyze_deck_quality
@@ -27,6 +26,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sse_starlette.sse import EventSourceResponse
 from typing import Dict, Any, List, Optional, cast, AsyncGenerator
+from backend.cursor import CardLookup
 
 logger = structlog.get_logger()
 
@@ -285,7 +285,7 @@ async def register_user(user_data: Dict[str, Any] = Body(...)):
 
 @app.post("/api/auth/login", response_model=None)
 async def login_user(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Authenticate user and return access token in JSON response (use Authorization header for future requests)"""
+    """Authenticate user and return Supabase access token in JSON response (use Authorization header for future requests)"""
     identifier = str(payload.get("identifier") or payload.get("email") or payload.get("username", ""))
     password = str(payload.get("password", ""))
     if not identifier or not password:
@@ -300,19 +300,23 @@ async def login_user(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     user_email: str = str(user.get("email", identifier))
     user_id: str = str(user.get("id", ""))
     username: str = str(user.get("username", ""))
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # Set your desired token expiration time in minutes
-    access_token_expires: timedelta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token: str = create_access_token(
-        data={"sub": user_email, "user_id": user_id}, expires_delta=access_token_expires
-    )
+    # Get Supabase access token and token_type from auth_result
+    auth_result = user.get("auth_result")
+    access_token = None
+    token_type = None
+    if auth_result:
+        access_token = auth_result.get("access_token")
+        token_type = auth_result.get("token_type", "bearer")
+    if not access_token:
+        raise HTTPException(status_code=500, detail="No access token returned from Supabase.")
     return {
         "id": user_id,
         "email": user_email,
         "username": username,
         "full_name": str(user.get("full_name", "")),
-        "created_at": user.get("created_at", None),  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        "created_at": user.get("created_at", None),
         "access_token": access_token,
-        "token_type": "bearer",
+        "token_type": token_type,
     }
 
 
@@ -780,7 +784,7 @@ async def upload_collection_progress(
     collectionId: Optional[str] = Form(None),
     current_user: Dict[str, Any] = Depends(get_user_from_token)
 ) -> EventSourceResponse:
-  
+
     # Read and decode file outside the generator
     content = await file.read()
     print(f"[progress-upload] Read file content, size: {len(content)}", file=sys.stderr)
@@ -799,13 +803,14 @@ async def upload_collection_progress(
     ) -> AsyncGenerator[dict[str, Any], None]:
         print("[progress-upload] Starting event_generator", file=sys.stderr)
         try:
-            import pandas as pd, io
+            # Parse CSV
             df: pd.DataFrame = pd.read_csv(io.StringIO(decoded))  # type: ignore
             print(f"[progress-upload] Parsed CSV, shape: {df.shape}", file=sys.stderr)
             df = normalize_csv_format(df)
             print(f"[progress-upload] Normalized CSV, shape: {df.shape}", file=sys.stderr)
-            # Group by unique card (Scryfall ID preferred, else Set code + Collector number, else Name + Set code)
-            group_keys: List[str] = []
+
+            # Group by unique card
+            group_keys: list[str] = []
             if "Scryfall ID" in df.columns:
                 group_keys.append("Scryfall ID")
             elif "Set code" in df.columns and "Collector number" in df.columns:
@@ -818,7 +823,7 @@ async def upload_collection_progress(
                 print("[progress-upload] No suitable columns to group by.", file=sys.stderr)
                 yield {"event": "error", "data": {"error": "No suitable columns to group by."}}
                 return
-            # Build aggregation dict: sum Quantity, first for all other columns except group keys
+
             agg_dict = {"Quantity": "sum"}
             for col in df.columns:
                 if col != "Quantity" and col not in group_keys:
@@ -831,6 +836,18 @@ async def upload_collection_progress(
                 print("[progress-upload] No rows found in CSV.", file=sys.stderr)
                 yield {"event": "error", "data": {"error": "No rows found in CSV."}}
                 return
+
+            # Initialize CardLookup
+            SUPABASE_URL = os.getenv("SUPABASE_URL")
+            SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+            if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+                print("[progress-upload] Supabase credentials missing.", file=sys.stderr)
+                yield {"event": "error", "data": {"error": "Supabase credentials missing."}}
+                return
+            card_lookup = CardLookup(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+            print("[progress-upload] Fetching all cards from Supabase for lookup...", file=sys.stderr)
+            card_lookup.fetch_all_cards(diagnostics=True)
+            print("[progress-upload] Card lookup table ready.", file=sys.stderr)
 
             user_id = current_user["id"]
             print(f"[progress-upload] User ID: {user_id}", file=sys.stderr)
@@ -848,32 +865,26 @@ async def upload_collection_progress(
                 yield {"event": "error", "data": {"error": "Invalid collection action or missing collectionId."}}
                 return
 
-            user_card_ids: List[Any] = []
+            user_card_ids: list[str] = []
             enriched_cards: List[Dict[str, Any]] = []
             for idx, row in enumerate(rows):
                 print(f"[progress-upload] Processing row {idx+1}/{total}", file=sys.stderr)
                 card_id = None
                 scryfall_id = row.get("Scryfall ID")
                 set_code = row.get("Set code")
-                collector_number = row.get("Collector number")
                 name_val = row.get("Name")
-                query = None
-                params = None
+
+                # Prefer direct Scryfall ID, else robust lookup
                 if scryfall_id:
-                    query = "SELECT id FROM cards WHERE id = $1"
-                    params = (scryfall_id,)
-                elif set_code and collector_number:
-                    query = "SELECT id FROM cards WHERE set = $1 AND collector_number = $2"
-                    params = (set_code, collector_number)
-                elif name_val and set_code:
-                    query = "SELECT id FROM cards WHERE name = $1 AND set = $2"
-                    params = (name_val, set_code)
-                if query and params:
-                    from backend.supabase_db import db
-                    card_row = await db.execute_query_one(query, params)
-                    print(f"[progress-upload] Card query: {query}, params: {params}, result: {card_row}", file=sys.stderr)
-                    if card_row:
-                        card_id = card_row["id"]
+                    card_id = scryfall_id
+                else:
+                    ids = card_lookup.lookup(name_val or "")
+                    if ids:
+                        card_id = ids[0]
+                    else:
+                        fuzzy = card_lookup.fuzzy_lookup(name_val or "")
+                        print(f"[progress-upload] Fuzzy matches for '{name_val}': {fuzzy}", file=sys.stderr)
+
                 if not card_id:
                     print(f"[progress-upload] Card not found for row {idx+1}", file=sys.stderr)
                     preview: Dict[str, Any] = {"name": name_val, "set_code": set_code, "idx": idx, "total": total, "error": "Card not found"}

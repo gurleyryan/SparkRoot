@@ -96,25 +96,29 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           showToast(msg, 'error');
           setIsLoading(false);
         } else {
-          // If result.data.session is missing, show confirmation message
-          // (Supabase returns user object but no session if email confirmation is required)
-          if (result && result.data && !result.data.session) {
-            showToast('Registration successful! Please check your email to confirm your account before logging in.', 'success');
-            setIsLoading(false);
-            setError('');
-            // Optionally, close modal or keep open for login
-            // onClose();
-          } else if (result && result.data && result.data.session && result.data.user) {
-            showToast('Registration successful! You are now logged in.', 'success');
-            setIsLoading(false);
-            setError('');
-            onClose();
-          } else {
-            // fallback: unknown state
-            showToast('Registration complete. Please check your email.', 'success');
-            setIsLoading(false);
-            setError('');
-          }
+          // Show a clear success message after registration and switch to login after a delay
+          showToast('Registration successful! Please check your email to confirm your account before logging in.', 'success');
+          setIsLoading(false);
+          setError('');
+          setFormData({
+            username: '',
+            fullName: '',
+            email: '',
+            password: '',
+            confirmPassword: ''
+          });
+          setShowSignupSuccess(true);
+          let countdown = 3;
+          setSignupCountdown(countdown);
+          const interval = setInterval(() => {
+            countdown -= 1;
+            setSignupCountdown(countdown);
+            if (countdown <= 0) {
+              clearInterval(interval);
+              setShowSignupSuccess(false);
+              setIsLogin(true);
+            }
+          }, 1000);
         }
       }
     } catch (error: unknown) {
@@ -141,6 +145,9 @@ export default function AuthModal({ onClose }: AuthModalProps) {
       setIsLoading(false);
     }
   };
+  // Signup success state and countdown
+  const [showSignupSuccess, setShowSignupSuccess] = useState(false);
+  const [signupCountdown, setSignupCountdown] = useState(3);
   // Recovery mode: show password reset form
   // Recovery state: 'none' | 'request' | 'reset'
   const [recoveryState, setRecoveryState] = useState<'none' | 'request' | 'reset'>(() => {
@@ -259,7 +266,13 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           </button>
         </div>
         {/* Render modal content */}
-        {recoveryState === 'reset' ? (
+        {showSignupSuccess ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="text-mtg-green text-xl font-semibold mb-4">Registration successful!</div>
+            <div className="text-mtg-white mb-2">Please check your email to confirm your account before logging in.</div>
+            <div className="text-mtg-blue mb-4">Switching to login in {signupCountdown}...</div>
+          </div>
+        ) : recoveryState === 'reset' ? (
           <Recovery onSuccess={() => {
             setRecoveryState('none');
             setIsLogin(true);
