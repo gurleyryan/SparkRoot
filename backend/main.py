@@ -680,7 +680,7 @@ async def generate_deck(request: DeckAnalysisRequest, user: Dict[str, Any] = Dep
             house_rules=house_rules,
             salt_threshold=salt_threshold,
         )
-
+        deck_data["commander"] = selected_commander  # Ensure commander is attached
         # Use your existing analysis logic
         deck_analysis = analyze_deck_quality(deck_data)
         deck_stats = get_deck_statistics(deck_data)
