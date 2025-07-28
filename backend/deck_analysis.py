@@ -107,19 +107,21 @@ def analyze_card_types(deck: List[Dict[str, Any]]) -> Dict[str, Any]:
         dict: Card type analysis with balance score
     """
     type_counts: dict[str, int] = {
+        'lands': 0,
         'creatures': 0,
         'instants': 0,
         'sorceries': 0,
         'enchantments': 0,
         'artifacts': 0,
-        'planeswalkers': 0,
-        'lands': 0
+        'planeswalkers': 0
     }
 
     # Count card types
     for card in deck:
         type_line = card.get('type_line', '').lower()
-        if 'creature' in type_line:
+        if 'land' in type_line:
+            type_counts['lands'] += 1
+        elif 'creature' in type_line:
             type_counts['creatures'] += 1
         elif 'instant' in type_line:
             type_counts['instants'] += 1
@@ -131,8 +133,6 @@ def analyze_card_types(deck: List[Dict[str, Any]]) -> Dict[str, Any]:
             type_counts['artifacts'] += 1
         elif 'planeswalker' in type_line:
             type_counts['planeswalkers'] += 1
-        elif 'land' in type_line:
-            type_counts['lands'] += 1
 
     total_cards = len(deck)
     type_percentages: dict[str, float] = {k: float(v / total_cards * 100) for k, v in type_counts.items()}
