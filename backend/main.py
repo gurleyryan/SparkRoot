@@ -349,18 +349,21 @@ async def get_cards(game_changer: Optional[bool] = Query(None)) -> Dict[str, Any
     If game_changer is True, only return the latest printing per oracle_id.
     """
     from backend.supabase_db import db
-    if game_changer:
-        query = """
-            SELECT DISTINCT ON (oracle_id) *
-            FROM cards
-            WHERE game_changer = TRUE
-            ORDER BY oracle_id, released_at DESC
-        """
-        rows = await db.execute_query(query, (), fetch=True)
-    else:
-        query = "SELECT * FROM cards"
-        rows = await db.execute_query(query, (), fetch=True)
-    return {"success": True, "cards": rows}
+    try:
+        if game_changer:
+            query = """
+                SELECT DISTINCT ON (oracle_id) *
+                FROM cards
+                WHERE game_changer = TRUE
+                ORDER BY oracle_id, released_at DESC
+            """
+            rows = await db.execute_query(query, (), fetch=True)
+        else:
+            query = "SELECT * FROM cards"
+            rows = await db.execute_query(query, (), fetch=True)
+        return {"success": True, "cards": rows}
+    except Exception as e:
+        return {"success": False, "error": str(e), "cards": []}
 
 # Collection management endpoints
 @app.get("/api/collections")

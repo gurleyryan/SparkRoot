@@ -232,10 +232,9 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
 
   // Handler for Game Changer button toggle
   const handleGameChangersToggle = () => {
-    setGameChangersOpen((open) => !open);
+    setGameChangersOpen(open => !open);
   };
 
-  // Call parent handler when gameChangersOpen changes
   React.useEffect(() => {
     if (gameChangersOpen) {
       onShowGameChangers();
@@ -318,16 +317,27 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
             />
             {showHouseRulesTooltip && houseRulesTooltipPos && typeof window !== 'undefined' && (
               ReactDOM.createPortal(
-                <div
-                  ref={houseRulesTooltipRef}
-                  className="fixed w-56 bg-mtg-black text-rarity-rare text-xs rounded shadow-lg p-2 z-50"
-                  style={{ left: houseRulesTooltipPos.left, top: houseRulesTooltipPos.top, pointerEvents: 'auto', backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.92)" }}
-                  onClick={e => { e.stopPropagation(); setShowHouseRulesTooltip(false); }}
-                  onMouseDown={e => e.stopPropagation()}
-                  onTouchStart={e => { e.stopPropagation(); setShowHouseRulesTooltip(false); }}
-                >
-                  When enabled, House Rules will restrict bracket selection and ban Sol Ring, nonland tutors, and some 'unfun' cards like Armageddon, Winter Orb, and Stasis.
-                </div>,
+                (() => {
+                  // Responsive tooltip positioning
+                  const vw = window.innerWidth;
+                  const maxWidth = Math.min(320, vw - 32); // 320px or 32px margin
+                  let left = houseRulesTooltipPos.left;
+                  if (left + maxWidth > vw) {
+                    left = vw - maxWidth - 16; // 16px margin from right
+                  }
+                  return (
+                    <div
+                      ref={houseRulesTooltipRef}
+                      className="fixed bg-mtg-black text-rarity-rare text-xs rounded shadow-lg p-2 z-50"
+                      style={{ left, top: houseRulesTooltipPos.top, maxWidth: maxWidth, width: '90vw', pointerEvents: 'auto', backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.92)" }}
+                      onClick={e => { e.stopPropagation(); setShowHouseRulesTooltip(false); }}
+                      onMouseDown={e => e.stopPropagation()}
+                      onTouchStart={e => { e.stopPropagation(); setShowHouseRulesTooltip(false); }}
+                    >
+                      When enabled, House Rules will restrict bracket selection and ban Sol Ring, nonland tutors, and some 'unfun' cards like Armageddon, Winter Orb, and Stasis.
+                    </div>
+                  );
+                })(),
                 document.body
               )
             )}
@@ -364,17 +374,28 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
                   </label>
                   {showSaltTooltip && saltTooltipPos && typeof window !== 'undefined' && (
                     ReactDOM.createPortal(
-                      <div
-                        ref={saltTooltipRef}
-                        className="fixed w-64 bg-mtg-black text-rarity-rare text-xs rounded shadow-lg p-2 z-50"
-                        style={{ left: saltTooltipPos.left, top: saltTooltipPos.top, pointerEvents: 'auto', backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.92)" }}
-                        onClick={e => { e.stopPropagation(); setShowSaltTooltip(false); }}
-                        onTouchStart={e => { e.stopPropagation(); setShowSaltTooltip(false); }}
-                      >
-                        Salt threshold: <b>{saltThreshold}</b> (0 = strictest, 15 = allow all salty cards)<br/>
-                        The weighted salt score is calculated by multiplying a card's salt score by a sum of year-based weights, where each year included gets a weight of 1.0 minus 0.1 for each year older than the newest. This gives more weight to recent years and less to older ones. Higher values allow more salty cards.<br/>
-                        <a href="https://edhrec.com/top/salt" target="_blank" rel="noopener noreferrer" className="text-mtg-blue underline">See saltiest cards on EDHREC</a>
-                      </div>,
+                      (() => {
+                        // Responsive tooltip positioning
+                        const vw = window.innerWidth;
+                        const maxWidth = Math.min(360, vw - 32); // 360px or 32px margin
+                        let left = saltTooltipPos.left;
+                        if (left + maxWidth > vw) {
+                          left = vw - maxWidth - 16; // 16px margin from right
+                        }
+                        return (
+                          <div
+                            ref={saltTooltipRef}
+                            className="fixed bg-mtg-black text-rarity-rare text-xs rounded shadow-lg p-2 z-50"
+                            style={{ left, top: saltTooltipPos.top, maxWidth: maxWidth, width: '95vw', pointerEvents: 'auto', backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.92)" }}
+                            onClick={e => { e.stopPropagation(); setShowSaltTooltip(false); }}
+                            onTouchStart={e => { e.stopPropagation(); setShowSaltTooltip(false); }}
+                          >
+                            Salt threshold: <b>{saltThreshold}</b> (0 = strictest, 15 = allow all salty cards)<br/>
+                            The weighted salt score is calculated by multiplying a card's salt score by a sum of year-based weights, where each year included gets a weight of 1.0 minus 0.1 for each year older than the newest. This gives more weight to recent years and less to older ones. Higher values allow more salty cards.<br/>
+                            <a href="https://edhrec.com/top/salt" target="_blank" rel="noopener noreferrer" className="text-mtg-blue underline">See saltiest cards on EDHREC</a>
+                          </div>
+                        );
+                      })(),
                       document.body
                     )
                   )}

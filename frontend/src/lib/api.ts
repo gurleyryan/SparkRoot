@@ -4,7 +4,7 @@ import type { User } from '@/types';
 
 const API_CONFIG = {
   // Base URL for the API
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
   
   // API endpoints
   endpoints: {
