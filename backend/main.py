@@ -190,6 +190,9 @@ class DeckAnalysisRequest(BaseModel):
     collection: List[Dict[str, Any]]
     commander_id: Optional[str] = None
     bracket: int = 1  # 1-5, default to 1
+    house_rules: bool = False
+    # Salt threshold: weighted salt score cutoff (frontend slider should max at 15)
+    salt_threshold: int = 15
 
 
 @app.get("/")

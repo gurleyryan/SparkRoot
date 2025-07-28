@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import Image from 'next/image';
 import LiquidSleeve from "./LiquidSleeve";
@@ -198,15 +197,15 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
     <div className="flex flex-col items-center justify-center py-4 px-2">
       <div className="w-full mx-auto">
         <LiquidSleeve manaTheme={manaTheme} className="p-0 md:p-1">
-          <div className="relative rounded-2xl bg-black/60 bg-blur p-6 md:p-8 border-mtg-gold/30 shadow-lg overflow-hidden">
+          <div className="relative rounded-2xl bg-black/60 bg-blur p-6 md:p-8 border-rarity-rare/30 shadow-lg overflow-hidden">
             <Image src="/logo.svg" alt="SparkRoot Logo" className="m-auto" width={32} height={32} />
-            <h1 className="text-3xl md:text-4xl font-bold text-mtg-gold text-center tracking-wide mb-2 drop-shadow-lg font-mtg">Deck Details</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-rarity-rare text-center tracking-wide mb-2 drop-shadow-lg font-mtg">Deck Details</h1>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
               <div className="text-mtg-white/80 text-lg font-semibold font-mtg">{displayDeck.name}</div>
-              <div className="text-mtg-gold/80 text-sm font-mtg">Deck ID: {displayDeck.id}</div>
+              <div className="text-rarity-rare/80 text-sm font-mtg">Deck ID: {displayDeck.id}</div>
             </div>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
-              <div className="text-mtg-white/80">Commander: <span className="font-bold text-mtg-gold">{displayDeck.commander?.name || "Unknown"}</span></div>
+              <div className="text-mtg-white/80">Commander: <span className="font-bold text-rarity-rare">{displayDeck.commander?.name || "Unknown"}</span></div>
               <div className="text-mtg-white/60">Cards: {displayDeck.cards.length}</div>
             </div>
             <div className="mb-4 text-mtg-white/80 italic">{displayDeck.description || <span className="text-mtg-white/40">No description.</span>}</div>
@@ -219,15 +218,15 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
             {displayDeck.analysis && (
               <div className="mt-2">
                 <LiquidSleeve manaTheme={manaTheme} className="p-6 mt-2">
-                  <h3 className="text-2xl font-bold mb-4 text-mtg-gold font-mtg drop-shadow text-center">Deck Analysis</h3>
+                  <h3 className="text-2xl font-bold mb-4 text-rarity-rare font-mtg drop-shadow text-center">Deck Analysis</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Column 1: Score, Balance, Recommendations */}
                     <div className="flex flex-col gap-4">
                       {/* Score */}
-                      <div className="bg-black/40 rounded-xl p-4 flex flex-col items-center border border-mtg-gold/10">
-                        <div className="text-mtg-gold text-3xl font-bold font-mtg">{displayDeck.analysis.overall_score}</div>
+                      <div className="bg-black/40 rounded-xl p-4 flex flex-col items-center border border-rarity-rare/10">
+                        <div className="text-rarity-rare text-3xl font-bold font-mtg">{displayDeck.analysis.overall_score}</div>
                         <div className="text-mtg-white/80 text-sm">Overall Score</div>
-                        <div className="text-mtg-gold/70 text-s mt-1">Grade: {displayDeck.analysis.grade}</div>
+                        <div className="text-rarity-rare/70 text-s mt-1">Grade: {displayDeck.analysis.grade}</div>
                       </div>
                       {/* Balance */}
                       <div className="bg-black/40 rounded-xl p-4 border border-mtg-white/10">
@@ -242,8 +241,8 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                       </div>
                       {/* Recommendations */}
                       {displayDeck.analysis.recommendations && displayDeck.analysis.recommendations.length > 0 && (
-                        <div className="bg-black/40 rounded-xl p-4 border border-mtg-gold/10">
-                          <div className="text-mtg-gold text-lg font-bold font-mtg mb-1">Recommendations</div>
+                        <div className="bg-black/40 rounded-xl p-4 border border-rarity-rare/10">
+                          <div className="text-rarity-rare text-lg font-bold font-mtg mb-1">Recommendations</div>
                           <ul className="text-s ml-2">
                             {displayDeck.analysis.recommendations.map((rec: string, i: number) => (
                               <li key={i}>{rec}</li>
@@ -258,24 +257,55 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                       <div className="text-mtg-white/80 text-s mb-1">Avg CMC: {displayDeck.analysis.mana_curve?.average_cmc}</div>
                       <div className="flex flex-row gap-6">
                         <div>
-                          <div className="text-mtg-white/60 text-s">Distribution:</div>
+                          <div className="text-mtg-white/60 text-s">Actual:</div>
                           <ul className="text-s ml-2">
-                            {displayDeck.analysis.mana_curve?.distribution &&
-                              Object.entries(displayDeck.analysis.mana_curve.distribution).map(([cmc, pct]) => (
-                                <li key={cmc}>CMC {cmc}: {Number(pct).toFixed(1)}%</li>
-                              ))}
+                            {displayDeck.analysis.mana_curve?.actual_curve &&
+                              Object.entries(displayDeck.analysis.mana_curve.actual_curve).map(([cmc, count]) => {
+                                const ideal = displayDeck.analysis.mana_curve.curve_targets?.[cmc];
+                                const actualCount = Number(count);
+                                const off = Math.abs(actualCount - Number(ideal)) > 2;
+                                return (
+                                  <li key={cmc} className={off ? "text-red-400 font-bold" : "text-mtg-white"}>
+                                    CMC {cmc}: {actualCount} {ideal !== undefined && <span className="text-rarity-rare/70">/ {String(ideal)}</span>}
+                                  </li>
+                                );
+                              })}
                           </ul>
                         </div>
                         <div>
-                          <div className="text-mtg-white/60 text-s">Ideal:</div>
-                          <ul className="text-s ml-2">
-                            {displayDeck.analysis.mana_curve?.ideal_distribution &&
-                              Object.entries(displayDeck.analysis.mana_curve.ideal_distribution).map(([cmc, pct]) => (
-                                <li key={cmc}>CMC {cmc}: {Number(pct).toFixed(1)}%</li>
-                              ))}
-                          </ul>
+                          <div className="text-mtg-white/60 text-s">Mana Rocks:</div>
+                          <div className={Math.abs((displayDeck.analysis.mana_curve?.mana_rocks ?? 0) - (displayDeck.analysis.mana_curve?.mana_rocks_target ?? 0)) > 2 ? "text-red-400 font-bold" : "text-mtg-white"}>
+                            {displayDeck.analysis.mana_curve?.mana_rocks} <span className="text-rarity-rare/70">/ {displayDeck.analysis.mana_curve?.mana_rocks_target}</span>
+                          </div>
+                          <div className="text-mtg-white/60 text-s mt-2">Lands:</div>
+                          <div className={Math.abs((displayDeck.analysis.mana_curve?.lands ?? 0) - (displayDeck.analysis.mana_curve?.lands_target ?? 0)) > 2 ? "text-red-400 font-bold" : "text-mtg-white"}>
+                            {displayDeck.analysis.mana_curve?.lands} <span className="text-rarity-rare/70">/ {displayDeck.analysis.mana_curve?.lands_target}</span>
+                          </div>
                         </div>
                       </div>
+                      {/* Warnings and highlights */}
+                      {displayDeck.analysis.mana_curve?.curve_warnings && displayDeck.analysis.mana_curve.curve_warnings.length > 0 && (
+                        <div className="mt-3">
+                          <div className="text-red-400 font-bold mb-1">Curve Warnings</div>
+                          <ul className="text-s ml-2">
+                            {displayDeck.analysis.mana_curve.curve_warnings.map((w: string, i: number) => (
+                              <li key={i}>{w}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {/* N-drop warning */}
+                      {displayDeck.analysis.mana_curve?.n_drop_count > 0 && (
+                        <div className="mt-2 text-yellow-400 font-bold">
+                          Warning: {displayDeck.analysis.mana_curve.n_drop_count} card(s) with CMC equal to commander ({displayDeck.commander?.cmc}). Review for synergy.
+                        </div>
+                      )}
+                      {/* Sol Ring warning */}
+                      {displayDeck.analysis.mana_curve?.curve_warnings?.some((w: string) => w.toLowerCase().includes("sol ring")) && (
+                        <div className="mt-2 text-red-400 font-bold">
+                          Sol Ring is present but banned by House Rules.
+                        </div>
+                      )}
                     </div>
                     {/* Column 3: Card Types + Strengths */}
                     <div className="flex flex-col gap-4">
@@ -292,9 +322,9 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                         </ul>
                         <div className="text-mtg-white/60 text-s mt-1">Ideal:</div>
                         <ul className="text-s ml-2">
-                          {displayDeck.analysis.card_types?.ideal_percentages &&
-                            Object.entries(displayDeck.analysis.card_types.ideal_percentages).map(([type, pct]) => (
-                              <li key={type}>{type}: {Number(pct).toFixed(1)}%</li>
+                          {displayDeck.analysis.card_types?.ideal_counts &&
+                            Object.entries(displayDeck.analysis.card_types.ideal_counts).map(([type, count]) => (
+                              <li key={type}>{type}: {Number(count).toFixed(1)}%</li>
                             ))}
                         </ul>
                       </div>
@@ -319,7 +349,7 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                               <li key={theme}>{theme}: {Number(pct).toFixed(1)}%</li>
                             ))}
                         </ul>
-                        <div className="text-mtg-white/60 text-s mt-1">Strongest: <span className="text-mtg-gold font-bold">{displayDeck.analysis.synergies?.strongest_theme}</span></div>
+                        <div className="text-mtg-white/60 text-s mt-1">Strongest: <span className="text-rarity-rare font-bold">{displayDeck.analysis.synergies?.strongest_theme}</span></div>
                       </div>
                       {/* Weaknesses */}
                       {displayDeck.analysis.weaknesses && (

@@ -81,7 +81,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                   <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Collection</span>
                 </Link>
                 <Link href="/deck-builder" className="group flex items-center transition-colors font-mtg-mono whitespace-nowrap">
-                  <i className="ms ms-commander mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
+                  <i className="ms ms-commander mr-2 text-mtg-blue group-hover:!text-rarity-uncommon"></i>
                   <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Deck Builder</span>
                 </Link>
                 <Link href="/pricing" className="group flex items-center transition-colors font-mtg-mono whitespace-nowrap">
@@ -95,7 +95,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
                 {isAdmin && (
                   <Link href="/admin" className="group flex items-center transition-colors font-mtg-mono whitespace-nowrap">
                     <i className="ms ms-ability-dungeon mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i>
-                    <span className="text-rarity-rare group-hover:!text-rarity-uncommon">Admin</span>
+                    <span className="text-rarity-mythic group-hover:!text-rarity-uncommon">Admin</span>
                   </Link>
                 )}
               </div>

@@ -29,6 +29,7 @@
     "eslint-plugin-next": "^0.0.0",
     "eslint-plugin-react": "^7.37.5",
     "framer-motion": "^12.23.9",
+    "lucide-react": "^0.526.0",
     "mana-font": "^1.18.0",
     "next": "^15.4.2",
     "react": "19.1.0",

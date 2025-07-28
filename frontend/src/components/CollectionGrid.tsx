@@ -249,7 +249,7 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
             {/* Left column: buttons and collection dropdown */}
             <div className="flex-1 flex flex-col">
               <div className="flex flex-row items-end justify-between mb-4">
-                <h2 className="text-3xl font-mtg pt-4 text-rarity-rare">Collection</h2>
+                <h2 className="text-3xl font-mtg pt-4 text-rarity-rare"><i className="ms ms-counter-lore ms-2x text-mtg-red group-hover:text-rarity-uncommon"></i> Collection</h2>
                 <div className="flex gap-2 flex-wrap">
                   <button className="btn-secondary" onClick={() => setShowImportModal(true)}>Import</button>
                   <button className="btn-secondary" onClick={() => setShowExportModal(true)} disabled={!activeCollection}>Export</button>

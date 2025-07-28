@@ -108,7 +108,7 @@ export default function HomePage() {
       {/* Main Content */}
       {!isAuthenticated ? (
         <div className="text-center py-12">
-          <div className="sleeve-morphism rounded-xl p-8 mx-auto border" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+          <div className="sleeve-morphism rounded-xl max-w-3xl p-8 mx-auto border" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
             <h2 className="text-2xl font-mtg text-mtg-white mb-4">Welcome to SparkRoot</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <Link href="/collection" className="group text-center transition-colors">
@@ -120,7 +120,7 @@ export default function HomePage() {
               </Link>
               <Link href="/deck-builder" className="group text-center transition-colors">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <i className="ms ms-commander ms-2x text-rarity-mythic group-hover:text-rarity-uncommon"></i>
+                  <i className="ms ms-commander ms-2x text-mtg-blue group-hover:text-rarity-uncommon"></i>
                 </div>
                 <h3 className="font-semibold font-mtg-display text-mtg-white group-hover:text-rarity-uncommon">Deck Builder</h3>
                 <p className="text-rarity-uncommon font-mtg-body text-sm">Generate optimized Commander decks</p>
@@ -136,7 +136,7 @@ export default function HomePage() {
             <button
               onClick={() => setShowAuthModal(true)}
               className="bg-rarity-common hover:bg-rarity-uncommon text-rarity-uncommon hover:text-rarity-mythic font-mtg-mono font-semibold py-3 px-8 rounded-lg transition-colors cursor-pointer"
-            ><i className="ms ms-ability-flash text-mtg-blue mr-2"></i>
+            ><i className="ms ms-ability-flash text-rarity-mythic mr-2"></i>
 
               Get Started
             </button>

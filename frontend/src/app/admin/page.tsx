@@ -18,7 +18,7 @@ export default function AdminPage() {
       ) : (
         <main id="main-content" className="container mx-auto py-10 px-4">
           <div className="sleeve-morphism p-8 rounded-xl shadow-xl mx-auto w-full">
-            <h2 className="text-4xl font-bold mb-2 text-center text-rarity-mythic drop-shadow-lg">Admin Dashboard</h2>
+            <h2 className="text-4xl font-bold mb-2 text-center text-rarity-mythic drop-shadow-lg"><i className="ms ms-ability-dungeon mr-2 text-rarity-mythic group-hover:!text-rarity-uncommon"></i> Admin Dashboard</h2>
             <p className="text-lg text-mtg-gray-200 mb-8 text-center">Manage users, decks, collections, and moderate content.</p>
 
             {/* Entity Summary Row */}

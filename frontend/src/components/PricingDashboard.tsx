@@ -120,7 +120,7 @@ export default function PricingDashboard() {
       <div className="container mx-auto w-full shadow-md px-4 py-0 flex flex-col">
         <div className="flex flex-row flex-wrap items-start justify-between mb-4">
           <div className="flex flex-row items-center gap-4">
-            <h2 className="text-3xl font-mtg pt-4 pb-4 text-rarity-rare">Pricing Dashboard</h2>
+            <h2 className="text-3xl font-mtg pt-4 pb-4 text-rarity-rare"><i className="ms ms-counter-gold ms-2x text-rarity-rare group-hover:text-rarity-uncommon"></i> Pricing Dashboard</h2>
             <div className="flex flex-col min-w-[180px] px-4">
               {!activeCollection && !error && (
                 <div className="text-rarity-common">No collection selected.</div>
