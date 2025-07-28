@@ -631,7 +631,7 @@ async def find_commanders(request: DeckAnalysisRequest) -> Dict[str, Any]:
 
 
 @app.post("/api/generate-deck")
-async def generate_deck(request: DeckAnalysisRequest) -> Dict[str, Any]:
+async def generate_deck(request: DeckAnalysisRequest, user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
     try:
         collection = request.collection
         commander_id = request.commander_id
@@ -654,6 +654,21 @@ async def generate_deck(request: DeckAnalysisRequest) -> Dict[str, Any]:
 
         if not selected_commander:
             return {"success": False, "error": "Commander not found"}
+        
+        # Enrich commander if missing fields
+        if selected_commander and "name" not in selected_commander:
+            jwt_token = user["access_token"]
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/cards",
+                    params={"id": f"eq.{selected_commander.get('id')}", "select": "*"},
+                    headers={
+                        "apikey": str(SUPABASE_ANON_KEY or ""),
+                        "Authorization": f"Bearer {str(jwt_token)}",
+                    }
+                )
+                if resp.status_code == 200 and resp.json():
+                    selected_commander = resp.json()[0]
 
         # Generate deck (deckgen.py handles salt fetching/filtering internally)
         # Use house_rules from request if present, else default to False
