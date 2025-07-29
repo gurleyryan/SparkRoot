@@ -136,23 +136,28 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         saltThreshold
       );
       // Animate deckgen_steps progress using mapStepLogs
+      const stepOrder = [
+        "filter", "theme", "categorize", "lands", "curve", "rocks", "categories", "final"
+      ];
+
       if (result && Array.isArray((result as any).deckgen_steps)) {
-        const backendSteps = (result as any).deckgen_steps; // array of debug strings
-        setDebugMessages(backendSteps); // Pass full array to DeckGenerationProgress
-        setStepDetails({});
-        // Animate currentStep through major steps
-        const frontendSteps = [
-          "filter", "theme", "categorize", "lands", "curve", "rocks", "categories", "final"
-        ];
-        let i = 0;
-        function animateStep() {
-          if (i < frontendSteps.length) {
-            setCurrentStep(i);
-            i++;
-            setTimeout(animateStep, 700);
+        const backendSteps = (result as any).deckgen_steps;
+        setDebugMessages(backendSteps);
+
+        // Animate progress through all steps
+        setCurrentStep(0);
+        let stepIdx = 0;
+        const totalSteps = stepOrder.length;
+        const animateSteps = () => {
+          if (stepIdx < totalSteps - 1) {
+            setTimeout(() => {
+              stepIdx += 1;
+              setCurrentStep(stepIdx);
+              animateSteps();
+            }, 600); // 600ms per step
           }
-        }
-        animateStep();
+        };
+        animateSteps();
       }
       if (
         result &&

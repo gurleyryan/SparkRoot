@@ -1,7 +1,12 @@
-from typing import Dict, Any, List, Set, Optional, Union
-from collections import Counter
 import os
+import json
+import traceback
+import structlog
+from typing import Dict, Any, List, Set, Optional, Union, Generator
+from collections import Counter
 from backend.cursor import CardLookup
+
+logger = structlog.get_logger()
 
 
 # Mana curve targets from TCGPlayer article (Feb 2025)
@@ -21,8 +26,14 @@ def get_mana_curve_targets(commander_cmc: int) -> Dict[Union[int, str], int]:
     """
     return MANA_CURVE_TARGETS.get(commander_cmc, MANA_CURVE_TARGETS[4])
 
+
 # Helper: filter out cards with CMC equal to commander CMC, unless highly synergistic
-def filter_ndrop_cards(card_pool: List[Dict[str, Any]], commander_cmc: int, theme: str = "", synergy_keywords: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+def filter_ndrop_cards(
+    card_pool: List[Dict[str, Any]],
+    commander_cmc: int,
+    theme: Optional[str] = None,
+    synergy_keywords: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
     """
     Filters out cards with CMC equal to the commander's CMC, unless they are highly synergistic (match theme or synergy keywords).
     Recommended usage: pass the theme detected by detect_theme(commander, card_pool) as the 'theme' argument.
@@ -48,24 +59,46 @@ def filter_ndrop_cards(card_pool: List[Dict[str, Any]], commander_cmc: int, them
         filtered.append(card)
     return filtered
 
+
 # Helper: select cards for a given CMC slot, prioritizing theme/synergy and allowing small deviations
-def select_cards_for_curve_slot(card_pool: List[Dict[str, Any]], cmc: int, commander: Dict[str, Any], commander_cmc: int, curve_targets: Dict[Union[int, str], int], deviation: int = 1) -> List[Dict[str, Any]]:
+def select_cards_for_curve_slot(
+    card_pool: List[Dict[str, Any]],
+    cmc: int,
+    commander: Dict[str, Any],
+    commander_cmc: int,
+    curve_targets: Dict[Union[int, str], int],
+    deviation: int = 1,
+    theme: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
     Selects cards for a given CMC slot, up to curve_targets[cmc] (+/- deviation).
     Uses theme detection and N-drop filtering for synergy.
     Prioritizes cards matching the deck's theme in type_line or keywords.
     """
-    theme = detect_theme(commander, card_pool)
+    if theme is None:
+        theme = detect_theme(commander, card_pool)
     filtered_pool = filter_ndrop_cards(card_pool, commander_cmc, theme)
     # Only nonland cards for curve slots
-    slot_cards = [card for card in filtered_pool if int(card.get("cmc", 0)) == cmc and "land" not in str(card.get("type_line", "")).lower()]
+    slot_cards = [
+        card
+        for card in filtered_pool
+        if int(card.get("cmc", 0)) == cmc
+        and "land" not in str(card.get("type_line", "")).lower()
+    ]
     # Prioritize theme/synergy
-    theme_cards = [card for card in slot_cards if theme and theme in str(card.get("type_line", "")).lower()]
+    theme_cards = [
+        card
+        for card in slot_cards
+        if theme and theme in str(card.get("type_line", "")).lower()
+    ]
     non_theme_cards = [card for card in slot_cards if card not in theme_cards]
     # Allow small deviation from target
     target = curve_targets.get(cmc, 0)
     max_target = target + deviation
-    selected = theme_cards[:max_target] + non_theme_cards[:max(0, max_target - len(theme_cards))]
+    selected = (
+        theme_cards[:max_target]
+        + non_theme_cards[: max(0, max_target - len(theme_cards))]
+    )
     # Truncate to max_target
     return selected[:max_target]
 
@@ -650,7 +683,11 @@ def filter_card_pool(
         salt_weight = salt_list.get(card.get("name", ""), 0.0)
         card["salt_weight"] = salt_weight
         # If salt_threshold >= 15, allow all cards (no salt filtering)
-        if salt_weight_threshold < 15 and salt_weight_threshold > 0 and salt_weight > salt_weight_threshold:
+        if (
+            salt_weight_threshold < 15
+            and salt_weight_threshold > 0
+            and salt_weight > salt_weight_threshold
+        ):
             print(
                 f"[DEBUG] filter_card_pool: Skipping {card.get('name')} (salt_weight {salt_weight} > threshold {salt_weight_threshold})"
             )
@@ -795,324 +832,200 @@ def generate_commander_deck(
     generation_settings: Optional[
         Dict[str, Any]
     ] = None,  # Placeholder for user settings
-) -> Dict[str, Any]:
+) -> Generator[str, Any, Any]:
     """
     Main function to generate a Commander deck from a user's collection and chosen commander.
     Returns a dictionary with the commander, deck, deck size, bracket info, and step debug logs.
     """
-    step_logs: List[str] = []
 
-    step_logs.append("[STEP] Starting deck generation")
-    step_logs.append(f"[STEP] Commander submitted: {commander.get('name')} (id={commander.get('id')}) | Bracket: {bracket} | House rules: {house_rules}")
+    # Live step log: 1. Starting deck generation
+    yield json.dumps({"message": "[STEP 1] Starting deck generation"})
+    yield json.dumps({"message": f"[STEP 2] Commander submitted: {commander.get('name')} (id={commander.get('id')}) | Bracket: {bracket} | House rules: {house_rules}"})
+    
+    try:
+        SUPABASE_URL = os.getenv("SUPABASE_URL")
+        SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+        if SUPABASE_URL is None or SUPABASE_SERVICE_KEY is None:
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables must be set."
+            )
+        lookup = CardLookup(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        lookup.fetch_all_cards()
+        canonical_pool: List[Dict[str, Any]] = []
+        for card in card_pool:
+            ids = lookup.lookup(card.get("name", ""))
+            if ids:
+                card["canonical_id"] = ids[0]
+            canonical_pool.append(card)
 
-    SUPABASE_URL = os.getenv("SUPABASE_URL")
-    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-    if SUPABASE_URL is None or SUPABASE_SERVICE_KEY is None:
-        raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables must be set.")
-    lookup = CardLookup(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    lookup.fetch_all_cards()
-    canonical_pool: List[Dict[str, Any]] = []
-    for card in card_pool:
-        ids = lookup.lookup(card.get("name", ""))
-        if ids:
-            card["canonical_id"] = ids[0]
-        canonical_pool.append(card)
-
-    # 1. Filter pool for color identity, legalities, and salt
-    step_logs.append("[STEP] Filtering card pool for color identity, legality, bracket, house rules, and salt...")
-    if salt_list is None:
-        salt_list = fetch_salt_list_from_supabase(canonical_pool)
-    filtered_pool = filter_card_pool(
-        canonical_pool, commander, bracket, house_rules, salt_list, salt_threshold
-    )
-    step_logs.append(f"[STEP] Filtering complete. Pool size: {len(filtered_pool)} | Sample: {[c.get('name') for c in filtered_pool[:5]]}")
-
-    # 2. Detect theme
-    step_logs.append("[STEP] Detecting deck theme...")
-    theme = detect_theme(commander, filtered_pool)
-    step_logs.append(f"[STEP] Theme detected: {theme}")
-
-    # 3. Categorize pool
-    step_logs.append("[STEP] Categorizing cards by function...")
-    categorized: Dict[str, List[Dict[str, Any]]] = {cat: [] for cat in CATEGORY_TARGETS}
-    for card in filtered_pool:
-        if "categories" not in card:
-            card["categories"] = categorize_card(card)
-        for cat in card["categories"]:
-            if cat in categorized:
-                categorized[cat].append(card)
-    step_logs.append("[STEP] Categorization complete.")
-    for cat, cards in categorized.items():
-        step_logs.append(f"[STEP]   {cat}: {len(cards)} cards")
-
-    # 4. Start with commander(s)
-    deck = [commander]
-    used_names = set([commander["name"]])
-    used_ids = set([commander.get("id")])
-    step_logs.append(f"[STEP] Starting deck with commander: {commander.get('name')} (id={commander.get('id')})")
-
-    # 5. Commander functions (synergy)
-    step_logs.append("[STEP] Detecting commander functions (synergy)...")
-    commander_synergy = commander_functions(commander)
-    step_logs.append(f"[STEP] Commander provides these deck functions: {commander_synergy}")
-
-    # 6. SELECT LANDS FIRST
-    min_lands, max_lands = CATEGORY_TARGETS["lands"]
-    num_lands = min(max_lands, 100 - len(deck))
-    land_pool = categorized.get("lands", [])
-    step_logs.append(f"[STEP] Selecting lands FIRST: need {num_lands}, pool size: {len(land_pool)}")
-    lands = select_lands(commander, land_pool, num_lands)
-    step_logs.append(f"[STEP] Selected {len(lands)} lands: {[l.get('name') for l in lands[:5]]}{'...' if len(lands) > 5 else ''}")
-    for land in lands:
-        land_id = land.get("id")
-        is_basic = "basic land" in (land.get("type_line", "").lower())
-        count_in_deck = sum(1 for c in deck if c.get("id") == land_id)
-        owned_qty = int(land.get("quantity", 1))
-        if is_basic:
-            if count_in_deck < owned_qty and len(deck) < 100:
-                deck.append(land)
-                step_logs.append(f"[STEP]   Added basic land: {land.get('name')} (id={land_id}) [{count_in_deck+1}/{owned_qty}]")
-        else:
-            if land["name"] not in used_names and land_id not in used_ids and len(deck) < 100:
-                deck.append(land)
-                used_names.add(land["name"])
-                used_ids.add(land_id)
-                step_logs.append(f"[STEP]   Added nonbasic land: {land.get('name')} (id={land_id})")
-
-    step_logs.append(f"[STEP] Deck size after lands: {len(deck)}")
-    step_logs.append(f"[STEP] Land count in deck: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}")
-
-    # 7. MANA CURVE FILL
-    curve_targets = get_mana_curve_targets(int(commander.get("cmc", 4)))
-    step_logs.append(f"[STEP] Mana curve targets: {curve_targets}")
-    for cmc in range(1, 7):
-        slot_cards = select_cards_for_curve_slot(
-            filtered_pool,
-            cmc,
-            commander,
-            int(commander.get("cmc", 4)),
-            curve_targets,
-            deviation=1,
+        # Live step log: 3. Filter pool for color identity, legalities, and salt
+        yield json.dumps({"message": "[STEP 3] Filtering card pool for color identity, legality, bracket, house rules, and salt..."})
+        if salt_list is None:
+            salt_list = fetch_salt_list_from_supabase(canonical_pool)
+        filtered_pool = filter_card_pool(
+            canonical_pool, commander, bracket, house_rules, salt_list, salt_threshold
         )
-        for card in slot_cards:
-            card_id = card.get("id")
-            if card["name"] in used_names or card_id in used_ids:
-                continue
+        yield json.dumps({"message": f"[STEP 4] Filtering complete. Pool size: {len(filtered_pool)} | Sample: {[c.get('name') for c in filtered_pool[:5]]}"})
+
+        # Live step log: 5. Detect theme
+        yield json.dumps({"message": "[STEP 5] Detecting deck theme..."})
+        theme = detect_theme(commander, filtered_pool)
+        yield json.dumps({"message": f"[STEP 6] Theme detected: {theme}"})
+
+        # Live step log: 7. Categorize pool
+        yield json.dumps({"message": "[STEP 7] Categorizing cards by function..."})
+        categorized: Dict[str, List[Dict[str, Any]]] = {cat: [] for cat in CATEGORY_TARGETS}
+        for card in filtered_pool:
+            if "categories" not in card:
+                card["categories"] = categorize_card(card)
+            for cat in card["categories"]:
+                if cat in categorized:
+                    categorized[cat].append(card)
+        yield json.dumps({"message": "[STEP 8] Categorization complete."})
+        for cat, cards in categorized.items():
+            yield json.dumps({"message": f"[STEP 9]   {cat}: {len(cards)} cards"})
+
+        # Live step log: 10. Start with commander(s)
+        deck = [commander]
+        used_names = set([commander["name"]])
+        used_ids = set([commander.get("id")])
+        yield json.dumps({"message": f"[STEP 10] Starting deck with commander: {commander.get('name')} (id={commander.get('id')})"})
+
+        # Live step log: 11. Commander functions (synergy)
+        yield json.dumps({"message": "[STEP 11] Detecting commander functions (synergy)..."})
+        commander_synergy = commander_functions(commander)
+        yield json.dumps({"message": f"[STEP 12] Commander provides these deck functions: {commander_synergy}"})
+
+        # 6. Select lands first
+        _, max_lands = CATEGORY_TARGETS["lands"]
+        num_lands = min(max_lands, 100 - len(deck))
+        land_pool = categorized.get("lands", [])
+        yield json.dumps({"message": f"[STEP 13] Selecting lands FIRST: need {num_lands}, pool size: {len(land_pool)}"})
+        lands = select_lands(commander, land_pool, num_lands)
+        yield json.dumps({"message": f"[STEP 14] Selected {len(lands)} lands: {[l.get('name') for l in lands[:5]]}{'...' if len(lands) > 5 else ''}"})
+        land_add_idx = 1
+        for land in lands:
+            land_id = land.get("id")
+            is_basic = "basic land" in (land.get("type_line", "").lower())
+            count_in_deck = sum(1 for c in deck if c.get("id") == land_id)
+            owned_qty = int(land.get("quantity", 1))
+            if is_basic:
+                if count_in_deck < owned_qty and len(deck) < 100:
+                    deck.append(land)
+                    yield json.dumps({"message": f"[STEP 15.{land_add_idx}]   Added basic land: {land.get('name')} (id={land_id}) [{count_in_deck+1}/{owned_qty}]"})
+                    land_add_idx += 1
+            else:
+                if (
+                    land["name"] not in used_names
+                    and land_id not in used_ids
+                    and len(deck) < 100
+                ):
+                    deck.append(land)
+                    used_names.add(land["name"])
+                    used_ids.add(land_id)
+                    yield json.dumps({"message": f"[STEP 15.{land_add_idx}]   Added nonbasic land: {land.get('name')} (id={land_id})"})
+                    land_add_idx += 1
+
+        yield json.dumps({"message": f"[STEP 16] Deck size after lands: {len(deck)}"})
+        yield json.dumps({"message": f"[STEP 17] Land count in deck: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}"})
+
+        # 7. Mana curve fill
+        curve_targets = get_mana_curve_targets(int(commander.get("cmc", 4)))
+        yield json.dumps({"message": f"[STEP 18] Mana curve targets: {curve_targets}"})
+        curve_add_idx = 1
+        for cmc in range(1, 7):
+            slot_cards = select_cards_for_curve_slot(
+                filtered_pool,
+                cmc,
+                commander,
+                int(commander.get("cmc", 4)),
+                curve_targets,
+                deviation=1,
+                theme=theme,
+            )
+            for card in slot_cards:
+                card_id = card.get("id")
+                if card["name"] in used_names or card_id in used_ids:
+                    continue
+                deck.append(card)
+                used_names.add(card["name"])
+                used_ids.add(card_id)
+                yield json.dumps({"message": f"[STEP 19.{curve_add_idx}] Added to mana curve slot {cmc}: {card.get('name')} (id={card_id})"})
+                curve_add_idx += 1
+
+        # 8. Mana rocks fill
+        mana_rocks_target = curve_targets.get("mana_rocks", 0)
+        yield json.dumps({"message": f"[STEP 20] Mana rocks target: {mana_rocks_target}"})
+        mana_rocks_pool = [
+            c
+            for c in filtered_pool
+            if "artifact" in str(c.get("type_line", "")).lower()
+            and (
+                "ramp" in str(c.get("keywords", [])).lower()
+                or "mana" in str(c.get("keywords", [])).lower()
+                or "mana" in str(c.get("type_line", "")).lower()
+            )
+            and (not house_rules or c.get("name", "").lower() != "sol ring")
+            and c["name"] not in used_names
+            and c.get("id") not in used_ids
+        ]
+        mana_rocks_pool = sorted(
+            mana_rocks_pool,
+            key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999
+        )
+        rocks_added = 0
+        rocks_add_idx = 1
+        for card in mana_rocks_pool:
+            if rocks_added >= mana_rocks_target or len(deck) >= 100:
+                break
             deck.append(card)
             used_names.add(card["name"])
-            used_ids.add(card_id)
-            step_logs.append(f"[STEP]   Added to mana curve slot {cmc}: {card.get('name')} (id={card_id})")
+            used_ids.add(card.get("id"))
+            rocks_added += 1
+            yield json.dumps({"message": f"[STEP 20.{rocks_add_idx}] Added mana rock: {card.get('name')} (id={card.get('id')})"})
+            rocks_add_idx += 1
 
-    # 8. MANA ROCKS FILL
-    mana_rocks_target = curve_targets.get("mana_rocks", 0)
-    step_logs.append(f"[STEP] Mana rocks target: {mana_rocks_target}")
-    mana_rocks_pool = [
-        c for c in filtered_pool
-        if "artifact" in str(c.get("type_line", "")).lower()
-        and ("ramp" in str(c.get("keywords", [])).lower() or "mana" in str(c.get("keywords", [])).lower() or "mana" in str(c.get("type_line", "")).lower())
-        and (not house_rules or c.get("name", "").lower() != "sol ring")
-        and c["name"] not in used_names
-        and c.get("id") not in used_ids
-    ]
-    mana_rocks_pool = sorted(mana_rocks_pool, key=lambda c: c.get("edhrec_rank", 999999))
-    rocks_added = 0
-    for card in mana_rocks_pool:
-        if rocks_added >= mana_rocks_target or len(deck) >= 100:
-            break
-        deck.append(card)
-        used_names.add(card["name"])
-        used_ids.add(card.get("id"))
-        rocks_added += 1
-        step_logs.append(f"[STEP]   Added mana rock: {card.get('name')} (id={card.get('id')})")
-
-    # 9. ADJUST LAND COUNT BASED ON CURVE TARGETS
-    land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
-    target_lands = curve_targets.get("lands", len(land_cards))
-    step_logs.append(f"[STEP] Target lands from curve: {target_lands}, current: {len(land_cards)}")
-    while len(land_cards) > target_lands:
-        to_remove = sorted(
-            land_cards, key=lambda c: c.get("edhrec_rank", 999999), reverse=True
-        )[0]
-        deck.remove(to_remove)
-        used_names.discard(to_remove.get("name"))
-        used_ids.discard(to_remove.get("id"))
-        step_logs.append(f"[STEP]   Trimmed land: {to_remove.get('name')}")
+        # 9. Adjust land count based on curve targets
         land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
-    land_pool: List[Dict[str, Any]] = [
-        c for c in filtered_pool
-        if "land" in str(c.get("type_line", "")).lower()
-        and c["name"] not in used_names
-        and c.get("id") not in used_ids
-    ]
-    land_pool = sorted(land_pool, key=lambda c: c.get("edhrec_rank", 999999))
-    while len(land_cards) < target_lands and land_pool and len(deck) < 100:
-        best: Dict[str, Any] = land_pool[0]
-        deck.append(best)
-        used_names.add(best.get("name", ""))  # safer than best["name"]
-        used_ids.add(best.get("id", ""))      # safer than best.get("id")
-        step_logs.append(f"[STEP]   Filled land: {best.get('name', '')}")
-        land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
-        land_pool = [
-            c for c in land_pool
-            if c.get("name", "") not in used_names and str(c.get("id", "")) not in used_ids
+        target_lands = curve_targets.get("lands", len(land_cards))
+        yield json.dumps({"message": f"[STEP 21] Target lands from curve: {target_lands}, current: {len(land_cards)}"})
+        trim_land_idx = 1
+        while len(land_cards) > target_lands:
+            to_remove = sorted(
+                land_cards, key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999, reverse=True
+            )[0]
+            deck.remove(to_remove)
+            used_names.discard(to_remove.get("name"))
+            used_ids.discard(to_remove.get("id"))
+            yield json.dumps({"message": f"[STEP 21.{trim_land_idx}]   Trimmed land: {to_remove.get('name')}"})
+            trim_land_idx += 1
+            land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
+        land_pool: List[Dict[str, Any]] = [
+            c
+            for c in filtered_pool
+            if "land" in str(c.get("type_line", "")).lower()
+            and c["name"] not in used_names
+            and c.get("id") not in used_ids
         ]
-
-    # 10. STRICT CATEGORY FILL
-    step_logs.append("[STEP] Strictly filling categories with theme/synergy priority and type targets...")
-    commander_keywords = set(str(k).lower() for k in commander.get("keywords", []))
-    oracle = str(commander.get("oracle_text", "")).lower()
-    import re
-
-    oracle_words: Set[str] = set(re.findall(r"\b[a-zA-Z][a-zA-Z\-']*\b", oracle))
-    oracle_phrases: Set[str] = set()
-    oracle_tokens = oracle.split()
-    for i in range(len(oracle_tokens) - 1):
-        phrase = f"{oracle_tokens[i]} {oracle_tokens[i+1]}".lower()
-        oracle_phrases.add(phrase)
-    theme_candidates: Set[str] = set()
-    theme_candidates.update(str(k) for k in commander_keywords)
-    theme_candidates.update(str(w) for w in oracle_words)
-    theme_candidates.update(str(p) for p in oracle_phrases)
-    main_type = None
-    type_line = commander.get("type_line", "").lower()
-    if "creature" in type_line:
-        parts = type_line.split("—")
-        if len(parts) > 1:
-            type_words = parts[-1].strip().split()
-            if type_words:
-                main_type = type_words[0]
-    if main_type:
-        theme_candidates.add(main_type)
-    theme_candidates.add(str(theme))
-
-    def card_matches_theme(card: Dict[str, Any], candidates: Set[str]) -> bool:
-        card_text = (
-            card.get("type_line", "").lower()
-            + " "
-            + " ".join([str(k).lower() for k in card.get("keywords", [])])
-        )
-        return any(tc for tc in candidates if tc and len(tc) > 2 and tc in card_text)
-
-    def get_type(card: Dict[str, Any]) -> str:
-        type_line = str(card.get("type_line", "")).lower()
-        for t in [
-            "creature",
-            "sorcery",
-            "instant",
-            "enchantment",
-            "artifact",
-            "planeswalker",
-            "land",
-        ]:
-            if t in type_line:
-                return t
-        return "other"
-
-    def type_counts(deck: List[Dict[str, Any]]) -> Dict[str, int]:
-        counts = {t: 0 for t in CARD_TYPE_TARGETS}
-        for c in deck:
-            t = get_type(c)
-            if t in counts:
-                counts[t] += 1
-        return counts
-
-    type_targets_met = lambda deck: all(type_counts(deck)[t] >= CARD_TYPE_TARGETS[t] for t in CARD_TYPE_TARGETS)  # type: ignore
-    for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
-        if cat == "lands":
-            continue
-        step_logs.append(f"[STEP] Strictly filling category '{cat}' (min={min_count}, max={max_count}) with theme/synergy priority and type targets (strict)")
-        pool = categorized.get(cat, [])
-        theme_cat = [c for c in pool if card_matches_theme(c, theme_candidates)]
-        synergy_cat = [c for c in pool if cat in commander_synergy and c not in theme_cat]
-        rest_cat = [c for c in pool if c not in theme_cat and c not in synergy_cat]
-        rest_cat = sorted(rest_cat, key=lambda c: c.get("edhrec_rank", 999999))
-        prioritized = theme_cat + synergy_cat + rest_cat
-        count = 0
-        while count < max_count and len(deck) < 100 and not type_targets_met(deck):
-            type_count = type_counts(deck)
-            under_types = {t for t, v in type_count.items() if v < CARD_TYPE_TARGETS[t]}
-            found = False
-            for card in prioritized:
-                card_id = card.get("id")
-                if card["name"] in used_names or card_id in used_ids:
-                    continue
-                t = get_type(card)
-                if t in CARD_TYPE_TARGETS and t not in under_types:
-                    continue
-                if bracket == 3 and card.get("game_changer", False):
-                    if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
-                        continue
-                deck.append(card)
-                used_names.add(card["name"])
-                used_ids.add(card_id)
-                count += 1
-                step_logs.append(f"[STEP]   (type-priority) Added to '{cat}' (type {t}): {card.get('name')} (id={card_id})")
-                found = True
-                break
-            if not found:
-                break
-        while count < max_count and len(deck) < 100 and type_targets_met(deck):
-            found = False
-            for card in prioritized:
-                card_id = card.get("id")
-                if card["name"] in used_names or card_id in used_ids:
-                    continue
-                t = get_type(card)
-                if bracket == 3 and card.get("game_changer", False):
-                    if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
-                        continue
-                deck.append(card)
-                used_names.add(card["name"])
-                used_ids.add(card_id)
-                count += 1
-                step_logs.append(f"[STEP]   (overflow) Added to '{cat}' (type {t}): {card.get('name')} (id={card_id})")
-                found = True
-                break
-            if not found:
-                break
-        while count < min_count and len(deck) < 100:
-            for card in prioritized:
-                card_id = card.get("id")
-                if card["name"] in used_names or card_id in used_ids:
-                    continue
-                if bracket == 3 and card.get("game_changer", False):
-                    if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
-                        continue
-                deck.append(card)
-                used_names.add(card["name"])
-                used_ids.add(card_id)
-                count += 1
-                t = get_type(card)
-                step_logs.append(f"[STEP]   (min fill) Added to '{cat}' (type {t}): {card.get('name')} (id={card_id})")
-                break
-            else:
-                break
-
-    # FINAL TYPE ENFORCEMENT
-    type_count = type_counts(deck)
-    for t, target in CARD_TYPE_TARGETS.items():
-        while type_count[t] < target and len(deck) < 99:
-            candidates: List[Dict[str, Any]] = [
-                c
-                for c in filtered_pool
-                if c["name"] not in used_names
-                and c.get("id") not in used_ids
-                and get_type(c) == t
-            ]
-            if not candidates:
-                break
-            best = sorted(candidates, key=lambda c: c.get("edhrec_rank", 999999))[0]  # type: ignore
-            if bracket == 3 and best.get("game_changer", False):
-                if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
-                    continue
+        land_pool = sorted(land_pool, key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999)
+        fill_land_idx = 1
+        while len(land_cards) < target_lands and land_pool and len(deck) < 100:
+            best: Dict[str, Any] = land_pool[0]
             deck.append(best)
-            used_names.add(best["name"])
-            used_ids.add(best.get("id"))
-            type_count[t] += 1
-            step_logs.append(f"[STEP]   (final type fill) Added {best.get('name')} to meet type target {t} ({type_count[t]}/{target})")
+            used_names.add(best.get("name", ""))  # safer than best["name"]
+            used_ids.add(best.get("id", ""))  # safer than best.get("id")
+            yield json.dumps({"message": f"[STEP 21.{fill_land_idx + trim_land_idx - 1}]   Filled land: {best.get('name', '')}"})
+            fill_land_idx += 1
+            land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
+            land_pool = [
+                c
+                for c in land_pool
+                if c.get("name", "") not in used_names
+                and str(c.get("id", "")) not in used_ids
+            ]
 
-    # 11. Fill main theme (if not already filled)
-    if "main_theme" in CATEGORY_TARGETS:
+        # 10. Strict category fill
+        yield json.dumps({"message": "[STEP 22] Strictly filling categories with theme/synergy priority and type targets..."})
         commander_keywords = set(str(k).lower() for k in commander.get("keywords", []))
         oracle = str(commander.get("oracle_text", "")).lower()
         import re
@@ -1145,122 +1058,287 @@ def generate_commander_deck(
                 + " "
                 + " ".join([str(k).lower() for k in card.get("keywords", [])])
             )
-            return any(
-                tc for tc in candidates if tc and len(tc) > 2 and tc in card_text
-            )
+            return any(tc for tc in candidates if tc and len(tc) > 2 and tc in card_text)
 
-        theme_pool = [
-            c for c in filtered_pool if card_matches_theme(c, theme_candidates)
-        ]
-        theme_pool = sorted(theme_pool, key=lambda c: c.get("edhrec_rank", 999999))
-        theme_added = 0
-        for card in theme_pool:
-            if card["name"] in used_names or len(deck) >= 100:
+        def get_type(card: Dict[str, Any]) -> str:
+            type_line = str(card.get("type_line", "")).lower()
+            for t in [
+                "creature",
+                "sorcery",
+                "instant",
+                "enchantment",
+                "artifact",
+                "planeswalker",
+                "land",
+            ]:
+                if t in type_line:
+                    return t
+            return "other"
+
+        def type_counts(deck: List[Dict[str, Any]]) -> Dict[str, int]:
+            counts = {t: 0 for t in CARD_TYPE_TARGETS}
+            for c in deck:
+                t = get_type(c)
+                if t in counts:
+                    counts[t] += 1
+            return counts
+
+        type_targets_met = lambda deck: all(type_counts(deck)[t] >= CARD_TYPE_TARGETS[t] for t in CARD_TYPE_TARGETS)  # type: ignore
+        cat_idx = 1
+        for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
+            if cat == "lands":
                 continue
-            cats = categorize_card(card)
-            can_add = True
-            for cat in cats:
-                if cat in CATEGORY_TARGETS:
-                    _, max_count = CATEGORY_TARGETS[cat]
-                    cat_count = sum(1 for c in deck if cat in categorize_card(c))
-                    if cat_count >= max_count:
-                        can_add = False
-                        break
-            if can_add:
-                if bracket == 3 and card.get("game_changer", False):
+            yield json.dumps({"message": f"[STEP 22.{cat_idx}] Strictly filling category '{cat}' (min={min_count}, max={max_count}) with theme/synergy priority and type targets (strict)"})
+            pool = categorized.get(cat, [])
+            theme_cat = [c for c in pool if card_matches_theme(c, theme_candidates)]
+            synergy_cat = [
+                c for c in pool if cat in commander_synergy and c not in theme_cat
+            ]
+            rest_cat = [c for c in pool if c not in theme_cat and c not in synergy_cat]
+            rest_cat = sorted(rest_cat, key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999)
+            prioritized = theme_cat + synergy_cat + rest_cat
+            count = 0
+            type_priority_idx = 1
+            overflow_idx = 1
+            min_fill_idx = 1
+            while count < max_count and len(deck) < 100 and not type_targets_met(deck):
+                type_count = type_counts(deck)
+                under_types = {t for t, v in type_count.items() if v < CARD_TYPE_TARGETS[t]}
+                found = False
+                for card in prioritized:
+                    card_id = card.get("id")
+                    if card["name"] in used_names or card_id in used_ids:
+                        continue
+                    t = get_type(card)
+                    if t in CARD_TYPE_TARGETS and t not in under_types:
+                        continue
+                    if bracket == 3 and card.get("game_changer", False):
+                        if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                            continue
+                    deck.append(card)
+                    used_names.add(card["name"])
+                    used_ids.add(card_id)
+                    count += 1
+                    yield json.dumps({"message": f"[STEP 22.{cat_idx}.{type_priority_idx}] (type-priority) Added to '{cat}' (type {t}): {card.get('name')} (id={card_id})"})
+                    type_priority_idx += 1
+                    found = True
+                    break
+                if not found:
+                    break
+            while count < max_count and len(deck) < 100 and type_targets_met(deck):
+                found = False
+                for card in prioritized:
+                    card_id = card.get("id")
+                    if card["name"] in used_names or card_id in used_ids:
+                        continue
+                    t = get_type(card)
+                    if bracket == 3 and card.get("game_changer", False):
+                        if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                            continue
+                    deck.append(card)
+                    used_names.add(card["name"])
+                    used_ids.add(card_id)
+                    count += 1
+                    yield json.dumps({"message": f"[STEP 22.{cat_idx}.{overflow_idx}] (overflow) Added to '{cat}' (type {t}): {card.get('name')} (id={card_id})"})
+                    overflow_idx += 1
+                    found = True
+                    break
+                if not found:
+                    break
+            while count < min_count and len(deck) < 100:
+                for card in prioritized:
+                    card_id = card.get("id")
+                    if card["name"] in used_names or card_id in used_ids:
+                        continue
+                    if bracket == 3 and card.get("game_changer", False):
+                        if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                            continue
+                    deck.append(card)
+                    used_names.add(card["name"])
+                    used_ids.add(card_id)
+                    count += 1
+                    t = get_type(card)
+                    yield json.dumps({"message": f"[STEP 22.{cat_idx}.{min_fill_idx}] (min fill) Added to '{cat}' (type {t}): {card.get('name')} (id={card_id})"})
+                    min_fill_idx += 1
+                    break
+                else:
+                    break
+            cat_idx += 1
+
+        # 11. Final type enforcement
+        type_count = type_counts(deck)
+        final_type_idx = 1
+        for t, target in CARD_TYPE_TARGETS.items():
+            while type_count[t] < target and len(deck) < 99:
+                candidates: List[Dict[str, Any]] = [
+                    c
+                    for c in filtered_pool
+                    if c["name"] not in used_names
+                    and c.get("id") not in used_ids
+                    and get_type(c) == t
+                ]
+                if not candidates:
+                    break
+                best = sorted(candidates, key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999)[0]  # type: ignore
+                if bracket == 3 and best.get("game_changer", False):
                     if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
                         continue
-                deck.append(card)
-                used_names.add(card["name"])
-                theme_added += 1
-        step_logs.append(f"[STEP] Added {theme_added} theme/synergy cards (without exceeding category maxes)")
+                deck.append(best)
+                used_names.add(best["name"])
+                used_ids.add(best.get("id"))
+                type_count[t] += 1
+                yield json.dumps({"message": f"[STEP 23.{final_type_idx}] (final type fill) Added {best.get('name')} to meet type target {t} ({type_count[t]}/{target})"})
+                final_type_idx += 1
 
-    # 12. FINAL ENFORCEMENT: Ensure all CATEGORY_TARGETS are respected
-    def trim_category(deck: List[Dict[str, Any]], cat: str, max_count: int):
-        trimmed = False
-        while True:
-            cat_cards = [
-                c for c in deck if "categories" in c and cat in c["categories"]
+        # 12. Fill main theme (if not already filled)
+        if "main_theme" in CATEGORY_TARGETS:
+            commander_keywords = set(str(k).lower() for k in commander.get("keywords", []))
+            oracle = str(commander.get("oracle_text", "")).lower()
+            import re
+
+            oracle_words: Set[str] = set(re.findall(r"\b[a-zA-Z][a-zA-Z\-']*\b", oracle))
+            oracle_phrases: Set[str] = set()
+            oracle_tokens = oracle.split()
+            for i in range(len(oracle_tokens) - 1):
+                phrase = f"{oracle_tokens[i]} {oracle_tokens[i+1]}".lower()
+                oracle_phrases.add(phrase)
+            theme_candidates: Set[str] = set()
+            theme_candidates.update(str(k) for k in commander_keywords)
+            theme_candidates.update(str(w) for w in oracle_words)
+            theme_candidates.update(str(p) for p in oracle_phrases)
+            main_type = None
+            type_line = commander.get("type_line", "").lower()
+            if "creature" in type_line:
+                parts = type_line.split("—")
+                if len(parts) > 1:
+                    type_words = parts[-1].strip().split()
+                    if type_words:
+                        main_type = type_words[0]
+            if main_type:
+                theme_candidates.add(main_type)
+            theme_candidates.add(str(theme))
+
+            def card_matches_theme(card: Dict[str, Any], candidates: Set[str]) -> bool:
+                card_text = (
+                    card.get("type_line", "").lower()
+                    + " "
+                    + " ".join([str(k).lower() for k in card.get("keywords", [])])
+                )
+                return any(
+                    tc for tc in candidates if tc and len(tc) > 2 and tc in card_text
+                )
+
+            theme_pool = [
+                c for c in filtered_pool if card_matches_theme(c, theme_candidates)
             ]
-            if len(cat_cards) <= max_count:
-                break
+            theme_pool = sorted(theme_pool, key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999)
+            theme_added = 0
+            theme_synergy_idx = 1
+            for card in theme_pool:
+                if card["name"] in used_names or len(deck) >= 100:
+                    continue
+                cats = categorize_card(card)
+                can_add = True
+                for cat in cats:
+                    if cat in CATEGORY_TARGETS:
+                        _, max_count = CATEGORY_TARGETS[cat]
+                        cat_count = sum(1 for c in deck if cat in categorize_card(c))
+                        if cat_count >= max_count:
+                            can_add = False
+                            break
+                if can_add:
+                    if bracket == 3 and card.get("game_changer", False):
+                        if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                            continue
+                    deck.append(card)
+                    used_names.add(card["name"])
+                    theme_added += 1
+                    yield json.dumps({"message": f"[STEP 24.{theme_synergy_idx}] Added theme/synergy card: {card.get('name')} (id={card.get('id')})"})
+                    theme_synergy_idx += 1
+            yield json.dumps({"message": f"[STEP 24] Added {theme_added} theme/synergy cards (without exceeding category maxes)"})
+
+        # 13. Final enforcement: Ensure all CATEGORY_TARGETS are respected
+        def trim_category(deck: List[Dict[str, Any]], cat: str, max_count: int):
+            trimmed = False
+            trim_idx = 1
+            while True:
+                cat_cards = [
+                    c for c in deck if "categories" in c and cat in c["categories"]
+                ]
+                if len(cat_cards) <= max_count:
+                    break
+                to_remove = sorted(
+                    cat_cards, key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999, reverse=True
+                )[0]
+                deck.remove(to_remove)
+                trimmed = True
+                yield json.dumps({"message": f"[STEP 25.{cat}.{trim_idx}]   Trimmed {cat}: {to_remove.get('name')}"})
+                trim_idx += 1
+            return trimmed
+
+        def fill_category(
+            deck: List[Dict[str, Any]],
+            cat: str,
+            min_count: int,
+            pool: List[Dict[str, Any]],
+            used_names: Set[str],
+            used_ids: Set[Any],
+        ):
+            added = False
+            fill_idx = 1
+            while True:
+                cat_cards = [
+                    c for c in deck if "categories" in c and cat in c["categories"]
+                ]
+                if len(cat_cards) >= min_count:
+                    break
+                candidates = [
+                    c
+                    for c in pool
+                    if "categories" in c
+                    and cat in c["categories"]
+                    and c["name"] not in used_names
+                    and c.get("id") not in used_ids
+                ]
+                if not candidates:
+                    break
+                best = sorted(candidates, key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999)[0]
+                if bracket == 3 and best.get("game_changer", False):
+                    if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                        continue
+                deck.append(best)
+                used_names.add(best["name"])
+                used_ids.add(best.get("id"))
+                added = True
+                yield json.dumps({"message": f"[STEP 25.{cat}.{fill_idx}]   Filled {cat}: {best.get('name')}"})
+                fill_idx += 1
+            return added
+
+        for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
+            if cat == "lands":
+                continue
+            for msg in trim_category(deck, cat, max_count):
+                yield json.dumps({"message": msg})
+        for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
+            if cat == "lands":
+                continue
+            for msg in fill_category(
+                deck, cat, min_count, filtered_pool, used_names, used_ids
+            ):
+                yield json.dumps({"message": msg})
+
+        # 14. Enforce land count strictly
+        land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
+        min_lands, max_lands = CATEGORY_TARGETS["lands"]
+        land_trim_idx = 1
+        while len(land_cards) > max_lands:
             to_remove = sorted(
-                cat_cards, key=lambda c: c.get("edhrec_rank", 999999), reverse=True
+                land_cards, key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999, reverse=True
             )[0]
             deck.remove(to_remove)
-            trimmed = True
-            step_logs.append(f"[STEP]   Trimmed {cat}: {to_remove.get('name')}")
-        return trimmed
-
-    def fill_category(
-        deck: List[Dict[str, Any]],
-        cat: str,
-        min_count: int,
-        pool: List[Dict[str, Any]],
-        used_names: Set[str],
-        used_ids: Set[Any],
-    ):
-        added = False
-        while True:
-            cat_cards = [
-                c for c in deck if "categories" in c and cat in c["categories"]
-            ]
-            if len(cat_cards) >= min_count:
-                break
-            candidates = [
-                c
-                for c in pool
-                if "categories" in c
-                and cat in c["categories"]
-                and c["name"] not in used_names
-                and c.get("id") not in used_ids
-            ]
-            if not candidates:
-                break
-            best = sorted(candidates, key=lambda c: c.get("edhrec_rank", 999999))[0]
-            if bracket == 3 and best.get("game_changer", False):
-                if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
-                    continue
-            deck.append(best)
-            used_names.add(best["name"])
-            used_ids.add(best.get("id"))
-            added = True
-            step_logs.append(f"[STEP]   Filled {cat}: {best.get('name')}")
-        return added
-
-    for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
-        if cat == "lands":
-            continue
-        trim_category(deck, cat, max_count)
-    for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
-        if cat == "lands":
-            continue
-        fill_category(deck, cat, min_count, filtered_pool, used_names, used_ids)
-
-    # Enforce land count strictly
-    land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
-    min_lands, max_lands = CATEGORY_TARGETS["lands"]
-    while len(land_cards) > max_lands:
-        to_remove = sorted(
-            land_cards, key=lambda c: c.get("edhrec_rank", 999999), reverse=True
-        )[0]
-        deck.remove(to_remove)
-        step_logs.append(f"[STEP]   Trimmed land: {to_remove.get('name')}")
-        land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
-    land_pool = [
-        c
-        for c in filtered_pool
-        if "land" in str(c.get("type_line", "")).lower()
-        and c["name"] not in used_names
-        and c.get("id") not in used_ids
-    ]
-    while len(land_cards) < min_lands and land_pool:
-        best = sorted(land_pool, key=lambda c: c.get("edhrec_rank", 999999))[0]
-        deck.append(best)
-        used_names.add(best["name"])
-        used_ids.add(best.get("id"))
-        step_logs.append(f"[STEP]   Filled land: {best.get('name')}")
-        land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
+            yield json.dumps({"message": f"[STEP 26.{land_trim_idx}]   Trimmed land: {to_remove.get('name')}"})
+            land_trim_idx += 1
+            land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
         land_pool = [
             c
             for c in filtered_pool
@@ -1268,78 +1346,121 @@ def generate_commander_deck(
             and c["name"] not in used_names
             and c.get("id") not in used_ids
         ]
+        land_fill_idx = 1
+        while len(land_cards) < min_lands and land_pool:
+            best = sorted(land_pool, key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999)[0]
+            deck.append(best)
+            used_names.add(best["name"])
+            used_ids.add(best.get("id"))
+            yield json.dumps({"message": f"[STEP 26.{land_fill_idx + land_trim_idx - 1}]   Filled land: {best.get('name')}"})
+            land_fill_idx += 1
+            land_cards = [c for c in deck if "land" in str(c.get("type_line", "")).lower()]
+            land_pool = [
+                c
+                for c in land_pool
+                if "land" in str(c.get("type_line", "")).lower()
+                and c["name"] not in used_names
+                and c.get("id") not in used_ids
+            ]
 
-    # FINAL FILL: Fill to 99 cards (excluding commander)
-    while len(deck) < 99:
-        candidates: List[Dict[str, Any]] = [
-            c
-            for c in filtered_pool
-            if c["name"] not in used_names and c.get("id") not in used_ids
-        ]
-        valid_candidates: List[Dict[str, Any]] = []
-        type_count = type_counts(deck)
-        under_types = {t for t, v in type_count.items() if v < CARD_TYPE_TARGETS[t]}
-        for c in candidates:
-            if "categories" not in c:
-                c["categories"] = categorize_card(c)
-            cats = c["categories"]
-            can_add = True
-            for cat in cats:
-                if cat in CATEGORY_TARGETS:
-                    _, max_count = CATEGORY_TARGETS[cat]
-                    cat_count = sum(
-                        1 for d in deck if "categories" in d and cat in d["categories"]
-                    )
-                    if cat_count >= max_count:
-                        can_add = False
-                        break
-            if not can_add:
-                continue
-            t = get_type(c)
-            if under_types and t not in under_types:
-                continue
-            valid_candidates.append(c)
-        if not valid_candidates:
-            step_logs.append(f"[STEP]   No valid candidates left to fill deck to 99. Deck size: {len(deck)}")
-            break
-        best: Dict[str, Any] = sorted(
-            valid_candidates, key=lambda c: c.get("edhrec_rank", 999999)
-        )[0]
-        if bracket == 3 and best.get("game_changer", False):
-            if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
-                continue
-        deck.append(best)
-        used_names.add(best["name"])
-        used_ids.add(best.get("id"))
-        t = get_type(best)
-        step_logs.append(f"[STEP]   Final fill: {best.get('name')} (type {t})")
-
-    # Final trim if deck is over 99 (excluding commander)
-    while len(deck) > 99:
-        non_essential = [
-            c
-            for c in deck
-            if "land" not in str(c.get("type_line", "")).lower()
-            and "creature" not in str(c.get("type_line", "")).lower()
-        ]
-        if non_essential:
-            to_remove = sorted(
-                non_essential, key=lambda c: c.get("edhrec_rank", 999999), reverse=True
+        # 15. Final fill: Fill to 99 cards (excluding commander)
+        final_fill_idx = 1
+        while len(deck) < 99:
+            candidates: List[Dict[str, Any]] = [
+                c
+                for c in filtered_pool
+                if c["name"] not in used_names and c.get("id") not in used_ids
+            ]
+            valid_candidates: List[Dict[str, Any]] = []
+            type_count = type_counts(deck)
+            under_types = {t for t, v in type_count.items() if v < CARD_TYPE_TARGETS[t]}
+            for c in candidates:
+                if "categories" not in c:
+                    c["categories"] = categorize_card(c)
+                cats = c["categories"]
+                can_add = True
+                for cat in cats:
+                    if cat in CATEGORY_TARGETS:
+                        _, max_count = CATEGORY_TARGETS[cat]
+                        cat_count = sum(
+                            1 for d in deck if "categories" in d and cat in d["categories"]
+                        )
+                        if cat_count >= max_count:
+                            can_add = False
+                            break
+                if not can_add:
+                    continue
+                t = get_type(c)
+                if under_types and t not in under_types:
+                    continue
+                valid_candidates.append(c)
+            if not valid_candidates:
+                yield json.dumps({"message": f"[STEP 27]   No valid candidates left to fill deck to 99. Deck size: {len(deck)}"})
+                break
+            best: Dict[str, Any] = sorted(
+                valid_candidates, 
+                key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999
             )[0]
-            deck.remove(to_remove)
-            step_logs.append(f"[STEP]   Final trim: {to_remove.get('name')}")
-        else:
-            deck.pop()
-            step_logs.append(f"[STEP]   Final trim: removed last card")
+            if bracket == 3 and best.get("game_changer", False):
+                if sum(1 for c in deck if c.get("game_changer", False)) >= 3:
+                    continue
+            deck.append(best)
+            used_names.add(best["name"])
+            used_ids.add(best.get("id"))
+            t = get_type(best)
+            yield json.dumps({"message": f"[STEP 27.{final_fill_idx}]   Final fill: {best.get('name')} (type {t})"})
+            final_fill_idx += 1
 
-    step_logs.append(f"[STEP] Final deck size: {len(deck)} (should be 99 + commander)")
-    step_logs.append(f"[STEP] Final land count: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}")
+        # 16. Final trim if deck is over 99 (excluding commander)
+        final_trim_idx = 1
+        while len(deck) > 99:
+            non_essential = [
+                c
+                for c in deck
+                if "land" not in str(c.get("type_line", "")).lower()
+                and "creature" not in str(c.get("type_line", "")).lower()
+            ]
+            if non_essential:
+                to_remove = sorted(
+                    non_essential, 
+                    key=lambda c: c["edhrec_rank"] if isinstance(c.get("edhrec_rank"), (int, float)) and c.get("edhrec_rank") is not None else 999999
+                )[0]
+                deck.remove(to_remove)
+                yield json.dumps({"message": f"[STEP 28.{final_trim_idx}]   Final trim: {to_remove.get('name')}"})
+                final_trim_idx += 1
+            else:
+                deck.pop()
+                yield json.dumps({"message": f"[STEP 28.{final_trim_idx}]   Final trim: removed last card"})
+                final_trim_idx += 1
 
-    return {
-        "commander": commander,
-        "deck": deck,
-        "deck_size": len(deck),
-        "total_cards": len(deck) + 1,
-        "bracket": bracket,
-        "deckgen_steps": step_logs,
-    }
+        yield json.dumps({"message": f"[STEP 29] Final deck size: {len(deck)} (should be 99 + commander)"})
+        yield json.dumps({"message": f"[STEP 29] Final land count: {sum(1 for c in deck if 'land' in (c.get('type_line','').lower()))}"})
+
+        # Prepare deck_dict for final event yield json.dumps({"message":
+
+        def convert_sets(obj: Any) -> Any:
+            if isinstance(obj, set):
+                return list(obj)  # type: ignore
+            elif isinstance(obj, dict):
+                return dict((str(k), convert_sets(v)) for k, v in obj.items())   # type: ignore
+            elif isinstance(obj, list):
+                return [convert_sets(v) for v in obj]  # type: ignore
+            else:
+                return obj
+
+        deck_dict: Dict[str, Any] = {
+            "success": True,
+            "commander": convert_sets(commander),
+            "deck": convert_sets(deck),
+            "deck_size": len(deck),
+            "total_cards": len(deck) + 1,
+            "bracket": bracket,
+            "theme": theme,
+        }
+
+        # Yield the final deck dictionary as a JSON object with a 'deck' field
+        yield json.dumps({"deck": deck_dict})
+    except Exception as e:
+        logger.error("Exception in generate_commander_deck", error=str(e), traceback=traceback.format_exc())
+        yield json.dumps({"error": f"Exception in deck generation: {str(e)}", "traceback": traceback.format_exc()})
+        return

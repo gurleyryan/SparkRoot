@@ -2,6 +2,7 @@ import React from 'react';
 // Core MTG Types
 export interface MTGCard {
   id: string;
+  scryfall_id?: string;
   name: string;
   mana_cost: string;
   cmc: number;
@@ -26,6 +27,75 @@ export interface MTGCard {
   legalities: Record<string, 'legal' | 'not_legal' | 'restricted' | 'banned'>;
   quantity?: number;
   foil?: boolean;
+  oracle_id?: string; // Scryfall UUID for oracle card
+  arena_id?: number;
+  mtgo_id?: number;
+  mtgo_foil_id?: number;
+  multiverse_ids?: number[];
+  tcgplayer_id?: number;
+  tcgplayer_etched_id?: number;
+  cardmarket_id?: number;
+  object?: string;
+  layout?: string;
+  prints_search_uri?: string;
+  rulings_uri?: string;
+  scryfall_uri?: string;
+  uri?: string;
+  all_parts?: any; // JSONB, could be more specific
+  card_faces?: any; // JSONB, for double-faced cards
+  color_indicator?: string[];
+  defense?: string;
+  edhrec_rank?: number;
+  game_changer?: boolean;
+  hand_modifier?: string;
+  keywords?: string[];
+  life_modifier?: string;
+  loyalty?: string;
+  penny_rank?: number;
+  power?: string;
+  produced_mana?: string[];
+  reserved?: boolean;
+  toughness?: string;
+  artist?: string;
+  artist_ids?: string[];
+  attraction_lights?: string[];
+  booster?: boolean;
+  border_color?: string;
+  card_back_id?: string;
+  content_warning?: boolean;
+  digital?: boolean;
+  finishes?: string[];
+  flavor_name?: string;
+  flavor_text?: string;
+  frame_effects?: string[];
+  frame?: string;
+  full_art?: boolean;
+  games?: string[];
+  highres_image?: boolean;
+  illustration_id?: string;
+  image_status?: string;
+  oversized?: boolean;
+  printed_name?: string;
+  printed_text?: string;
+  printed_type_line?: string;
+  promo?: boolean;
+  promo_types?: string[];
+  purchase_uris?: Record<string, string>;
+  related_uris?: Record<string, string>;
+  released_at?: string;
+  reprint?: boolean;
+  scryfall_set_uri?: string;
+  set_search_uri?: string;
+  set_type?: string;
+  set_uri?: string;
+  set_id?: string;
+  story_spotlight?: boolean;
+  textless?: boolean;
+  variation?: boolean;
+  variation_of?: string;
+  security_stamp?: string;
+  watermark?: string;
+  preview?: any; // JSONB
 }
 
 // User & Authentication Types

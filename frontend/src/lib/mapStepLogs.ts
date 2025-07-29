@@ -16,7 +16,6 @@ const stepKeywords: { [key: string]: string[] } = {
   categorize: [
     "Categorizing cards by function",
     "Categorization complete",
-    "  ",
     "Starting deck with commander:",
     "Detecting commander functions",
     "Commander provides these deck functions:",

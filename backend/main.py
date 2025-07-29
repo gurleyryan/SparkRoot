@@ -1,3 +1,4 @@
+import json
 import io
 import pandas as pd
 import csv
@@ -637,31 +638,29 @@ async def find_commanders(request: DeckAnalysisRequest) -> Dict[str, Any]:
 
 
 @app.post("/api/generate-deck")
-async def generate_deck(request: DeckAnalysisRequest, user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
+async def generate_deck(
+    request: DeckAnalysisRequest,
+    user: Dict[str, Any] = Depends(get_user_from_token)
+) -> Dict[str, Any]:
     try:
         collection = request.collection
         commander_id = request.commander_id
         bracket = request.bracket or 1
-        salt_threshold = getattr(request, "salt_threshold", 0)  # Add to DeckAnalysisRequest if needed
+        salt_threshold = getattr(request, "salt_threshold", 0)
+        house_rules = getattr(request, "house_rules", False)
 
-        # Convert to DataFrame and list of dicts
-        df = pd.DataFrame(collection)
-        card_pool = cast(List[Dict[str, Any]], df.to_dict(orient="records"))  # type: ignore
+        # Convert to list of dicts
+        card_pool = list(collection)
 
         # Find the selected commander
-        selected_commander = None
-        for card in collection:
-            if (
-                card.get("id") == commander_id
-                or card.get("scryfall_id") == commander_id
-            ):
-                selected_commander = card
-                break
-
+        selected_commander = next(
+            (card for card in collection if card.get("id") == commander_id or card.get("scryfall_id") == commander_id),
+            None
+        )
         if not selected_commander:
             return {"success": False, "error": "Commander not found"}
-        
-        # Enrich commander if missing fields
+
+        # Enrich commander if missing fields (optional, as in your code)
         if selected_commander and "name" not in selected_commander:
             jwt_token = user["access_token"]
             async with httpx.AsyncClient() as client:
@@ -676,18 +675,30 @@ async def generate_deck(request: DeckAnalysisRequest, user: Dict[str, Any] = Dep
                 if resp.status_code == 200 and resp.json():
                     selected_commander = resp.json()[0]
 
-        # Generate deck (deckgen.py handles salt fetching/filtering internally)
-        # Use house_rules from request if present, else default to False
-        house_rules = getattr(request, "house_rules", False)
-        deck_data: Dict[str, Any] = generate_commander_deck(
+        # Generate deck (synchronous, not streaming)
+        deck_gen = generate_commander_deck(
             selected_commander,
             card_pool,
             bracket=bracket,
             house_rules=house_rules,
             salt_threshold=salt_threshold,
         )
-        deck_data["commander"] = selected_commander  # Ensure commander is attached
-        # Use your existing analysis logic
+        deck_data: dict[str, Any] = {}  # Explicit type annotation for deck_data
+        if hasattr(deck_gen, '__iter__') and not isinstance(deck_gen, dict):
+            for step in deck_gen:
+                try:
+                    maybe_data = json.loads(step)
+                except Exception:
+                    maybe_data = step
+                # Only assign if it's a dict with a 'deck' key (final yield)
+                if isinstance(maybe_data, dict) and 'deck' in maybe_data:
+                    deck_data = maybe_data['deck']
+        else:
+            deck_data = deck_gen
+        if not isinstance(deck_data, dict):
+            raise Exception("Deck generation did not return a valid deck dictionary.")
+
+        # Analyze deck quality and get statistics
         deck_analysis = analyze_deck_quality(deck_data)
         deck_stats = get_deck_statistics(deck_data)
 
@@ -698,9 +709,93 @@ async def generate_deck(request: DeckAnalysisRequest, user: Dict[str, Any] = Dep
             "stats": deck_stats,
             "bracket": bracket,
         }
-
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@app.post("/api/generate-deck-stream")
+async def generate_deck_stream(
+    request: DeckAnalysisRequest,
+    user: Dict[str, Any] = Depends(get_user_from_token)
+):
+    async def event_generator():
+        try:
+            collection = request.collection
+            commander_id = request.commander_id
+            bracket = request.bracket or 1
+            salt_threshold = getattr(request, "salt_threshold", 0)
+            house_rules = getattr(request, "house_rules", False)
+            card_pool = list(collection)
+            selected_commander = next(
+                (card for card in collection if card.get("id") == commander_id or card.get("scryfall_id") == commander_id),
+                None
+            )
+            if not selected_commander:
+                yield f"event: error\ndata: {json.dumps({'error': 'Commander not found'})}\n\n"
+                return
+
+            # Optionally enrich commander as above...
+
+            # Streaming deck generation
+            for step in generate_commander_deck(
+                selected_commander,
+                card_pool,
+                bracket=bracket,
+                house_rules=house_rules,
+                salt_threshold=salt_threshold,
+            ):
+                # Each step is a JSON string, so wrap as SSE event
+                yield f"event: step\ndata: {step}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return EventSourceResponse(event_generator())
+
+@app.get("/api/generate-deck")
+async def generate_deck_get(
+    job_id: str = Query(...),
+    user: Dict[str, Any] = Depends(get_user_from_token)
+):
+    # You must have a way to look up the job by job_id, e.g. from a cache or database
+    # For demo, assume you can retrieve the same DeckAnalysisRequest as above
+    # Implement or import this function to fetch a DeckAnalysisRequest by job_id
+    def get_deck_request_by_job_id(job_id: str) -> DeckAnalysisRequest:
+        # Placeholder: Replace with actual retrieval logic (e.g., from DB or cache)
+        # For now, raise an error to indicate it's not implemented.
+        raise NotImplementedError("get_deck_request_by_job_id function must be implemented.")
+
+    request: DeckAnalysisRequest = get_deck_request_by_job_id(job_id)  # Now type is known
+
+    async def event_generator():
+        try:
+            collection = request.collection
+            commander_id = request.commander_id
+            bracket = request.bracket or 1
+            salt_threshold = getattr(request, "salt_threshold", 0)
+            house_rules = getattr(request, "house_rules", False)
+            card_pool = list(collection)
+            selected_commander = next(
+                (card for card in collection if card.get("id") == commander_id or card.get("scryfall_id") == commander_id),
+                None
+            )
+            if not selected_commander:
+                yield f"event: error\ndata: {json.dumps({'error': 'Commander not found'})}\n\n"
+                return
+
+            # Optionally enrich commander as above...
+
+            for step in generate_commander_deck(
+                selected_commander,
+                card_pool,
+                bracket=bracket,
+                house_rules=house_rules,
+                salt_threshold=salt_threshold,
+            ):
+                yield f"event: step\ndata: {step}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return EventSourceResponse(event_generator())
 
 
 @app.get("/api/load-sample-collection")
