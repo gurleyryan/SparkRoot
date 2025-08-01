@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import type { Metadata } from "next";
 import { Cinzel, Source_Sans_3, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
+import ClientShell from './ClientShell';
 
 const cinzel = Cinzel({
   subsets: ['latin'],
@@ -27,7 +28,6 @@ export const metadata: Metadata = {
   description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
   icons: [
     { rel: "icon", url: "/favicon.ico", type: "image/x-icon" },
-    { rel: "icon", url: "/logo.svg", type: "image/svg+xml" },
     { rel: "icon", url: "/logo.png", type: "image/png" },
     { rel: "apple-touch-icon", url: "/logo.png" },
   ],
@@ -39,14 +39,10 @@ export const metadata: Metadata = {
     images: [
       {
         url: "https://www.sparkroot.cards/logo.png",
-        width: 512,
-        height: 512,
+        width: 1024,
+        height: 1024,
         alt: "SparkRoot Logo",
         type: "image/png",
-      },
-      {
-        url: "https://www.sparkroot.cards/logo.svg",
-        type: "image/svg+xml",
       },
     ],
   },
@@ -89,19 +85,16 @@ export const viewport = {
 
 export const themeColor = "#DCBF7D";
 
-// ClientShell: all client-only logic/components go here
-
-
-import ClientShell from './ClientShell';
-
 // Server Component RootLayout
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
       <head>
         <link rel="stylesheet" href="/fonts/mana-font/mana.min.css" />
-      <meta property="og:image" content="https://www.sparkroot.cards/logo-preview.png" />
-      <meta name="twitter:image" content="https://www.sparkroot.cards/logo-preview.png" />
+      <meta property="og:image" content="https://www.sparkroot.cards/logo.png" />
+      <meta property="og:image:width" content="1024" />
+      <meta property="og:image:height" content="1024" />
+      <meta name="twitter:image" content="https://www.sparkroot.cards/logo.png" />
       <meta name="twitter:card" content="summary_large_image" />
       </head>
       <body className="text-white antialiased font-mtg-body min-h-screen">
