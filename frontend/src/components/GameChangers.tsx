@@ -1,17 +1,10 @@
 "use client";
-
 import React from "react";
 import CardGrid from "./CardGrid";
 import type { MTGCard } from '@/types/index';
 
-// Extend MTGCard for Scryfall fields used in this component
-type MTGCardExtended = MTGCard & {
-  set_icon_svg_uri?: string;
-  card_faces?: any; // You can replace 'any' with a more specific type if available
-};
-
 const GameChangers: React.FC = () => {
-  const [gameChangerCards, setGameChangerCards] = React.useState<Partial<MTGCardExtended>[]>([]);
+  const [gameChangerCards, setGameChangerCards] = React.useState<Partial<MTGCard>[]>([]);
   const [loadingCards, setLoadingCards] = React.useState(false);
   const [errorCards, setErrorCards] = React.useState<string | null>(null);
 
@@ -42,17 +35,21 @@ const GameChangers: React.FC = () => {
       if (parsed && typeof parsed.image_uris === 'string') {
         try {
           parsed.image_uris = JSON.parse(parsed.image_uris);
-        } catch {}
+        } catch {
+          // Ignore JSON parse errors
+        }
       }
       if (parsed && typeof parsed.card_faces === 'string') {
         try {
           parsed.card_faces = JSON.parse(parsed.card_faces);
-        } catch {}
+        } catch {
+          // Ignore JSON parse errors
+        }
       }
       return parsed;
     })
     .filter(
-      (card): card is import("./Card").MTGCardWithFaces =>
+      (card): card is MTGCard =>
         typeof card.id === 'string' && typeof card.name === 'string' && typeof card.set === 'string'
     );
   return <CardGrid cards={validCards} />;

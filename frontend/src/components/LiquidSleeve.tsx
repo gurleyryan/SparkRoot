@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useCallback, Suspense } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, useMotionValue } from "framer-motion";
 import clsx from "clsx";
 
 const manaThemes = {
@@ -77,10 +77,6 @@ const LiquidSleeve: React.FC<LiquidSleeveProps> = ({
   // Parallax effect (pointer-based)
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const springX = useSpring(x, { stiffness: 60, damping: 12 });
-  const springY = useSpring(y, { stiffness: 60, damping: 12 });
-  const rotateX = useTransform(springY, [ -40, 40 ], [ 10, -10 ]);
-  const rotateY = useTransform(springX, [ -40, 40 ], [ -10, 10 ]);
 
   // Glint animation
   const [glint, setGlint] = useState(false);

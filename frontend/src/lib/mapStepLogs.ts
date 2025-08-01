@@ -73,11 +73,9 @@ export function mapStepLogs(stepLogs: string[]): StepLogMap {
   };
 
   for (const log of stepLogs) {
-    let assigned = false;
     for (const [step, keywords] of Object.entries(stepKeywords)) {
       if (keywords.some(kw => log.includes(kw))) {
         result[step].push(log);
-        assigned = true;
         break;
       }
     }

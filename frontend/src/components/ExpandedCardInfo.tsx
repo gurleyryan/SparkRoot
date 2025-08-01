@@ -99,7 +99,7 @@ function RenderSetIcon({ card }: { card: Partial<MTGCardExtended> }) {
   }
   return <span className="ml-1 text-xs text-slate-400 font-mono">{card.set?.toUpperCase() || ''}</span>;
 }
-function ExpandedCardInfo({ card, faces, faceIndex, isDoubleFaced, cardRect, borderClass, onClose, frameOnly }: ExpandedCardInfoProps) {
+function ExpandedCardInfo({ card, faces, faceIndex, isDoubleFaced, cardRect, onClose }: ExpandedCardInfoProps) {
   const infoStyle: React.CSSProperties = {
     position: "fixed",
     left: cardRect.left,

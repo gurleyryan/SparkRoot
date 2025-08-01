@@ -13,8 +13,6 @@ interface LiquidSleeveProps {
 const SleeveMesh: React.FC<LiquidSleeveProps> = ({
   intensity = 0.7,
   manaTheme = "blue",
-  width,
-  height,
 }) => {
   const mesh = useRef<THREE.Mesh>(null);
   const colorMap: Record<ManaTheme, number> = {
@@ -27,8 +25,12 @@ const SleeveMesh: React.FC<LiquidSleeveProps> = ({
     colorless: 0xbbbbbb,
   };
   useFrame(({ clock }) => {
-    if (mesh.current && (mesh.current.material as any).uniforms) {
-      (mesh.current.material as any).uniforms.uTime.value = clock.getElapsedTime();
+    if (
+      mesh.current &&
+      mesh.current.material instanceof THREE.ShaderMaterial &&
+      mesh.current.material.uniforms
+    ) {
+      mesh.current.material.uniforms.uTime.value = clock.getElapsedTime();
     }
   });
   return (

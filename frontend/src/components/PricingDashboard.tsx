@@ -70,13 +70,20 @@ export default function PricingDashboard() {
       try {
         const apiClient = new ApiClient();
         // Use the correct method name for collection trends
-        const res = await apiClient.getCollectionValue(activeCollection.cards as unknown as Record<string, unknown>[]);
+        interface CollectionValueResponse {
+          success: boolean;
+          error?: string;
+          trend?: TrendPoint[];
+          breakdown_by_rarity?: Breakdown;
+          breakdown_by_set?: Breakdown;
+        }
+        const res = await apiClient.getCollectionValue(activeCollection.cards as unknown as Record<string, unknown>[]) as CollectionValueResponse;
         if (!res || typeof res !== 'object' || !('success' in res)) throw new Error('Unexpected API response');
-        if (!('error' in res) || typeof (res as any).error !== 'string') (res as any).error = undefined;
-        if (!(res as { success: boolean }).success) throw new Error((res as any).error || 'Failed to fetch trends');
-        setTrend((res as { trend?: TrendPoint[] }).trend || []);
-        setBreakdownByRarity((res as { breakdown_by_rarity?: Breakdown }).breakdown_by_rarity || {});
-        setBreakdownBySet((res as { breakdown_by_set?: Breakdown }).breakdown_by_set || {});
+        if (!('error' in res) || typeof res.error !== 'string') res.error = undefined;
+        if (!res.success) throw new Error(res.error || 'Failed to fetch trends');
+        setTrend(res.trend || []);
+        setBreakdownByRarity(res.breakdown_by_rarity || {});
+        setBreakdownBySet(res.breakdown_by_set || {});
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch pricing trends');
       } finally {
@@ -101,7 +108,7 @@ export default function PricingDashboard() {
         setPriceWatch(priceWatchRes.data || []);
         // Collection performance: only if collection loaded
         if (activeCollection) {
-          const perfRes = await api.getCollectionROI(activeCollection);
+          const perfRes = await api.getCollectionROI(activeCollection as unknown as Record<string, unknown>);
           setCollectionPerformance(perfRes.data || null);
         } else {
           setCollectionPerformance(null);
