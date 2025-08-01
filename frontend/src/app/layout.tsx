@@ -91,6 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
       <head>
+        <link rel="preload" as="font" href="/fonts/mana-font/mana.woff?v=1.18.0" type="font/woff" crossOrigin="anonymous" />
         <link rel="stylesheet" href="/fonts/mana-font/mana.min.css" />
         <meta property="og:image" content="https://www.sparkroot.cards/SparkRootBanner.png" />
         <meta property="og:image:width" content="1280" />

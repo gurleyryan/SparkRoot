@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import LiquidSleeve from "./LiquidSleeve";
 import { LucideWand, LucideSparkles, LucideScroll, LucideLeaf, LucideGem, LucideBarChart, LucideShield, LucideSword } from "lucide-react";
 import { mapStepLogs } from "@/lib/mapStepLogs";
+import Image from "next/image";
 
 const steps = [
   {
@@ -110,7 +111,7 @@ const DeckGenerationProgress: React.FC<DeckGenerationProgressProps> = ({
             transition={{ duration: 0.6 }}
             className="rounded-full bg-gradient-to-br from-rarity-rare/40 to-mtg-blue/20 p-2 shadow-lg"
           >
-            <img src="/logo.svg" alt="SparkRoot Logo" width={40} height={40} />
+            <Image src="/logo.png" alt="SparkRoot Logo" className="m-auto" width={40} height={40} />
           </motion.div>
           <h2 className="text-2xl md:text-3xl font-bold text-rarity-rare font-mtg drop-shadow">Deck Generation</h2>
         </div>

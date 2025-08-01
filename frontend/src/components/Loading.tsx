@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -7,8 +8,7 @@ interface LoadingSpinnerProps {
 }
 
 export function LoadingSpinner({ 
-  size = 'md', 
-  color = 'blue', 
+  size = 'md',  
   className = '' 
 }: LoadingSpinnerProps) {
   const sizeClasses = {
@@ -24,7 +24,7 @@ export function LoadingSpinner({
       role="status"
       aria-label="Loading"
     >
-      <img src="/logo.svg" alt="Loading" className="w-full h-full" style={{ filter: color === 'blue' ? 'drop-shadow(0 0 2px #3b82f6)' : undefined }} />
+      <Image src="/logo.png" alt="SparkRoot Logo" className="m-auto" width={32} height={32} />
     </div>
   );
 }
