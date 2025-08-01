@@ -1,9 +1,8 @@
 import secrets
 import json
 import jwt
-import datetime
 import os
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request, APIRouter
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
@@ -67,7 +66,7 @@ class SocialIntegration(BaseModel):
 
 # Password handling
 
-from fastapi import APIRouter
+
 router = APIRouter()
 
 
@@ -256,7 +255,6 @@ class UserManager:
             ''', (deck_id,))
 
 # Cache management for pricing data
-from fastapi import Request
 
 class PriceCache:
     @staticmethod

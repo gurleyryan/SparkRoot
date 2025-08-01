@@ -1,11 +1,10 @@
 import os
 import json
-from backend.supabase_db import db
+from supabase_db import db
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
-from typing import List, Dict, Any
 
 router = APIRouter()
 

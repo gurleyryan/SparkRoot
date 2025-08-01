@@ -1,7 +1,7 @@
 import json
 import asyncio
 from datetime import datetime
-from backend.supabase_db import db
+from supabase_db import db
 from typing import Any, List, Dict, Optional, cast
 from dotenv import load_dotenv
 load_dotenv("backend/.env")

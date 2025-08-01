@@ -1,6 +1,3 @@
-# User Authentication and Data Management API - Supabase REST API Version
-
-
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
@@ -10,7 +7,6 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr
 import httpx
 import typing
-# --- JWK-based JWT verification ---
 import time
 from jose import jwt as jose_jwt
 from dotenv import load_dotenv

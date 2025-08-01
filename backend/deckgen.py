@@ -4,7 +4,7 @@ import traceback
 import structlog
 from typing import Dict, Any, List, Set, Optional, Union, Generator
 from collections import Counter
-from backend.cursor import normalize_name, CardLookup
+from cursor import normalize_name, CardLookup
 
 logger = structlog.get_logger()
 
@@ -472,7 +472,7 @@ def select_lands(
         lands += duals[:5]
         lands += fetches[:5]
         print(
-            f"[DEBUG] select_lands: color_count=2, added command_tower, utility, duals, fetches"
+            "[DEBUG] select_lands: color_count=2, added command_tower, utility, duals, fetches"
         )
     elif color_count == 3:
         lands += command_tower[:1]
@@ -482,7 +482,7 @@ def select_lands(
         lands += trilands[:5]
         lands += rainbow[:5]
         print(
-            f"[DEBUG] select_lands: color_count=3, added command_tower, utility, duals, fetches, trilands, rainbow"
+            "[DEBUG] select_lands: color_count=3, added command_tower, utility, duals, fetches, trilands, rainbow"
         )
     elif color_count == 4:
         lands += command_tower[:1]
@@ -490,7 +490,7 @@ def select_lands(
         lands += fetches[:10]
         lands += rainbow[:10]
         print(
-            f"[DEBUG] select_lands: color_count=4, added command_tower, utility, fetches, rainbow"
+            "[DEBUG] select_lands: color_count=4, added command_tower, utility, fetches, rainbow"
         )
     elif color_count == 5:
         lands += command_tower[:1]
@@ -498,7 +498,7 @@ def select_lands(
         lands += fetches[:10]
         lands += rainbow[:10]
         print(
-            f"[DEBUG] select_lands: color_count=5, added command_tower, utility, fetches, rainbow"
+            "[DEBUG] select_lands: color_count=5, added command_tower, utility, fetches, rainbow"
         )
 
     # Remove duplicates by unique id, keep order
@@ -910,7 +910,7 @@ def generate_commander_deck(
         land_pool = categorized.get("lands", [])
         yield json.dumps({"message": f"[STEP 13] Selecting lands FIRST: need {num_lands}, pool size: {len(land_pool)}"})
         lands = select_lands(commander, land_pool, num_lands)
-        yield json.dumps({"message": f"[STEP 14] Selected {len(lands)} lands: {[l.get('name') for l in lands[:5]]}{'...' if len(lands) > 5 else ''}"})
+        yield json.dumps({"message": f"[STEP 14] Selected {len(lands)} lands: {[land.get('name') for land in lands[:5]]}{'...' if len(lands) > 5 else ''}"})
         land_add_idx = 1
         for land in lands:
             land_id = land.get("id")
@@ -1091,7 +1091,8 @@ def generate_commander_deck(
                     counts[t] += 1
             return counts
 
-        type_targets_met = lambda deck: all(type_counts(deck)[t] >= CARD_TYPE_TARGETS[t] for t in CARD_TYPE_TARGETS)  # type: ignore
+        def type_targets_met(deck: List[Dict[str, Any]]) -> bool:
+            return all(type_counts(deck)[t] >= CARD_TYPE_TARGETS[t] for t in CARD_TYPE_TARGETS)
         cat_idx = 1
         for cat, (min_count, max_count) in CATEGORY_TARGETS.items():
             if cat == "lands":

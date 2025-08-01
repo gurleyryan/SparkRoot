@@ -19,19 +19,19 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse
 from pydantic import BaseModel
-from backend.utils import normalize_csv_format, expand_collection_by_quantity, enrich_single_row_with_scryfall, upsert_user_card, create_collection, update_collection, link_collection_card
-from backend.auth_supabase_rest import UserManager, get_user_from_token, get_current_user
-from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield
-from backend.deckgen import generate_commander_deck, find_valid_commanders
-from backend.deck_analysis import analyze_deck_quality
-from backend.pricing import enrich_collection_with_prices, calculate_collection_value
+from utils import normalize_csv_format, expand_collection_by_quantity, enrich_single_row_with_scryfall, upsert_user_card, create_collection, update_collection, link_collection_card
+from auth_supabase_rest import UserManager, get_user_from_token, get_current_user
+from deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield
+from deckgen import generate_commander_deck, find_valid_commanders
+from deck_analysis import analyze_deck_quality
+from pricing import enrich_collection_with_prices, calculate_collection_value
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sse_starlette.sse import EventSourceResponse
 from typing import Dict, Any, List, Optional, cast, AsyncGenerator
-from backend.cursor import CardLookup
+from cursor import CardLookup
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -212,7 +212,7 @@ class SaveDeckRequest(BaseModel):
 @app.post("/api/save-deck")
 async def save_deck(request: SaveDeckRequest) -> Any:
     try:
-        from backend.deck_export import save_deck_to_supabase
+        from deck_export import save_deck_to_supabase
         deck_id = save_deck_to_supabase(
             user_id=request.user_id,
             name=request.name,
@@ -259,7 +259,7 @@ class UpdateDeckDetailsRequest(BaseModel):
 @app.post("/api/update-deck-details")
 async def update_deck_details(request: UpdateDeckDetailsRequest) -> Dict[str, Any]:
     try:
-        from backend.deck_export import update_deck_details_in_supabase
+        from deck_export import update_deck_details_in_supabase
         result: Any = update_deck_details_in_supabase(
             deck_id=request.deck_id,
             name=request.name,
@@ -425,7 +425,7 @@ async def get_cards(game_changer: Optional[bool] = Query(None)) -> Dict[str, Any
     Fetch cards from the cards table. Supports filtering by game_changer.
     If game_changer is True, only return the latest printing per oracle_id.
     """
-    from backend.supabase_db import db
+    from supabase_db import db
     try:
         if game_changer:
             query = """
@@ -1114,7 +1114,7 @@ async def upload_collection_progress(
                 yield {"event": "progress", "data": {"current": idx+1, "total": total, "percent": int(100*(idx+1)/total), "preview": preview}}
                 enriched_cards.append({"user_card_id": user_card_id, "card_id": card_id, "name": name_val, "set_code": set_code, "quantity": quantity})
 
-            print(f"[progress-upload] Done processing all rows. Sending final event.", file=sys.stderr)
+            print("[progress-upload] Done processing all rows. Sending final event.", file=sys.stderr)
             yield {"event": "done", "data": {"collection": enriched_cards, "total": total, "collection_id": collection_id}}
         except Exception as e:
             print(f"[progress-upload] Exception: {e}\n{traceback.format_exc()}", file=sys.stderr)

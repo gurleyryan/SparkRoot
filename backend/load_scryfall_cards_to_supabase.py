@@ -2,7 +2,7 @@ import asyncio
 import sys
 import json
 from datetime import datetime, date
-from backend.supabase_db import db
+from supabase_db import db
 from dotenv import load_dotenv
 from typing import Optional
 

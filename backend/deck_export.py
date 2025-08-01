@@ -4,7 +4,7 @@ import uuid
 from supabase import create_client
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple
-from .cursor import CardLookup  # Import CardLookup for batch lookup
+from cursor import CardLookup  # Import CardLookup for batch lookup
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")

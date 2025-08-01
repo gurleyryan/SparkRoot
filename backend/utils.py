@@ -1,8 +1,5 @@
-# Third-party imports
 import pandas as pd
-
-# Local imports
-from backend.supabase_db import db
+from supabase_db import db
 from typing import Any, List, Dict, Union, cast
 
 def normalize_csv_format(df: pd.DataFrame) -> pd.DataFrame:
@@ -18,7 +15,6 @@ def normalize_csv_format(df: pd.DataFrame) -> pd.DataFrame:
         "Count": "Quantity",
         "Qty": "Quantity",
         "Amount": "Quantity",
-        "Number": "Quantity",
         "Total": "Quantity",
         # Card name columns
         "Card Name": "Name",
@@ -33,7 +29,6 @@ def normalize_csv_format(df: pd.DataFrame) -> pd.DataFrame:
         # Collector number columns
         "Collector Number": "Collector number",
         "Card Number": "Collector number",
-        "Number": "Collector number",
         "#": "Collector number",
         # Moxfield specific mappings
         "Tradelist Count": "Tradelist count",
