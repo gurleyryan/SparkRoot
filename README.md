@@ -103,6 +103,12 @@ Icons from [Mana Font](https://mana.andrewgioia.com/) by Andrew Gioia.
 The Mana font is licensed under the the SIL OFL 1.1.<br>
 Mana CSS, LESS, and Sass files are licensed under the MIT License.<br>
 
+## Sources
+
+- [Intro guide to Commander (EDH) decks](https://archidekt.com/decks/1048638#EDH__Deck_Template_(read_description_at_bottom))
+- [What's an Optimal Mana Curve and Land/Ramp Count for Commander?](https://www.tcgplayer.com/content/article/What-s-an-Optimal-Mana-Curve-and-Land-Ramp-Count-for-Commander/e22caad1-b04b-4f8a-951b-a41e9f08da14/)
+- [Commander Deckbuilding Template for the New Era](https://www.youtube.com/watch?v=OSNV6224cHg)
+
 ## License & Disclaimer
 
 This project is licensed under the [Business Source License 1.1(BUSL-1.1)](LICENSE).
