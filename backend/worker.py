@@ -6,8 +6,8 @@ import structlog
 import redis.asyncio as aioredis
 from structlog.types import EventDict
 from typing import Any
-from backend.deckgen import generate_commander_deck
-from backend.deck_analysis import analyze_deck_quality
+from deckgen import generate_commander_deck
+from deck_analysis import analyze_deck_quality
 from dotenv import load_dotenv
 load_dotenv()
 
