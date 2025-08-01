@@ -28,6 +28,7 @@ export const metadata: Metadata = {
   description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
   icons: [
     { rel: "icon", url: "/favicon.ico", type: "image/x-icon" },
+    { rel: "icon", url: "/logo.svg", type: "image/svg+xml" },
     { rel: "icon", url: "/logo.png", type: "image/png" },
     { rel: "apple-touch-icon", url: "/logo.png" },
   ],
