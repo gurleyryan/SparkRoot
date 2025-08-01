@@ -100,6 +100,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
       <head>
         <link rel="stylesheet" href="/fonts/mana-font/mana.min.css" />
+      <meta property="og:image" content="https://www.sparkroot.cards/logo-preview.png" />
+      <meta name="twitter:image" content="https://www.sparkroot.cards/logo-preview.png" />
+      <meta name="twitter:card" content="summary_large_image" />
       </head>
       <body className="text-white antialiased font-mtg-body min-h-screen">
         <Suspense fallback={null}>
