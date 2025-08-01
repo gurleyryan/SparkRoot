@@ -29,7 +29,7 @@ def analyze_deck_quality(deck_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         dict: Complete analysis with scores and recommendations
     """
-    deck = deck_data["deck"]
+    deck = deck_data["cards"]
     commander = deck_data["commander"]
     house_rules = deck_data.get("house_rules", False)
     commander_cmc = int(commander.get("cmc", 4))

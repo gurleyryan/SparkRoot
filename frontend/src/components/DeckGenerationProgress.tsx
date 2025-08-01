@@ -1,5 +1,6 @@
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import DebugPanel from "./Debug";
+import { motion } from "framer-motion";
 import LiquidSleeve from "./LiquidSleeve";
 import { LucideWand, LucideSparkles, LucideScroll, LucideLeaf, LucideGem, LucideBarChart, LucideShield, LucideSword } from "lucide-react";
 import { mapStepLogs } from "@/lib/mapStepLogs";
@@ -22,7 +23,7 @@ const steps = [
   {
     key: "categorize",
     label: "Categorizing Cards",
-    icon: <LucideSparkles className="text-mtg-gold" size={32} />,
+    icon: <LucideSparkles className="text-rarity-rare" size={32} />,
     color: "gold",
     description: "Sorting cards by function: ramp, draw, removal, and more.",
   },
@@ -43,7 +44,7 @@ const steps = [
   {
     key: "rocks",
     label: "Adding Mana Rocks",
-    icon: <LucideGem className="text-mtg-gold" size={32} />,
+    icon: <LucideGem className="text-rarity-rare" size={32} />,
     color: "gold",
     description: "Adding mana rocks for acceleration and fixing.",
   },
@@ -107,7 +108,7 @@ const DeckGenerationProgress: React.FC<DeckGenerationProgressProps> = ({
             initial={{ scale: 0.8, opacity: 0.7 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.6 }}
-            className="rounded-full bg-gradient-to-br from-mtg-gold/40 to-mtg-blue/20 p-2 shadow-lg"
+            className="rounded-full bg-gradient-to-br from-rarity-rare/40 to-mtg-blue/20 p-2 shadow-lg"
           >
             <img src="/logo.svg" alt="SparkRoot Logo" width={40} height={40} />
           </motion.div>
@@ -123,7 +124,7 @@ const DeckGenerationProgress: React.FC<DeckGenerationProgressProps> = ({
               exit="exit"
               className={`flex items-center gap-4 rounded-xl p-4 transition-all ${
                 idx === currentStep
-                  ? "bg-gradient-to-r from-mtg-blue/30 to-mtg-gold/10 shadow-lg"
+                  ? "bg-gradient-to-r from-mtg-blue/30 to-rarity-rare/10 shadow-lg"
                   : "bg-black/30"
               }`}
             >
@@ -134,7 +135,7 @@ const DeckGenerationProgress: React.FC<DeckGenerationProgressProps> = ({
                 </div>
                 <div className="text-mtg-white/60 text-sm">{step.description}</div>
                 {stepDetails[step.key] && (
-                  <div className="mt-1 text-xs text-mtg-gold/80">{stepDetails[step.key]}</div>
+                  <div className="mt-1 text-xs text-rarity-rare/80">{stepDetails[step.key]}</div>
                 )}
               </div>
               {idx === currentStep && (
@@ -152,14 +153,7 @@ const DeckGenerationProgress: React.FC<DeckGenerationProgressProps> = ({
         </div>
         {/* Debug messages panel (expandable) */}
         {currentStepMessages.length > 0 && (
-          <div className="mt-4 bg-black/40 rounded-xl p-4 border border-mtg-blue/20">
-            <div className="text-mtg-white/70 font-bold mb-2">Debug Log</div>
-            <div className="max-h-40 overflow-y-auto text-xs text-mtg-white/60 font-mono">
-              {currentStepMessages.map((msg, i) => (
-                <div key={i}>{msg}</div>
-              ))}
-            </div>
-          </div>
+          <DebugPanel messages={currentStepMessages} />
         )}
       </div>
     </LiquidSleeve>

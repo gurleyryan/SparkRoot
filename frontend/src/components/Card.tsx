@@ -6,14 +6,9 @@ import AuraFrame from "./AuraFrame";
 import ExpandedCardInfo from "./ExpandedCardInfo";
 import type { MTGCard } from "@/types/index";
 
-// Extend MTGCard locally to allow card_faces and image for compatibility
-export type MTGCardWithFaces = MTGCard & {
-  card_faces?: Array<Partial<MTGCard> & { image_uris?: { normal?: string; large?: string } }>;
-  image?: string;
-};
 
 export interface CardProps {
-  card: MTGCardWithFaces;
+  card: MTGCard;
   className?: string;
   quantity?: number; // context-aware quantity (deck, collection, etc)
 }
@@ -22,7 +17,6 @@ const Card: React.FC<CardProps> = ({ card, className = "", quantity }) => {
   // Debug: log card data to inspect Tergrid and DFCs
   if (typeof window !== 'undefined') {
     // Only log in browser, not SSR
-    console.log('Card debug:', card);
   }
   const [expanded, setExpanded] = useState(false);
   const [faceIndex, setFaceIndex] = useState(0); // 0 = front, 1 = back (for DFCs)
@@ -60,15 +54,13 @@ const Card: React.FC<CardProps> = ({ card, className = "", quantity }) => {
   // Always prefer card_faces if present, then image_uris, then image
   let imageUrl = undefined;
   let isDoubleFaced = false;
-  let faces: Partial<MTGCardWithFaces>[] = [];
+  let faces: Partial<MTGCard>[] = [];
   if (card.card_faces && Array.isArray(card.card_faces) && card.card_faces[0]?.image_uris) {
     faces = card.card_faces;
     isDoubleFaced = faces.length > 1 && Boolean(faces[0]?.image_uris) && Boolean(faces[1]?.image_uris);
     imageUrl = faces[faceIndex]?.image_uris?.normal || faces[faceIndex]?.image_uris?.large;
   } else if (card.image_uris) {
     imageUrl = card.image_uris.normal || card.image_uris.large;
-  } else if (card.image) {
-    imageUrl = card.image;
   }
 
   // Single click: expand/collapse for single-faced, flip for DFC (even when expanded)

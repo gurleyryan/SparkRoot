@@ -1,40 +1,36 @@
 "use client";
 import { useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/client";
+import type { User } from "@/types/index";
 
+// Minimal AuthHydrator: only listen for Supabase auth events for tab sync
 export default function AuthHydrator() {
-  const setHydrating = useAuthStore((s) => s.setHydrating); // Add this to your store
   useEffect(() => {
-    setHydrating(true);
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        try {
-          const resp = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
-            {
-              headers: { Authorization: `Bearer ${session.access_token}` },
-            }
-          );
-          if (resp.ok) {
-            const user = await resp.json();
-            useAuthStore.getState().setUser(user);
-            useAuthStore.setState({ accessToken: session.access_token });
-          } else if (resp.status === 401 || resp.status === 403) {
-            useAuthStore.getState().logout(true); // auto-logout
-          }
-        } catch {
-          useAuthStore.getState().logout();
+    // Immediately set hydrating to false since we do not fetch on mount
+    useAuthStore.getState().setHydrating(false);
+    const supabase = createClient();
+    const { setUser, logout, setAutoLoggedOut } = useAuthStore.getState();
+    // Listen for auth state changes (login, logout, token refresh)
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        logout(true);
+      } else if (session?.user) {
+        // Optionally, you could trigger a global fetch here if needed
+        const { id, email, ...rest } = session.user;
+        if (!email) {
+          // If email is missing, do not set user (or handle as needed)
+          logout(true);
+          return;
         }
-      } else {
-        useAuthStore.getState().logout();
+        setUser({ id, email, ...rest } as User); // Cast to the specific User type
+        useAuthStore.setState({ accessToken: session.access_token });
+        setAutoLoggedOut(false);
       }
-      setHydrating(false);
     });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
   }, []);
   return null;
 }

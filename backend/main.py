@@ -10,6 +10,10 @@ import traceback
 import glob
 import uvicorn
 import sys
+import uuid
+import asyncio
+import redis
+import redis.asyncio as aioredis
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Body, status, Form, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +21,7 @@ from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse
 from pydantic import BaseModel
 from backend.utils import normalize_csv_format, expand_collection_by_quantity, enrich_single_row_with_scryfall, upsert_user_card, create_collection, update_collection, link_collection_card
 from backend.auth_supabase_rest import UserManager, get_user_from_token, get_current_user
-from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield, get_deck_statistics
+from backend.deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield
 from backend.deckgen import generate_commander_deck, find_valid_commanders
 from backend.deck_analysis import analyze_deck_quality
 from backend.pricing import enrich_collection_with_prices, calculate_collection_value
@@ -28,15 +32,26 @@ from slowapi.errors import RateLimitExceeded
 from sse_starlette.sse import EventSourceResponse
 from typing import Dict, Any, List, Optional, cast, AsyncGenerator
 from backend.cursor import CardLookup
+from dotenv import load_dotenv
+load_dotenv()
 
 logger = structlog.get_logger()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+REDIS_URL = os.getenv("REDIS_URL")
 
 app = FastAPI(title="SparkRoot API", version="1.0.0")
 app.add_middleware(SentryAsgiMiddleware)
+redis_client: aioredis.Redis = aioredis.from_url(REDIS_URL, decode_responses=True) # type: ignore
 
+r = redis.Redis(
+    host='redis-15804.crce197.us-east-2-1.ec2.redns.redis-cloud.com',
+    port=15804,
+    decode_responses=True,
+    username="default",
+    password=os.getenv("REDIS_PASSWORD"),
+)
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -53,6 +68,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=86400,  # Cache preflight for 1 day
 )
 
 
@@ -178,6 +194,42 @@ async def export_deck_moxfield(request: DeckExportRequest) -> Any:
         return PlainTextResponse(moxfield_text)
     except Exception as e:
         return {"success": False, "error": str(e)}
+    
+
+class SaveDeckRequest(BaseModel):
+    user_id: str
+    name: str
+    commander_name: str
+    deck_data: Dict[str, Any]
+    deck_analysis: Any = None
+    collection_id: Optional[str] = None
+    bracket: int = 1
+    is_public: bool = False
+    theme: Optional[str] = None
+    color_identity: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+
+@app.post("/api/save-deck")
+async def save_deck(request: SaveDeckRequest) -> Any:
+    try:
+        from backend.deck_export import save_deck_to_supabase
+        deck_id = save_deck_to_supabase(
+            user_id=request.user_id,
+            name=request.name,
+            commander_name=request.commander_name,
+            deck_data=request.deck_data,
+            deck_analysis=request.deck_analysis,
+            collection_id=request.collection_id,
+            bracket=request.bracket,
+            is_public=request.is_public,
+            theme=request.theme,
+            color_identity=request.color_identity,
+            tags=request.tags
+        )
+        return {"success": True, "deck_id": deck_id}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 
 class CollectionCard(BaseModel):
     name: str
@@ -194,6 +246,30 @@ class DeckAnalysisRequest(BaseModel):
     house_rules: bool = False
     # Salt threshold: weighted salt score cutoff (frontend slider should max at 15)
     salt_threshold: int = 15
+
+
+# Endpoint for updating deck details (name, description, etc.)
+class UpdateDeckDetailsRequest(BaseModel):
+    deck_id: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    theme: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+@app.post("/api/update-deck-details")
+async def update_deck_details(request: UpdateDeckDetailsRequest) -> Dict[str, Any]:
+    try:
+        from backend.deck_export import update_deck_details_in_supabase
+        result: Any = update_deck_details_in_supabase(
+            deck_id=request.deck_id,
+            name=request.name,
+            description=request.description,
+            theme=request.theme,
+            tags=request.tags
+        )
+        return {"success": True, "result": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 @app.get("/")
@@ -683,30 +759,28 @@ async def generate_deck(
             house_rules=house_rules,
             salt_threshold=salt_threshold,
         )
-        deck_data: dict[str, Any] = {}  # Explicit type annotation for deck_data
+        deck_data: Dict[str, Any] = {}
         if hasattr(deck_gen, '__iter__') and not isinstance(deck_gen, dict):
             for step in deck_gen:
                 try:
                     maybe_data = json.loads(step)
                 except Exception:
                     maybe_data = step
-                # Only assign if it's a dict with a 'deck' key (final yield)
-                if isinstance(maybe_data, dict) and 'deck' in maybe_data:
-                    deck_data = maybe_data['deck']
+                # Only assign if it's a dict with a 'cards' key (final yield)
+                if isinstance(maybe_data, dict) and 'cards' in maybe_data:
+                    deck_data = cast(Dict[str, Any], maybe_data)  # assign the whole dict, not just maybe_data['cards']
         else:
-            deck_data = deck_gen
-        if not isinstance(deck_data, dict):
+            deck_data = cast(Dict[str, Any], deck_gen)  # type: ignore[assignment]
+        if 'cards' not in deck_data:
             raise Exception("Deck generation did not return a valid deck dictionary.")
 
         # Analyze deck quality and get statistics
         deck_analysis = analyze_deck_quality(deck_data)
-        deck_stats = get_deck_statistics(deck_data)
 
         return {
             "success": True,
-            "deck": deck_data,
+            "cards": deck_data,
             "analysis": deck_analysis,
-            "stats": deck_stats,
             "bracket": bracket,
         }
     except Exception as e:
@@ -714,84 +788,53 @@ async def generate_deck(
 
 
 @app.post("/api/generate-deck-stream")
-async def generate_deck_stream(
+async def create_deckgen_job(
     request: DeckAnalysisRequest,
+    raw_request: Request,
     user: Dict[str, Any] = Depends(get_user_from_token)
-):
-    async def event_generator():
-        try:
-            collection = request.collection
-            commander_id = request.commander_id
-            bracket = request.bracket or 1
-            salt_threshold = getattr(request, "salt_threshold", 0)
-            house_rules = getattr(request, "house_rules", False)
-            card_pool = list(collection)
-            selected_commander = next(
-                (card for card in collection if card.get("id") == commander_id or card.get("scryfall_id") == commander_id),
-                None
-            )
-            if not selected_commander:
-                yield f"event: error\ndata: {json.dumps({'error': 'Commander not found'})}\n\n"
-                return
-
-            # Optionally enrich commander as above...
-
-            # Streaming deck generation
-            for step in generate_commander_deck(
-                selected_commander,
-                card_pool,
-                bracket=bracket,
-                house_rules=house_rules,
-                salt_threshold=salt_threshold,
-            ):
-                # Each step is a JSON string, so wrap as SSE event
-                yield f"event: step\ndata: {step}\n\n"
-        except Exception as e:
-            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
-
-    return EventSourceResponse(event_generator())
+) -> Dict[str, Any]:
+    # 1. Generate a unique job_id
+    job_id = str(uuid.uuid4())
+    # 2. Store the job request in Redis (as JSON)
+    job_data: Dict[str, Any] = {
+        "user_id": user["id"],
+        "request": request.model_dump(),
+        "status": "pending"
+    }
+    await redis_client.set(f"deckjob:{job_id}", json.dumps(job_data), ex=3600)  # 1 hour expiry
+    # 3. Return the job_id to the client
+    return {"success": True, "job_id": job_id}
 
 @app.get("/api/generate-deck")
 async def generate_deck_get(
-    job_id: str = Query(...),
-    user: Dict[str, Any] = Depends(get_user_from_token)
+    job_id: str = Query(...)
 ):
-    # You must have a way to look up the job by job_id, e.g. from a cache or database
-    # For demo, assume you can retrieve the same DeckAnalysisRequest as above
-    # Implement or import this function to fetch a DeckAnalysisRequest by job_id
-    def get_deck_request_by_job_id(job_id: str) -> DeckAnalysisRequest:
-        # Placeholder: Replace with actual retrieval logic (e.g., from DB or cache)
-        # For now, raise an error to indicate it's not implemented.
-        raise NotImplementedError("get_deck_request_by_job_id function must be implemented.")
-
-    request: DeckAnalysisRequest = get_deck_request_by_job_id(job_id)  # Now type is known
-
     async def event_generator():
         try:
-            collection = request.collection
-            commander_id = request.commander_id
-            bracket = request.bracket or 1
-            salt_threshold = getattr(request, "salt_threshold", 0)
-            house_rules = getattr(request, "house_rules", False)
-            card_pool = list(collection)
-            selected_commander = next(
-                (card for card in collection if card.get("id") == commander_id or card.get("scryfall_id") == commander_id),
-                None
-            )
-            if not selected_commander:
-                yield f"event: error\ndata: {json.dumps({'error': 'Commander not found'})}\n\n"
-                return
-
-            # Optionally enrich commander as above...
-
-            for step in generate_commander_deck(
-                selected_commander,
-                card_pool,
-                bracket=bracket,
-                house_rules=house_rules,
-                salt_threshold=salt_threshold,
-            ):
-                yield f"event: step\ndata: {step}\n\n"
+            while True:
+                # Stream all available progress messages
+                while True:
+                    msg = await redis_client.lpop(f"deckjob:{job_id}:progress")  # type: ignore
+                    if msg is None:
+                        break
+                    if not isinstance(msg, str):
+                        msg = json.dumps(msg)
+                    yield f"event: step\ndata: {msg}\n\n"
+                status = await redis_client.get(f"deckjob:{job_id}:status")
+                if status in ("complete", "failed"):
+                    # Optionally yield the final result
+                    result = await redis_client.get(f"deckjob:{job_id}:result")
+                    if result:
+                        yield f"event: deck\ndata: {result}\n\n"
+                    # --- CLEANUP: delete all job keys after sending final deck ---
+                    await redis_client.delete(
+                        f"deckjob:{job_id}",
+                        f"deckjob:{job_id}:status",
+                        f"deckjob:{job_id}:result",
+                        f"deckjob:{job_id}:progress"
+                    )
+                    break
+                await asyncio.sleep(0.5)
         except Exception as e:
             yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
 
@@ -961,9 +1004,52 @@ async def upload_collection_progress(
                 yield {"event": "error", "data": {"error": "Supabase credentials missing."}}
                 return
             card_lookup = CardLookup(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-            print("[progress-upload] Fetching all cards from Supabase for lookup...", file=sys.stderr)
-            card_lookup.fetch_all_cards(diagnostics=True)
-            print("[progress-upload] Card lookup table ready.", file=sys.stderr)
+
+            # --- Efficient batch fetch using CardLookup.fetch_rows_by_field_values ---
+            # 1. Gather all unique Scryfall IDs, (name, set, collector), and names
+            scryfall_ids: set[str] = set()
+            name_set_collector: set[tuple[str, str, str]] = set()
+            names: set[str] = set()
+            for row in rows:
+                if row.get("Scryfall ID"):
+                    scryfall_ids.add(row["Scryfall ID"])
+                elif row.get("Name") and row.get("Set code") and row.get("Collector number"):
+                    name_set_collector.add((row["Name"].strip().lower(), row["Set code"].strip().lower(), str(row["Collector number"]).strip().lower()))
+                elif row.get("Name"):
+                    names.add(row["Name"].strip().lower())
+
+            # 2. Batch fetch cards by Scryfall ID
+            card_id_map = {}
+            if scryfall_ids:
+                fetched = card_lookup.fetch_rows_by_field_values(
+                    table="cards", field="id", values=scryfall_ids,
+                    select="id,name,set,collector_number"
+                )
+                for c in fetched:
+                    card_id_map[(c.get("id"))] = c
+
+            # 3. Batch fetch by (name, set, collector_number)
+            if name_set_collector:
+                # Fetch all cards with matching set and collector_number
+                set_codes: set[str] = set([t[1] for t in name_set_collector])
+                fetched = card_lookup.fetch_rows_by_field_values(
+                    table="cards", field="set", values=set_codes,
+                    select="id,name,set,collector_number"
+                )
+                # Filter in Python for exact (name, set, collector_number)
+                for c in fetched:
+                    key = (c.get("name", "").strip().lower(), c.get("set", "").strip().lower(), str(c.get("collector_number", "")).strip().lower())
+                    if key in name_set_collector:
+                        card_id_map[key] = c
+
+            # 4. Batch fetch by name (if needed)
+            if names:
+                fetched = card_lookup.fetch_rows_by_field_values(
+                    table="cards", field="name", values=names,
+                    select="id,name,set,collector_number"
+                )
+                for c in fetched:
+                    card_id_map[(c.get("name", "").strip().lower())] = c
 
             user_id = current_user["id"]
             print(f"[progress-upload] User ID: {user_id}", file=sys.stderr)
@@ -985,48 +1071,33 @@ async def upload_collection_progress(
             enriched_cards: List[Dict[str, Any]] = []
             for idx, row in enumerate(rows):
                 print(f"[progress-upload] Processing row {idx+1}/{total}", file=sys.stderr)
-                card_id = None
+                card_id: str | None = None
                 scryfall_id = row.get("Scryfall ID")
                 set_code = row.get("Set code")
                 name_val = row.get("Name")
+                collector_number = row.get("Collector number")
 
-
-                # Prefer direct Scryfall ID, else robust lookup by (name + set code + collector number), else name
-                if scryfall_id:
+                # Prefer direct Scryfall ID, else (name+set+collector), else name
+                card_id: str | None = None
+                card_id_map: Dict[Any, Dict[str, Any]] = {}
+                if scryfall_id and scryfall_id in card_id_map:
                     card_id = scryfall_id
+                elif name_val and set_code and collector_number and (name_val.strip().lower(), set_code.strip().lower(), str(collector_number).strip().lower()) in card_id_map:
+                    card_id = card_id_map[(name_val.strip().lower(), set_code.strip().lower(), str(collector_number).strip().lower())].get("id")
+                elif name_val and name_val.strip().lower() in card_id_map:
+                    card_id = card_id_map[name_val.strip().lower()].get("id")
                 else:
-                    # Try to match by (name + set code + collector number) if available
-                    set_code_val = (row.get("Set code") or "").strip().lower()
-                    collector_number_val = (row.get("Collector number") or "").strip().lower()
-                    matched = None
-                    if set_code_val and collector_number_val and hasattr(card_lookup, "card_list") and card_lookup.card_list:
-                        for c in card_lookup.card_list:
-                            # Defensive: check all fields exist and match
-                            c_name = (c.get("name") or "").strip().lower()
-                            c_set = (c.get("set") or "").strip().lower()
-                            c_collector = (str(c.get("collector_number")) or "").strip().lower()
-                            if (
-                                c_name == (name_val or "").strip().lower()
-                                and c_set == set_code_val
-                                and c_collector == collector_number_val
-                            ):
-                                matched = c.get("id")
-                                break
-                    if matched:
-                        card_id = matched
-                    else:
-                        # Fallback: lookup by name only
-                        ids = card_lookup.lookup(name_val or "")
-                        if ids:
-                            card_id = ids[0]
-                        else:
-                            fuzzy = card_lookup.fuzzy_lookup(name_val or "")
-                            print(f"[progress-upload] Fuzzy matches for '{name_val}': {fuzzy}", file=sys.stderr)
-
-                if not card_id:
+                    # Fallback: fuzzy match (optional, could use CardLookup.fuzzy_lookup)
+                    fuzzy = []
+                    if name_val:
+                        fuzzy = card_lookup.fuzzy_lookup(name_val)
+                        print(f"[progress-upload] Fuzzy matches for '{name_val}': {fuzzy}", file=sys.stderr)
                     print(f"[progress-upload] Card not found for row {idx+1}", file=sys.stderr)
                     preview: Dict[str, Any] = {"name": name_val, "set_code": set_code, "idx": idx, "total": total, "error": "Card not found"}
                     yield {"event": "progress", "data": {"current": idx+1, "total": total, "percent": int(100*(idx+1)/total), "preview": preview}}
+                    continue
+                if not isinstance(card_id, (str, int)):
+                    # handle error, skip, or raise
                     continue
 
                 quantity = int(row.get("Quantity", 1))

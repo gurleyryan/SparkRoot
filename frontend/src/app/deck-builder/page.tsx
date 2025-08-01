@@ -1,6 +1,5 @@
 "use client";
-import type { MTGCard } from "@/types/index";
-import type { Deck as DeckBase } from "@/types";
+import type { MTGCard, Deck } from "@/types/index";
 import DeckBuilder from "@/components/DeckBuilder";
 import CardGrid from "@/components/CardGrid";
 import GameChangers from "@/components/GameChangers";
@@ -11,34 +10,15 @@ export default function DeckBuilderPage() {
   const [cardGridType, setCardGridType] = useState<null | 'deck' | 'gamechangers'>(null);
   const [deckCards, setDeckCards] = useState<MTGCard[]>([]);
   const [deckDetailId, setDeckDetailId] = useState<string | null>(null);
-  const [generatedDeck, setGeneratedDeck] = useState<DeckBase & { analysis?: any } | null>(null);
+  const [generatedDeck, setGeneratedDeck] = useState<Deck & { analysis?: unknown } | null>(null);
   const [loading] = useState(false);
 
   // Handler for DeckBuilder to call when deck is generated
-  // Accepts the full deck object (with analysis) if available, else falls back to cards array
-  const handleDeckGenerated = (deckOrCards: any) => {
-    // If the argument is an array, fallback to old behavior
-    if (Array.isArray(deckOrCards)) {
-      setDeckCards(deckOrCards);
-      setGeneratedDeck(null);
-      setCardGridType('deck');
-      if (deckOrCards.length > 0 && (deckOrCards as any)[0]?.deck_id) {
-        setDeckDetailId((deckOrCards as any)[0].deck_id);
-      } else {
-        setDeckDetailId(null);
-      }
-      return;
-    }
-    // Otherwise, treat as deck object
-    setGeneratedDeck(deckOrCards);
-    setDeckCards(deckOrCards?.cards || []);
+  function handleDeckGenerated(deck: Deck) {
+    setGeneratedDeck(deck);
+    setDeckCards(deck.cards || []);
     setCardGridType('deck');
-    if (deckOrCards?.id) {
-      setDeckDetailId(deckOrCards.id);
-    } else {
-      setDeckDetailId(null);
-    }
-  };
+  }
 
   // Handler for DeckBuilder to call when Game Changers is requested
 
@@ -70,6 +50,7 @@ export default function DeckBuilderPage() {
       <div className="w-full flex flex-col items-center gap-4 mt-8 min-h-[200px]">
         {cardGridType === 'deck' && deckCards.length > 0 && (
           <>
+            {console.log("DeckBuilderPage: rendering deckCards", deckCards, "generatedDeck", generatedDeck)}
             <div className="flex w-full justify-between items-center mx-auto mb-2 px-2 sm:px-0">
               <div className="font-bold text-amber-400 text-lg">Generated Deck</div>
               <button className="btn-secondary px-3 py-1 rounded border font-semibold" onClick={handleClearGrid}>Exile Deck</button>

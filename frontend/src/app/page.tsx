@@ -1,8 +1,7 @@
 "use client";
 import React from "react";
-import { useState, useEffect } from 'react';
-import type { MTGCard } from '@/types/index';
-import type { Deck as DeckBase } from '@/types';
+import { useState } from 'react';
+import type { MTGCard, Deck } from '@/types/index';
 import Link from 'next/link';
 import { useModalStore } from '../store/modalStore';
 import CollectionUpload from '@/components/CollectionUpload';
@@ -14,47 +13,22 @@ import { useCollectionStore } from '@/store/collectionStore';
 import { useAuthStore } from '@/store/authStore';
 import Image from 'next/image';
 
-
-
 export default function HomePage() {
-  const { collections, setCollections } = useCollectionStore();
-  const accessToken = useAuthStore((s) => s.accessToken);
+  const { collections } = useCollectionStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-
-  // Refetch collections whenever accessToken changes (after login)
-  useEffect(() => {
-    async function fetchCollections() {
-      if (!accessToken) return;
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/collections`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!res.ok) throw new Error('Failed to fetch collections');
-        const data = await res.json();
-        setCollections(data.collections || []);
-      } catch (err) {
-        // Optionally handle error
-      }
-    }
-    fetchCollections();
-  }, [accessToken, setCollections]);
 
   // DeckBuilder dashboard state
   const [cardGridType, setCardGridType] = useState<string | null>(null);
   const [deckCards, setDeckCards] = useState<MTGCard[]>([]);
-  const [generatedDeck, setGeneratedDeck] = useState<DeckBase & { analysis?: any } | null>(null);
+  // Replace 'any' with 'unknown' or a specific type if known, e.g. 'DeckAnalysis'
+  const [generatedDeck, setGeneratedDeck] = useState<Deck & { analysis?: unknown } | null>(null);
   const [loading] = useState(false);
+  const [showBasicLands, setShowBasicLands] = useState(true);
 
   // Handler for DeckBuilder to call when deck is generated
-  function handleDeckGenerated(deckOrCards: any) {
-    if (Array.isArray(deckOrCards)) {
-      setDeckCards(deckOrCards);
-      setGeneratedDeck(null);
-      setCardGridType('deck');
-      return;
-    }
-    setGeneratedDeck(deckOrCards);
-    setDeckCards(deckOrCards?.cards || []);
+  function handleDeckGenerated(deck: Deck) {
+    setGeneratedDeck(deck);
+    setDeckCards(deck.cards || []);
     setCardGridType('deck');
   }
 
@@ -159,6 +133,7 @@ export default function HomePage() {
             <div className="w-full flex flex-col items-center gap-4 mt-8 min-h-[200px]">
               {cardGridType === 'deck' && deckCards.length > 0 && (
                 <>
+                  {console.log("DeckBuilderPage: rendering deckCards", deckCards, "generatedDeck", generatedDeck)}
                   <div className="flex w-full justify-between items-center mx-auto mb-2 px-2 sm:px-0">
                     <div className="font-bold text-amber-400 text-lg">Generated Deck</div>
                     <button className="btn-secondary px-3 py-1 rounded border font-semibold" onClick={handleClearGrid}>Back to Deck Builder</button>
@@ -166,10 +141,14 @@ export default function HomePage() {
                   {/* Show DeckDetail panel above CardGrid if generatedDeck is present */}
                   {generatedDeck && (
                     <div className="w-full mx-auto mb-4">
-                      {React.createElement(require('@/components/DeckDetail').default, { deck: generatedDeck })}
+                      {React.createElement(require('@/components/DeckDetail').default, {
+                        deck: generatedDeck,
+                        showBasicLands,
+                        setShowBasicLands
+                      })}
                     </div>
                   )}
-                  <CardGrid cards={deckCards} />
+                  <CardGrid cards={deckCards} showBasicLands={showBasicLands} />
                 </>
               )}
               {cardGridType === 'gamechangers' && (

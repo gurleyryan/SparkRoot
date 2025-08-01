@@ -2,20 +2,59 @@ import React, { useState, useEffect } from "react";
 import Image from 'next/image';
 import LiquidSleeve from "./LiquidSleeve";
 import ConfirmModal from "./ConfirmModal";
-import DetailModal from "./DetailModal";
 import { ApiClient } from "@/lib/api";
 import { useToast } from "./ToastProvider";
 import type { Deck as DeckBase } from "@/types";
 
 // Extend Deck type to allow analysis and color_identity properties
 type Deck = DeckBase & {
-  analysis?: any;
+  analysis?: {
+    overall_score?: number;
+    grade?: string;
+    balance?: {
+      score?: number;
+      categories?: Record<string, number>;
+      ideal_targets?: Record<string, number>;
+    };
+    recommendations?: string[];
+    mana_curve?: {
+      average_cmc?: number;
+      actual_curve?: Record<string, number>;
+      curve_targets?: Record<string, number>;
+      mana_rocks?: number;
+      mana_rocks_target?: number;
+      lands?: number;
+      lands_target?: number;
+      curve_warnings?: string[];
+      n_drop_count?: number;
+    };
+    card_types?: {
+      distribution?: Record<string, number>;
+      percentages?: Record<string, number>;
+      ideal_counts?: Record<string, number>;
+    };
+    strengths?: string[];
+    synergies?: {
+      primary_tribe?: string;
+      tribal_count?: number;
+      themes?: Record<string, number>;
+      strongest_theme?: string;
+    };
+    weaknesses?: string[];
+  };
   color_identity?: string[];
+  tags?: string[];
+  user_id?: string;
+  collection_id?: string;
+  is_public?: boolean;
+  theme?: string;
 };
 
 interface DeckDetailProps {
   deckId?: string;
   deck?: Deck;
+  showBasicLands?: boolean;
+  setShowBasicLands?: (show: boolean) => void;
 }
 
 const exportFormats = [
@@ -24,19 +63,27 @@ const exportFormats = [
   { label: "Moxfield", value: "moxfield" },
 ];
 
-export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
+export default function DeckDetail({
+  deckId,
+  deck,
+  showBasicLands = true,
+  setShowBasicLands,
+}: DeckDetailProps) {
+  // Toggle for showing/hiding basic lands
   const showToast = useToast();
   const [fetchedDeck, setFetchedDeck] = useState<Deck | null>(null);
   const [loading, setLoading] = useState(!deck);
   const [error, setError] = useState<string | null>(null);
   const [showDelete, setShowDelete] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
-  const [showExport, setShowExport] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
   const [exportFormat, setExportFormat] = useState("txt");
   const [exportResult, setExportResult] = useState<string | null>(null);
   const [editName, setEditName] = useState(deck?.name ?? "");
   const [editDesc, setEditDesc] = useState(deck?.description ?? "");
   const [saving, setSaving] = useState(false);
+  const [saveDeckLoading, setSaveDeckLoading] = useState(false);
+  const [nameWarning, setNameWarning] = useState<string | null>(null);
 
   // The deck to display: either the prop or the fetched one
   const displayDeck = deck ?? fetchedDeck;
@@ -55,9 +102,10 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
           setFetchedDeck(deckData);
           setEditName(deckData.name);
           setEditDesc(deckData.description || "");
-        } catch (err: any) {
-          setError(err.message || "Failed to load deck");
-          showToast(err.message || "Failed to load deck", "error");
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Failed to load deck";
+          setError(message);
+          showToast(message, "error");
         } finally {
           setLoading(false);
         }
@@ -73,44 +121,52 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
   // Edit deck handler
   const handleEditSave = async () => {
     if (!displayDeck) return;
+    // If deckId is not present, just update local state and exit edit mode
+    if (!deckId) {
+      // For generated decks, just update local state
+      setEditing(false);
+      showToast("Deck details updated locally", "success");
+      return;
+    }
+    // For saved decks, call API
     setSaving(true);
     try {
       const api = new ApiClient();
-      await api.saveCollection({
+      await api.saveDeckDetails({
         ...displayDeck,
         name: editName,
         description: editDesc,
-        // Optionally update commander if UI allows
       });
       if (!deck) setFetchedDeck({ ...displayDeck, name: editName, description: editDesc });
-      setShowDetails(false);
+      setEditing(false);
       showToast("Deck updated", "success");
-    } catch (err: any) {
-      if (err instanceof Error) {
-        showToast(err.message || "Failed to update deck", "error");
-      } else {
-        showToast("Failed to update deck", "error");
-      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update deck";
+      showToast(message, "error");
     } finally {
       setSaving(false);
     }
   };
 
   // Export deck handler
-  const handleExport = async () => {
+  const handleExport = () => {
+    setShowExportOptions((prev) => !prev);
+  };
+
+  // Actual export after format selection
+  const handleExportFormat = async (format: string) => {
     if (!displayDeck) return;
+    if (!editName.trim()) {
+      setNameWarning("Are you forgetting a name?");
+      return;
+    }
+    setNameWarning(null);
     setExportResult(null);
-    setShowExport(true);
+    setExportFormat(format);
     try {
       let endpoint = "/api/export-deck/txt";
-      let mediaType = "text/plain";
-      if (exportFormat === "json") {
-        endpoint = "/api/export-deck/json";
-        mediaType = "application/json";
-      } else if (exportFormat === "moxfield") {
-        endpoint = "/api/export-deck/moxfield";
-        mediaType = "text/plain";
-      }
+      if (format === "json") endpoint = "/api/export-deck/json";
+      else if (format === "moxfield") endpoint = "/api/export-deck/moxfield";
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,12 +176,9 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
       const text = await res.text();
       setExportResult(text);
       showToast("Deck exported", "success");
-    } catch (err: any) {
-      if (err instanceof Error) {
-        showToast(err.message || "Failed to export deck", "error");
-      } else {
-        showToast("Failed to export deck", "error");
-      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to export deck";
+      showToast(message, "error");
       setExportResult(null);
     }
   };
@@ -146,6 +199,56 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
     }, 100);
   };
 
+  // Save Deck handler
+  const handleSaveDeck = async () => {
+    if (!displayDeck) return;
+    if (!editName.trim()) {
+      setNameWarning("Are you forgetting a name?");
+      return;
+    }
+    setNameWarning(null);
+    setSaveDeckLoading(true);
+    try {
+      // Only send non-redundant metadata in deck_data
+      const { name, commander, analysis, color_identity, theme, tags, ...rest } = displayDeck;
+      // Remove top-level fields from deck_data
+      const deck_data = { ...rest, commander, cards: displayDeck.cards, total_cards: displayDeck.cards?.length || 0 };
+      const payload = {
+        user_id: displayDeck.user_id || "demo-user", // Replace with actual user_id from context/auth
+        name: name,
+        commander_name: commander?.name || "",
+        deck_data,
+        deck_analysis: analysis || null,
+        collection_id: displayDeck.collection_id || null,
+        bracket: displayDeck.bracket || 1,
+        is_public: displayDeck.is_public || false,
+        theme: theme || null,
+        color_identity: color_identity || null,
+        tags: tags || null
+      };
+      const res = await fetch("/api/save-deck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if (result.success) {
+        showToast("Deck saved!", "success");
+        // Optionally update local state with new deckId
+        if (!deck && result.deck_id) {
+          setFetchedDeck({ ...displayDeck, id: result.deck_id });
+        }
+      } else {
+        throw new Error(result.error || "Failed to save deck");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save deck";
+      showToast(message, "error");
+    } finally {
+      setSaveDeckLoading(false);
+    }
+  };
+
   // Delete deck handler (real API)
   const handleDelete = async () => {
     setShowDelete(false);
@@ -154,19 +257,15 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
       const api = new ApiClient();
       await api.deleteDeck(displayDeck.id);
       showToast("Deck deleted successfully", "success");
-      // Optionally redirect or update state
       if (!deck) setFetchedDeck(null);
-    } catch (err: any) {
-      if (err instanceof Error) {
-        showToast(err.message || "Failed to delete deck", "error");
-      } else {
-        showToast("Failed to delete deck", "error");
-      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete deck";
+      showToast(message, "error");
     }
   };
 
   if (loading) return <div className="text-mtg-white">Loading deck...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
+  if (error) return <div className="text-mtg-red">{error}</div>;
   if (!displayDeck) return <div className="text-mtg-white">Deck not found.</div>;
 
   // Mana color accent for border
@@ -197,23 +296,86 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
     <div className="flex flex-col items-center justify-center py-4 px-2">
       <div className="w-full mx-auto">
         <LiquidSleeve manaTheme={manaTheme} className="p-0 md:p-1">
-          <div className="relative rounded-2xl bg-black/60 bg-blur p-6 md:p-8 border-rarity-rare/30 shadow-lg overflow-hidden">
+          <div className="relative rounded-2xl bg-blur p-6 md:p-8 shadow-lg overflow-hidden" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
             <Image src="/logo.svg" alt="SparkRoot Logo" className="m-auto" width={32} height={32} />
             <h1 className="text-3xl md:text-4xl font-bold text-rarity-rare text-center tracking-wide mb-2 drop-shadow-lg font-mtg">Deck Details</h1>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
-              <div className="text-mtg-white/80 text-lg font-semibold font-mtg">{displayDeck.name}</div>
-              <div className="text-rarity-rare/80 text-sm font-mtg">Deck ID: {displayDeck.id}</div>
+              {/* Name field: hidden until editing or if deck has a name */}
+              <div className="text-mtg-white text-lg font-semibold font-mtg">
+                {editing ? (
+                  <input
+                    className="form-input w-full"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    placeholder="Enter deck name"
+                    required
+                  />
+                ) : (
+                  editName ? editName : <span className="text-mtg-white">(No name)</span>
+                )}
+              </div>
+              <div className="text-rarity-rare text-sm font-mtg">Deck ID: {displayDeck.id}</div>
             </div>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
-              <div className="text-mtg-white/80">Commander: <span className="font-bold text-rarity-rare">{displayDeck.commander?.name || "Unknown"}</span></div>
-              <div className="text-mtg-white/60">Cards: {displayDeck.cards.length}</div>
+              <div className="text-mtg-white">Commander: <span className="font-bold text-rarity-rare">{displayDeck.commander?.name || "Unknown"}</span></div>
+              <div className="text-mtg-white">Cards: {displayDeck.cards.length}</div>
             </div>
-            <div className="mb-4 text-mtg-white/80 italic">{displayDeck.description || <span className="text-mtg-white/40">No description.</span>}</div>
+            <div className="mb-4 text-mtg-white italic">
+              {editing ? (
+                <textarea
+                  className="form-input w-full"
+                  value={editDesc}
+                  onChange={e => setEditDesc(e.target.value)}
+                  placeholder="Enter description"
+                />
+              ) : (
+                editDesc || <span className="text-mtg-white">No description.</span>
+              )}
+            </div>
+            {/* Name warning above Save/Export buttons */}
+            {nameWarning && (
+              <div className="text-rarity-mythic text-center font-bold mb-2">{nameWarning}</div>
+            )}
             <div className="flex gap-3 justify-center mb-6">
-              <button className="btn-primary px-5 py-2 text-lg font-mtg" onClick={() => setShowDetails(true)}>Edit</button>
+              {!editing ? (
+                <button className="btn-primary px-5 py-2 text-lg font-mtg" onClick={() => setEditing(true)}>Edit</button>
+              ) : (
+                <button className="btn-primary px-5 py-2 text-lg font-mtg" onClick={handleEditSave} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
+              )}
+              <button className="btn-primary px-5 py-2 text-lg font-mtg" onClick={handleSaveDeck} disabled={saveDeckLoading}>
+                {saveDeckLoading ? "Saving..." : "Save Deck"}
+              </button>
               <button className="btn-secondary px-5 py-2 text-lg font-mtg" onClick={handleExport}>Export</button>
-              <button className="btn-secondary px-5 py-2 text-lg font-mtg text-red-500 border-red-500" onClick={() => setShowDelete(true)}>Delete</button>
+              {/* Hide Delete for generated decks (no deckId or not saved) */}
+              {deckId && (
+                <button className="btn-secondary px-5 py-2 text-lg font-mtg text-mtg-red border-mtg-red" onClick={() => setShowDelete(true)}>Delete</button>
+              )}
             </div>
+            {/* Export format options, shown after Export is pressed */}
+            {showExportOptions && (
+              <div className="flex gap-2 justify-center mb-4">
+                {exportFormats.map(f => (
+                  <button
+                    key={f.value}
+                    className={`btn-secondary px-4 py-2 font-mtg${exportFormat === f.value ? " border-mtg-blue" : ""}`}
+                    onClick={() => handleExportFormat(f.value)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Export result (text area and download) */}
+            {exportResult && (
+              <div className="mb-4">
+                <textarea
+                  className="w-full h-48 bg-slate-900 text-white p-2 rounded mb-4"
+                  value={exportResult}
+                  readOnly
+                />
+                <button className="btn-primary" onClick={handleDownload}>Download</button>
+              </div>
+            )}
             {/* Deck Analysis Panel */}
             {displayDeck.analysis && (
               <div className="mt-2">
@@ -223,25 +385,25 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                     {/* Column 1: Score, Balance, Recommendations */}
                     <div className="flex flex-col gap-4">
                       {/* Score */}
-                      <div className="bg-black/40 rounded-xl p-4 flex flex-col items-center border border-rarity-rare/10">
+                      <div className="rounded-xl p-4 flex flex-col items-center border border-rarity-rare" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
                         <div className="text-rarity-rare text-3xl font-bold font-mtg">{displayDeck.analysis.overall_score}</div>
-                        <div className="text-mtg-white/80 text-sm">Overall Score</div>
-                        <div className="text-rarity-rare/70 text-s mt-1">Grade: {displayDeck.analysis.grade}</div>
+                        <div className="text-mtg-white text-sm">Overall Score</div>
+                        <div className="text-rarity-rare text-s mt-1">Grade: {displayDeck.analysis.grade}</div>
                       </div>
                       {/* Balance */}
-                      <div className="bg-black/40 rounded-xl p-4 border border-mtg-white/10">
-                        <div className="text-mtg-white text-lg font-bold font-mtg mb-1">Balance</div>
-                        <div className="text-mtg-white/80 text-s mb-1">Score: {displayDeck.analysis.balance?.score}</div>
+                      <div className="rounded-xl p-4 border border-rarity-rare" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+                        <div className="text-rarity-rare text-lg font-bold font-mtg mb-1">Balance</div>
+                        <div className="text-mtg-white text-s mb-1">Score: {displayDeck.analysis.balance?.score}</div>
                         <ul className="text-s ml-2">
                           {displayDeck.analysis.balance?.categories &&
                             Object.entries(displayDeck.analysis.balance.categories).map(([cat, val]) => (
-                              <li key={cat}>{cat}: {val} (Ideal: {displayDeck.analysis.balance.ideal_targets?.[cat] ?? "?"})</li>
+                              <li key={cat}>{cat}: {val} (Ideal: {displayDeck.analysis?.balance?.ideal_targets?.[cat] ?? "?"})</li>
                             ))}
                         </ul>
                       </div>
                       {/* Recommendations */}
                       {displayDeck.analysis.recommendations && displayDeck.analysis.recommendations.length > 0 && (
-                        <div className="bg-black/40 rounded-xl p-4 border border-rarity-rare/10">
+                        <div className="rounded-xl p-4 border border-rarity-rare" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
                           <div className="text-rarity-rare text-lg font-bold font-mtg mb-1">Recommendations</div>
                           <ul className="text-s ml-2">
                             {displayDeck.analysis.recommendations.map((rec: string, i: number) => (
@@ -252,41 +414,41 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                       )}
                     </div>
                     {/* Column 2: Mana Curve */}
-                    <div className="bg-black/40 rounded-xl p-4 border border-mtg-blue/10 self-start">
+                    <div className="rounded-xl p-4 border border-mtg-blue self-start" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
                       <div className="text-mtg-blue text-lg font-bold font-mtg mb-1">Mana Curve</div>
-                      <div className="text-mtg-white/80 text-s mb-1">Avg CMC: {displayDeck.analysis.mana_curve?.average_cmc}</div>
+                      <div className="text-mtg-white text-s mb-1">Avg CMC: {displayDeck.analysis.mana_curve?.average_cmc}</div>
                       <div className="flex flex-row gap-6">
                         <div>
-                          <div className="text-mtg-white/60 text-s">Actual:</div>
+                          <div className="text-mtg-white text-s">Actual:</div>
                           <ul className="text-s ml-2">
                             {displayDeck.analysis.mana_curve?.actual_curve &&
                               Object.entries(displayDeck.analysis.mana_curve.actual_curve).map(([cmc, count]) => {
-                                const ideal = displayDeck.analysis.mana_curve.curve_targets?.[cmc];
+                                const ideal = displayDeck.analysis?.mana_curve?.curve_targets?.[cmc];
                                 const actualCount = Number(count);
                                 const off = Math.abs(actualCount - Number(ideal)) > 2;
                                 return (
-                                  <li key={cmc} className={off ? "text-red-400 font-bold" : "text-mtg-white"}>
-                                    CMC {cmc}: {actualCount} {ideal !== undefined && <span className="text-rarity-rare/70">/ {String(ideal)}</span>}
+                                  <li key={cmc} className={off ? "text-mtg-red font-bold" : "text-mtg-white"}>
+                                    CMC {cmc}: {actualCount} {ideal !== undefined && <span className="text-rarity-rare">/ {String(ideal)}</span>}
                                   </li>
                                 );
                               })}
                           </ul>
                         </div>
                         <div>
-                          <div className="text-mtg-white/60 text-s">Mana Rocks:</div>
-                          <div className={Math.abs((displayDeck.analysis.mana_curve?.mana_rocks ?? 0) - (displayDeck.analysis.mana_curve?.mana_rocks_target ?? 0)) > 2 ? "text-red-400 font-bold" : "text-mtg-white"}>
-                            {displayDeck.analysis.mana_curve?.mana_rocks} <span className="text-rarity-rare/70">/ {displayDeck.analysis.mana_curve?.mana_rocks_target}</span>
+                          <div className="text-mtg-white text-s">Mana Rocks:</div>
+                          <div className={Math.abs((displayDeck.analysis.mana_curve?.mana_rocks ?? 0) - (displayDeck.analysis.mana_curve?.mana_rocks_target ?? 0)) > 2 ? "text-mtg-red font-bold" : "text-mtg-white"}>
+                            {displayDeck.analysis.mana_curve?.mana_rocks} <span className="text-rarity-rare">/ {displayDeck.analysis.mana_curve?.mana_rocks_target}</span>
                           </div>
-                          <div className="text-mtg-white/60 text-s mt-2">Lands:</div>
-                          <div className={Math.abs((displayDeck.analysis.mana_curve?.lands ?? 0) - (displayDeck.analysis.mana_curve?.lands_target ?? 0)) > 2 ? "text-red-400 font-bold" : "text-mtg-white"}>
-                            {displayDeck.analysis.mana_curve?.lands} <span className="text-rarity-rare/70">/ {displayDeck.analysis.mana_curve?.lands_target}</span>
+                          <div className="text-mtg-white text-s mt-2">Lands:</div>
+                          <div className={Math.abs((displayDeck.analysis.mana_curve?.lands ?? 0) - (displayDeck.analysis.mana_curve?.lands_target ?? 0)) > 2 ? "text-mtg-red font-bold" : "text-mtg-white"}>
+                            {displayDeck.analysis.mana_curve?.lands} <span className="text-rarity-rare">/ {displayDeck.analysis.mana_curve?.lands_target}</span>
                           </div>
                         </div>
                       </div>
                       {/* Warnings and highlights */}
                       {displayDeck.analysis.mana_curve?.curve_warnings && displayDeck.analysis.mana_curve.curve_warnings.length > 0 && (
                         <div className="mt-3">
-                          <div className="text-red-400 font-bold mb-1">Curve Warnings</div>
+                          <div className="text-mtg-red font-bold mb-1">Curve Warnings</div>
                           <ul className="text-s ml-2">
                             {displayDeck.analysis.mana_curve.curve_warnings.map((w: string, i: number) => (
                               <li key={i}>{w}</li>
@@ -295,14 +457,14 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                         </div>
                       )}
                       {/* N-drop warning */}
-                      {displayDeck.analysis.mana_curve?.n_drop_count > 0 && (
-                        <div className="mt-2 text-yellow-400 font-bold">
-                          Warning: {displayDeck.analysis.mana_curve.n_drop_count} card(s) with CMC equal to commander ({displayDeck.commander?.cmc}). Review for synergy.
+                      {(displayDeck.analysis.mana_curve?.n_drop_count ?? 0) > 0 && (
+                        <div className="mt-2 text-rarity-mythic font-bold">
+                          Warning: {(displayDeck.analysis.mana_curve?.n_drop_count ?? 0)} card(s) with CMC equal to commander ({displayDeck.commander?.cmc}). Review for synergy.
                         </div>
                       )}
                       {/* Sol Ring warning */}
                       {displayDeck.analysis.mana_curve?.curve_warnings?.some((w: string) => w.toLowerCase().includes("sol ring")) && (
-                        <div className="mt-2 text-red-400 font-bold">
+                        <div className="mt-2 text-mtg-red font-bold">
                           Sol Ring is present but banned by House Rules.
                         </div>
                       )}
@@ -310,17 +472,17 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                     {/* Column 3: Card Types + Strengths */}
                     <div className="flex flex-col gap-4">
                       {/* Card Types */}
-                      <div className="bg-black/40 rounded-xl p-4 border border-mtg-green/10">
+                      <div className="rounded-xl p-4 border border-mtg-green" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
                         <div className="text-mtg-green text-lg font-bold font-mtg mb-1">Card Types</div>
                         <ul className="text-s ml-2">
                           {displayDeck.analysis.card_types?.distribution &&
                             Object.entries(displayDeck.analysis.card_types.distribution).map(([type, count]) => (
                               <li key={type}>
-                                {type}: {Number(count)} ({displayDeck.analysis.card_types.percentages?.[type] ? Number(displayDeck.analysis.card_types.percentages[type]).toFixed(1) : "?"}%)
+                                {type}: {Number(count)} ({displayDeck.analysis?.card_types?.percentages?.[type] ? Number(displayDeck.analysis.card_types.percentages[type]).toFixed(1) : "?"}%)
                               </li>
                             ))}
                         </ul>
-                        <div className="text-mtg-white/60 text-s mt-1">Ideal:</div>
+                        <div className="text-mtg-white text-s mt-1">Ideal:</div>
                         <ul className="text-s ml-2">
                           {displayDeck.analysis.card_types?.ideal_counts &&
                             Object.entries(displayDeck.analysis.card_types.ideal_counts).map(([type, count]) => (
@@ -330,32 +492,32 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                       </div>
                       {/* Strengths */}
                       {displayDeck.analysis.strengths && (
-                        <div className="bg-black/40 rounded-xl p-4 border border-green-400/20">
-                          <div className="text-green-400 font-bold mb-1">Strengths</div>
-                          <div className="text-mtg-white/90 text-s">{displayDeck.analysis.strengths.join(", ")}</div>
+                        <div className="rounded-xl p-4 border border-mtg-green" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+                          <div className="text-mtg-green font-bold mb-1">Strengths</div>
+                          <div className="text-mtg-white text-s">{displayDeck.analysis.strengths.join(", ")}</div>
                         </div>
                       )}
                     </div>
                     {/* Column 4: Synergies + Weaknesses */}
                     <div className="flex flex-col gap-4">
                       {/* Synergies & Themes */}
-                      <div className="bg-black/40 rounded-xl p-4 border border-mtg-red/10">
+                      <div className="rounded-xl p-4 border border-mtg-red" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
                         <div className="text-mtg-red text-lg font-bold font-mtg mb-1">Synergies</div>
-                        <div className="text-mtg-white/80 text-s mb-1">Tribe: {displayDeck.analysis.synergies?.primary_tribe} ({displayDeck.analysis.synergies?.tribal_count})</div>
-                        <div className="text-mtg-white/60 text-s">Themes:</div>
+                        <div className="text-mtg-white text-s mb-1">Tribe: {displayDeck.analysis.synergies?.primary_tribe} ({displayDeck.analysis.synergies?.tribal_count})</div>
+                        <div className="text-mtg-white text-s">Themes:</div>
                         <ul className="text-s ml-2">
                           {displayDeck.analysis.synergies?.themes &&
                             Object.entries(displayDeck.analysis.synergies.themes).map(([theme, pct]) => (
                               <li key={theme}>{theme}: {Number(pct).toFixed(1)}%</li>
                             ))}
                         </ul>
-                        <div className="text-mtg-white/60 text-s mt-1">Strongest: <span className="text-rarity-rare font-bold">{displayDeck.analysis.synergies?.strongest_theme}</span></div>
+                        <div className="text-mtg-white text-s mt-1">Strongest: <span className="text-rarity-rare font-bold">{displayDeck.analysis.synergies?.strongest_theme}</span></div>
                       </div>
                       {/* Weaknesses */}
                       {displayDeck.analysis.weaknesses && (
-                        <div className="bg-black/40 rounded-xl p-4 border border-red-400/20">
-                          <div className="text-red-400 font-bold mb-1">Weaknesses</div>
-                          <div className="text-mtg-white/90 text-s">{displayDeck.analysis.weaknesses.join(", ")}</div>
+                        <div className="rounded-xl p-4 border border-mtg-red" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+                          <div className="text-mtg-red font-bold mb-1">Weaknesses</div>
+                          <div className="text-mtg-white text-s">{displayDeck.analysis.weaknesses.join(", ")}</div>
                         </div>
                       )}
                     </div>
@@ -363,89 +525,32 @@ export default function DeckDetail({ deckId, deck }: DeckDetailProps) {
                 </LiquidSleeve>
               </div>
             )}
+            {/* Toggle button for basic lands */}
+            {typeof setShowBasicLands === 'function' && (
+              <div className="flex justify-end mt-6">
+                <button
+                  className={`btn-secondary px-3 py-1 rounded border font-semibold ml-2 ${showBasicLands ? 'bg-mtg-green' : ''} text-white`}
+                  onClick={() => setShowBasicLands(!showBasicLands)}
+                >
+                  {showBasicLands ? "Hide Basic Lands" : "Show Basic Lands"}
+                </button>
+              </div>
+            )}
           </div>
         </LiquidSleeve>
       </div>
-
-      {/* Export Modal */}
-      {/* Export Modal */}
-      {showExport && (
-        <DetailModal open={showExport} title="Export Deck" onClose={() => setShowExport(false)}>
-          <div className="mb-4">
-            <label className="block text-mtg-white mb-2">Format:</label>
-            <select
-              className="form-input px-2 py-1 rounded border border-mtg-blue bg-black text-white"
-              value={exportFormat}
-              onChange={e => setExportFormat(e.target.value)}
-            >
-              {exportFormats.map(f => (
-                <option key={f.value} value={f.value}>{f.label}</option>
-              ))}
-            </select>
-          </div>
-          {exportResult && (
-            <>
-              <textarea
-                className="w-full h-48 bg-slate-900 text-white p-2 rounded mb-4"
-                value={exportResult}
-                readOnly
-              />
-              <button className="btn-primary" onClick={handleDownload}>Download</button>
-            </>
-          )}
-          {!exportResult && <div className="text-mtg-white">Exporting...</div>}
-        </DetailModal>
+      {/* Delete confirmation modal only for saved decks */}
+      {deckId && showDelete && (
+        <ConfirmModal
+          open={showDelete}
+          title="Delete Deck?"
+          message="Are you sure you want to delete this deck? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={handleDelete}
+          onCancel={() => setShowDelete(false)}
+        />
       )}
-      {/* Edit Modal */}
-      <DetailModal open={showDetails} title="Edit Deck" onClose={() => setShowDetails(false)}>
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            handleEditSave();
-          }}
-        >
-          <div className="mb-4">
-            <label className="block text-mtg-white mb-2">Name</label>
-            <input
-              className="form-input w-full"
-              value={editName}
-              onChange={e => setEditName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-mtg-white mb-2">Description</label>
-            <textarea
-              className="form-input w-full"
-              value={editDesc}
-              onChange={e => setEditDesc(e.target.value)}
-            />
-          </div>
-          {/* Commander editing could be added here if needed */}
-          <div className="flex gap-4 justify-end">
-            <button
-              className="btn-secondary"
-              type="button"
-              onClick={() => setShowDetails(false)}
-              disabled={saving}
-            >
-              Cancel
-            </button>
-            <button className="btn-primary" type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
-      </DetailModal>
-      <ConfirmModal
-        open={showDelete}
-        title="Delete Deck?"
-        message="Are you sure you want to delete this deck? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={handleDelete}
-        onCancel={() => setShowDelete(false)}
-      />
     </div>
   );
 }

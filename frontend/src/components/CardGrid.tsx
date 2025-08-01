@@ -1,17 +1,25 @@
 "use client";
-
 import React from "react";
 import Card from "./Card";
-import { MTGCardWithFaces } from "./Card"; // Adjust the path if MTGCardWithFaces is defined elsewhere
+import { MTGCard } from "@/types/index";
 
 export interface CardGridProps {
-  cards: any[];
+  cards: MTGCard[];
   className?: string;
+  showBasicLands?: boolean;
 }
 
-const CardGrid: React.FC<{ cards: MTGCardWithFaces[]; className?: string }> = ({
+// Helper to detect basic lands
+function isBasicLand(card: MTGCard) {
+  if (!card || !card.type_line) return false;
+  // Scryfall type_line for basic lands always includes 'Basic Land'
+  return card.type_line.toLowerCase().includes('basic land');
+}
+
+const CardGrid: React.FC<CardGridProps> = ({
   cards,
   className = "",
+  showBasicLands = true,
 }) => {
   return (
     <div
@@ -21,7 +29,12 @@ const CardGrid: React.FC<{ cards: MTGCardWithFaces[]; className?: string }> = ({
       }
     >
       {cards.map((card, idx) => (
-        <Card key={card.id || card.name || idx} card={card} />
+        <div
+          key={card.id || card.name || idx}
+          style={isBasicLand(card) && !showBasicLands ? { display: 'none' } : {}}
+        >
+          <Card card={card} quantity={card.quantity} />
+        </div>
       ))}
     </div>
   );

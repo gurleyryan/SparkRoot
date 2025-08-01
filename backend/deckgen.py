@@ -4,7 +4,7 @@ import traceback
 import structlog
 from typing import Dict, Any, List, Set, Optional, Union, Generator
 from collections import Counter
-from backend.cursor import CardLookup
+from backend.cursor import normalize_name, CardLookup
 
 logger = structlog.get_logger()
 
@@ -117,14 +117,6 @@ def analyze_mana_curve(deck: List[Dict[str, Any]]) -> Dict[int, int]:
 
 
 def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, float]:
-    print(
-        f"[DEBUG] fetch_salt_list_from_supabase called with card_pool size: {len(card_pool)}"
-    )
-    """
-    Fetches the salt list from Supabase and returns a dict mapping card name to weighted salt score.
-    Weighted salt = Salt score * number of years included.
-    Only includes cards present in the user's card pool for efficiency.
-    """
     try:
         from supabase import create_client
     except ImportError:
@@ -133,66 +125,47 @@ def fetch_salt_list_from_supabase(card_pool: List[Dict[str, Any]]) -> Dict[str, 
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print(
-            "[DEBUG] Set SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment to fetch salt list."
-        )
+        print("[DEBUG] Set SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment to fetch salt list.")
         return {}
-    print("[DEBUG] Connecting to Supabase for salt list fetch...")
-    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    salt_map: Dict[str, float] = {}
-    page = 0
-    page_size = 1000
     pool_ids: Set[str] = set()
     name_by_id: Dict[str, str] = {}
     for card in card_pool:
         cid = str(card.get("id"))
         pool_ids.add(cid)
         name_by_id[cid] = card.get("name", "")
-    print(f"[DEBUG] Pool ids for salt mapping: {len(pool_ids)}")
-    while True:
-        print(f"[DEBUG] Fetching salt page {page}...")
-        resp = (
-            supabase.table("salt")
-            .select("card_id,Salt,years_included")
-            .range(page * page_size, (page + 1) * page_size - 1)
-            .execute()
-        )
-        data = resp.data
-        if not data:
-            print(f"[DEBUG] No more salt data at page {page}.")
-            break
-        for row in data:
-            cid = str(row["card_id"])
-            if cid in pool_ids:
-                name: str = name_by_id.get(cid, "")
-                salt_score = float(row.get("Salt", 0.0))
-                years = row.get("years_included", [])
-                # Weighted salt: sum weights for each year, weight = 1.0 - 0.1*n, n = years since newest
-                weighted_sum = 0.0
-                if years:
-                    try:
-                        years_int = [int(y) for y in years]
-                        newest_year = max(years_int)
-                        for y in years_int:
-                            n = newest_year - y
-                            weight = max(0.0, 1.0 - 0.1 * n)
-                            weighted_sum += weight
-                    except Exception as e:
-                        print(f"[DEBUG] Error in salt year weighting: {e}")
-                        weighted_sum = len(years)
-                else:
-                    weighted_sum = 1.0
-                weighted_salt = salt_score * weighted_sum
-                if name:
-                    salt_map[name] = weighted_salt
-                    print(
-                        f"[DEBUG]   Mapped salt for {name} (id={cid}): Salt={salt_score}, Years={years}, Weighted={weighted_salt}"
-                    )
-        if len(data) < page_size:
-            print(f"[DEBUG] Last salt page fetched: {page}")
-            break
-        page += 1
-    print(f"[DEBUG] Finished salt mapping. Total mapped: {len(salt_map)}")
+    if not pool_ids:
+        return {}
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    # Query only for relevant card_ids
+    resp = (
+        supabase.table("salt")
+        .select("card_id,Salt,years_included")
+        .in_("card_id", list(pool_ids))
+        .execute()
+    )
+    data = resp.data or []
+    salt_map: Dict[str, float] = {}
+    for row in data:
+        cid = str(row["card_id"])
+        name: str = name_by_id.get(cid, "")
+        salt_score = float(row.get("Salt", 0.0))
+        years = row.get("years_included", [])
+        weighted_sum = 0.0
+        if years:
+            try:
+                years_int = [int(y) for y in years]
+                newest_year = max(years_int)
+                for y in years_int:
+                    n = newest_year - y
+                    weight = max(0.0, 1.0 - 0.1 * n)
+                    weighted_sum += weight
+            except Exception:
+                weighted_sum = len(years)
+        else:
+            weighted_sum = 1.0
+        weighted_salt = salt_score * weighted_sum
+        if name:
+            salt_map[name] = weighted_salt
     return salt_map
 
 
@@ -841,7 +814,7 @@ def generate_commander_deck(
     # Live step log: 1. Starting deck generation
     yield json.dumps({"message": "[STEP 1] Starting deck generation"})
     yield json.dumps({"message": f"[STEP 2] Commander submitted: {commander.get('name')} (id={commander.get('id')}) | Bracket: {bracket} | House rules: {house_rules}"})
-    
+
     try:
         SUPABASE_URL = os.getenv("SUPABASE_URL")
         SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
@@ -850,18 +823,53 @@ def generate_commander_deck(
                 "SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables must be set."
             )
         lookup = CardLookup(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        lookup.fetch_all_cards()
-        canonical_pool: List[Dict[str, Any]] = []
-        for card in card_pool:
-            ids = lookup.lookup(card.get("name", ""))
-            if ids:
-                card["canonical_id"] = ids[0]
-            canonical_pool.append(card)
+        # Decide if we need to canonicalize (anonymous/raw upload) or skip (enriched user)
+        needs_canonicalization = any("scryfall_id" not in card for card in card_pool)
+        if needs_canonicalization:
+            user_card_names = set(card.get("name", "") for card in card_pool if card.get("name"))
+            yield json.dumps({"message": f"[STEP 2a] Fetching only user's cards from Supabase ({len(user_card_names)} unique names)..."})
+            # Use fetch_rows_by_field_values to get all cards with these names
+            fetched_cards = lookup.fetch_rows_by_field_values(
+                table="cards",
+                field="name",
+                values=user_card_names,
+                select="id,name,printed_name,set,collector_number"
+            )
+            # Build a normalized name -> id(s) map
+            name_to_ids: Dict[str, list[str]] = {}
+            for c in fetched_cards:
+                n = c.get("name")
+                if n:
+                    norm = normalize_name(n)
+                    name_to_ids.setdefault(norm, []).append(str(c["id"]))
+                pn = c.get("printed_name")
+                if pn:
+                    norm = normalize_name(pn)
+                    name_to_ids.setdefault(norm, []).append(str(c["id"]))
+            yield json.dumps({"message": "[STEP 2b] User card database loaded."})
+            yield json.dumps({"message": "[STEP 2c] Canonicalizing card pool..."})
+            canonical_pool: List[Dict[str, Any]] = []
+            for card in card_pool:
+                norm_name = normalize_name(card.get("name", ""))
+                ids = name_to_ids.get(norm_name, [])
+                if ids:
+                    card["canonical_id"] = ids[0]
+                canonical_pool.append(card)
+            yield json.dumps({"message": f"[STEP 2d] Canonicalization complete. Pool size: {len(canonical_pool)}"})
+        else:
+            yield json.dumps({"message": "[STEP 2a] All cards have Scryfall IDs, skipping canonicalization."})
+            canonical_pool = card_pool
 
         # Live step log: 3. Filter pool for color identity, legalities, and salt
         yield json.dumps({"message": "[STEP 3] Filtering card pool for color identity, legality, bracket, house rules, and salt..."})
-        if salt_list is None:
-            salt_list = fetch_salt_list_from_supabase(canonical_pool)
+        # Only fetch salt list and filter if salt_threshold < 15
+        if salt_threshold < 15:
+            if salt_list is None:
+                yield json.dumps({"message": "[STEP 3a] Fetching salt list from Supabase..."})
+                salt_list = fetch_salt_list_from_supabase(canonical_pool)
+        else:
+            salt_list = {}
+            yield json.dumps({"message": "[STEP 3a] Salt filter disabled (threshold=15), skipping salt fetch."})
         filtered_pool = filter_card_pool(
             canonical_pool, commander, bracket, house_rules, salt_list, salt_threshold
         )
@@ -1449,18 +1457,16 @@ def generate_commander_deck(
                 return obj
 
         deck_dict: Dict[str, Any] = {
-            "success": True,
             "commander": convert_sets(commander),
-            "deck": convert_sets(deck),
+            "cards": convert_sets(deck),
             "deck_size": len(deck),
             "total_cards": len(deck) + 1,
             "bracket": bracket,
             "theme": theme,
         }
 
-        # Yield the final deck dictionary as a JSON object with a 'deck' field
-        yield json.dumps({"deck": deck_dict})
+        # Yield the final deck dictionary as a JSON object
+        return json.dumps({"deck": deck_dict})
     except Exception as e:
         logger.error("Exception in generate_commander_deck", error=str(e), traceback=traceback.format_exc())
-        yield json.dumps({"error": f"Exception in deck generation: {str(e)}", "traceback": traceback.format_exc()})
-        return
+        return json.dumps({"error": f"Exception in deck generation: {str(e)}", "traceback": traceback.format_exc()})

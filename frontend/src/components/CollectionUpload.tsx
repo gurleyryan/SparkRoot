@@ -1,5 +1,4 @@
-import { useToast } from './ToastProvider';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import type { MTGCard } from '@/types';
 import { useAuthStore } from '../store/authStore';
@@ -20,7 +19,6 @@ interface CollectionUploadProps {
 
 
 export default function CollectionUpload({ onCollectionUploaded }: CollectionUploadProps) {
-  const showToast = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0); // 0-100
@@ -34,19 +32,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   const { collections } = useCollectionStore();
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const hasHydrated = useHasHydrated();
-  const user = useAuthStore((state) => state.user);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const accessToken = useAuthStore((state) => state.accessToken);
-  const addCollection = useCollectionStore((state) => state.addCollection);
-
-  // Debug: log token and user info
-  useEffect(() => {
-    console.debug('CollectionUpload: user', user);
-    console.debug('CollectionUpload: isAuthenticated', isAuthenticated);
-    if (typeof window !== 'undefined') {
-      console.debug('auth-storage in localStorage:', localStorage.getItem('auth-storage'));
-    }
-  }, [user, isAuthenticated]);
 
   // SSE upload with live progress and preview
   const [liveCards, setLiveCards] = useState<MTGCard[]>([]);
@@ -144,7 +130,9 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                   if (data.preview) {
                     setParsedPreview(data.preview);
                   }
-                } catch (e) {}
+                } catch {
+                  // Intentionally ignore JSON parse errors for SSE progress events
+                }
               }
             } else if (event && typeof event === 'string' && event.includes('event: done')) {
               const dataMatch = event.match(/data: (.*)/);
@@ -159,7 +147,9 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                   if (onCollectionUploaded) {
                     onCollectionUploaded(data.cards ?? []);
                   }
-                } catch (e) {}
+                } catch {
+                  // Intentionally ignore JSON parse errors for SSE progress events
+                }
               }
             } else if (event && typeof event === 'string' && event.includes('event: error')) {
               const dataMatch = event.match(/data: (.*)/);
@@ -168,7 +158,9 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
                   const data = JSON.parse(dataMatch[1]);
                   setError(data.error || 'Upload error');
                   setStatusText('Error during upload');
-                } catch (e) {}
+                } catch {
+                  // Intentionally ignore JSON parse errors for SSE progress events
+                }
               }
             }
           }
@@ -178,13 +170,13 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
       }
       setIsUploading(false);
       refetchCollections();
-    } catch (err) {
+    } catch {
       setError('Failed to upload collection.');
       setIsUploading(false);
       setProgress(0);
       setStatusText('');
     }
-  }, [addCollection, onCollectionUploaded, accessToken, showToast, collectionName, description, isPublic, inventoryPolicy, collectionAction, refetchCollections]);
+  }, [onCollectionUploaded, accessToken, collectionName, description, isPublic, inventoryPolicy, collectionAction, selectedCollectionId, refetchCollections]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

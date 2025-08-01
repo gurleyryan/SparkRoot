@@ -1,21 +1,20 @@
 # User Authentication and Data Management API - Supabase REST API Version
 
+
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
-import jwt
 from datetime import datetime, timezone
 import os
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr
-import secrets
 import httpx
 import typing
-
-# Security configuration
-SECRET_KEY: str = str(os.getenv("SECRET_KEY", secrets.token_urlsafe(32)))
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# --- JWK-based JWT verification ---
+import time
+from jose import jwt as jose_jwt
+from dotenv import load_dotenv
+load_dotenv()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
@@ -421,11 +420,48 @@ class UserManager:
 
 # Token verification function
 
+
+# --- JWK-based JWT verification for Supabase ECC keys ---
+_JWK_CACHE: Dict[str, typing.Any] = {"keys": None, "fetched_at": 0}
+_JWK_CACHE_TTL = 60 * 60  # 1 hour
+
+def get_supabase_jwks_url():
+    # Use the new .well-known discovery URL for JWKs
+    return f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+
+async def fetch_supabase_jwks():
+    now = time.time()
+    if _JWK_CACHE["keys"] and now - _JWK_CACHE["fetched_at"] < _JWK_CACHE_TTL:
+        return _JWK_CACHE["keys"]
+    headers = {"apikey": SUPABASE_ANON_KEY}
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(get_supabase_jwks_url(), headers=headers)
+        resp.raise_for_status()
+        jwks = resp.json()
+        _JWK_CACHE["keys"] = jwks
+        _JWK_CACHE["fetched_at"] = now
+        return jwks
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, options={"verify_signature": False}) # type: ignore
-        # print("JWT PAYLOAD:", payload)
+        jwks = await fetch_supabase_jwks()
+        headers = jose_jwt.get_unverified_header(token)
+        kid = headers.get("kid")
+        key = None
+        for jwk_key in jwks["keys"]:
+            if jwk_key["kid"] == kid:
+                key = jwk_key
+                break
+        if not key:
+            raise HTTPException(status_code=401, detail="JWK not found for kid")
+        payload = jose_jwt.decode(
+            token,
+            key,
+            algorithms=[key["alg"]],
+            audience=None,
+            options={"verify_aud": False},
+        )
         email = payload.get("email")
         user_id = payload.get("sub")
         # Fetch profile info from public.profiles
@@ -444,10 +480,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                 profiles = profile_resp.json()
                 if profiles:
                     profile = profiles[0]
-        # --- PATCH: Always extract app_metadata and role from JWT ---
         app_metadata: Dict[str, Any] = payload.get("app_metadata") or {}
         role = app_metadata.get("role") or payload.get("role") or ""
-        return {
+        result: Dict[str, Any] = {
             "id": user_id,
             "email": email,
             "username": profile.get("username") if profile else "",
@@ -459,8 +494,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "app_metadata": app_metadata,
             "user_metadata": payload.get("user_metadata"),
         }
-    except Exception as e:
-        print(f"Error in get_current_user: {e}")
+        return result
+    except Exception:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 # Alias for backward compatibility

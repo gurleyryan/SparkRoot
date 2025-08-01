@@ -1,7 +1,106 @@
 import json
 import os
+import uuid
+from supabase import create_client
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple
+from .cursor import CardLookup  # Import CardLookup for batch lookup
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+    raise EnvironmentError("SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables must be set")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+def save_deck_to_supabase(
+    user_id: str,
+    name: str,
+    commander_name: str,
+    deck_data: Dict[str, Any],
+    deck_analysis: Any,
+    collection_id: Optional[str] = None,
+    bracket: int = 1,
+    is_public: bool = False,
+    theme: Optional[str] = None,
+    color_identity: Optional[list[str]] = None,
+    tags: Optional[list[str]] = None
+):
+    deck_id = str(uuid.uuid4())
+    insert_data: dict[str, Any] = {
+        "id": deck_id,
+        "user_id": user_id,
+        "name": name,
+        "commander_name": commander_name,
+        "deck_data": deck_data,
+        "deck_analysis": deck_analysis,
+        "is_public": is_public,
+        "collection_id": collection_id,
+        "bracket": bracket,
+        "theme": theme,
+        "color_identity": color_identity,
+        "tags": tags
+    }
+    supabase.table("saved_decks").insert(insert_data).execute()  # type: ignore
+
+    # 2. Batch lookup user_cards for all card_ids in the deck
+    card_ids = {card["id"] for card in deck_data["cards"]}
+    # Use CardLookup for batch fetch
+    # Type-safe: SUPABASE_URL and SUPABASE_SERVICE_KEY are checked above, but add assert for type checkers
+    assert SUPABASE_URL is not None and SUPABASE_SERVICE_KEY is not None
+    lookup = CardLookup(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    user_card_rows = lookup.fetch_rows_by_field_values(
+        table="user_cards",
+        field="card_id",
+        values=card_ids,
+        select="id,card_id",
+        page_size=100,
+        order_field="id",
+        diagnostics=False
+    )
+    # Build a mapping: card_id -> user_card_id (for this user only)
+    user_card_map = {row["card_id"]: row["id"] for row in user_card_rows if row.get("card_id") and row.get("id")}
+
+    # 3. Insert into deck_cards using the mapping
+    for card in deck_data["cards"]:
+        card_id = card["id"]
+        quantity = card.get("quantity", 1)
+        user_card_id = user_card_map.get(card_id)
+        if user_card_id:
+            deck_card_data: Dict[str, Any] = {
+                "deck_id": deck_id,
+                "user_card_id": user_card_id,
+                "quantity": quantity
+            }
+            supabase.table("deck_cards").insert(deck_card_data).execute()  # type: ignore
+        # else: optionally handle missing user_card (e.g., skip or error)
+    return deck_id
+
+def update_deck_details_in_supabase(
+    deck_id: str,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    theme: Optional[str] = None,
+    tags: Optional[list[str]] = None
+):
+    """
+    Update deck details (name, description, theme, tags) in saved_decks table.
+    Only fields provided (not None) will be updated.
+    """
+    update_data: dict[str, Any] = {}
+    if name is not None:
+        update_data["name"] = name
+    if description is not None:
+        update_data["description"] = description
+    if theme is not None:
+        update_data["theme"] = theme
+    if tags is not None:
+        update_data["tags"] = tags
+    if not update_data:
+        raise ValueError("No fields to update.")
+    result = supabase.table("saved_decks").update(update_data).eq("id", deck_id).execute()  # type: ignore
+    return result
 
 def export_deck_to_txt(deck_data: Dict[str, Any], filename: Optional[str] = None) -> Tuple[str, str]:
     """
@@ -35,7 +134,7 @@ def export_deck_to_txt(deck_data: Dict[str, Any], filename: Optional[str] = None
     
     # Main deck
     lines.append("// Main Deck")
-    for card in deck_data["deck"]:
+    for card in deck_data["cards"]:
         card_name = card.get("name", card.get("Name", "Unknown Card"))
         lines.append(f"1 {card_name}")
     
@@ -73,7 +172,7 @@ def export_deck_to_json(deck_data: Dict[str, Any], filename: Optional[str] = Non
         "format": "Commander/EDH",
         "generated_at": datetime.now().isoformat(),
         "commander": deck_data["commander"],
-        "deck": deck_data["deck"],
+        "cards": deck_data["cards"],
         "deck_size": deck_data["deck_size"],
         "total_cards": deck_data["total_cards"],
         "metadata": {
@@ -109,76 +208,8 @@ def export_deck_to_moxfield(deck_data: Dict[str, Any]) -> str:
     lines.append(f"1 {deck_data['commander']['name']} *CMDR*")
     
     # Main deck cards
-    for card in deck_data["deck"]:
+    for card in deck_data["cards"]:
         card_name = card.get("name", card.get("Name", "Unknown Card"))
         lines.append(f"1 {card_name}")
     
     return "\n".join(lines)
-
-
-def get_deck_statistics(deck_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Calculate basic deck statistics
-    
-    Args:
-        deck_data: Dictionary from generate_commander_deck()
-        
-    Returns:
-        dict: Statistics about the deck
-    """
-    deck = deck_data["deck"]
-    commander = deck_data["commander"]
-    
-    # Count card types
-    type_counts = {
-        "creatures": 0,
-        "instants": 0,
-        "sorceries": 0,
-        "enchantments": 0,
-        "artifacts": 0,
-        "planeswalkers": 0,
-        "lands": 0,
-        "other": 0
-    }
-    
-    # Count CMC distribution
-    cmc_counts: Dict[float, int] = {}
-    total_cmc = 0
-    
-    for card in deck:
-        # Count types
-        type_line = card.get("type_line", "").lower()
-        if "creature" in type_line:
-            type_counts["creatures"] += 1
-        elif "instant" in type_line:
-            type_counts["instants"] += 1
-        elif "sorcery" in type_line:
-            type_counts["sorceries"] += 1
-        elif "enchantment" in type_line:
-            type_counts["enchantments"] += 1
-        elif "artifact" in type_line:
-            type_counts["artifacts"] += 1
-        elif "planeswalker" in type_line:
-            type_counts["planeswalkers"] += 1
-        elif "land" in type_line:
-            type_counts["lands"] += 1
-        else:
-            type_counts["other"] += 1
-        
-        # Count CMC
-        cmc = card.get("cmc", 0)
-        if cmc is not None:
-            cmc_counts[cmc] = cmc_counts.get(cmc, 0) + 1
-            total_cmc += cmc
-    
-    avg_cmc = total_cmc / len(deck) if deck else 0
-    
-    return {
-        "commander_name": commander["name"],
-        "commander_colors": commander.get("color_identity", []),
-        "total_cards": deck_data["total_cards"],
-        "deck_size": deck_data["deck_size"],
-        "type_distribution": type_counts,
-        "cmc_distribution": cmc_counts,
-        "average_cmc": round(avg_cmc, 2)
-    }

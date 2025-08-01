@@ -70,6 +70,32 @@ export class ApiClient {
       method: 'DELETE',
     });
   }
+
+  // Update deck details (name, description, etc.)
+  async saveDeckDetails({ id, name, description, theme, tags }: {
+    id: string;
+    name?: string;
+    description?: string;
+    theme?: string;
+    tags?: string[];
+  }) {
+    type DeckDetailsPayload = {
+      deck_id: string;
+      name?: string;
+      description?: string;
+      theme?: string;
+      tags?: string[];
+    };
+    const payload: DeckDetailsPayload = { deck_id: id };
+    if (name !== undefined) payload.name = name;
+    if (description !== undefined) payload.description = description;
+    if (theme !== undefined) payload.theme = theme;
+    if (tags !== undefined) payload.tags = tags;
+    return this.request('/api/update-deck-details', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
 
@@ -95,12 +121,12 @@ export class ApiClient {
     return resp.json();
   }
 
-  async getCollectionROI(collection: any) {
+  async getCollectionROI(collection: Record<string, unknown>) {
     const url = `${this.baseURL}/api/analytics/collection-roi`;
     const resp = await fetch(url, {
       method: 'POST',
       headers: this.defaultHeaders,
-      body: JSON.stringify(collection as Record<string, unknown>),
+      body: JSON.stringify(collection),
     });
     if (!resp.ok) throw new Error('Failed to fetch Collection ROI');
     return resp.json();
@@ -112,7 +138,7 @@ export class ApiClient {
     if (!token && typeof window !== 'undefined') {
       try {
         // Dynamically import to avoid circular deps
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+         
         const zustand = require('../store/authStore');
         token = zustand.useAuthStore.getState().accessToken;
       } catch {

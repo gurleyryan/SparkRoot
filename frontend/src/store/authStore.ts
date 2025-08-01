@@ -2,19 +2,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User, UserSettings } from '@/types';
 import { ApiClient } from '../lib/api';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/utils/supabase/client';
+import { useCollectionStore } from "@/store/collectionStore"; // Import your collection store
 
-export function getSupabaseClient(rememberMe: boolean) {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        storage: rememberMe ? localStorage : sessionStorage,
-        persistSession: true,
-      },
-    }
-  );
+export function getSupabaseClient() {
+  return createClient();
 }
 
 interface AuthState {
@@ -30,12 +22,9 @@ interface AuthState {
   setUser: (user: User | null) => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
   changePassword: (data: { oldPassword: string; newPassword: string }) => Promise<void>;
-  login: (
-    credentials: { email: string; password: string },
-    rememberMe?: boolean
-  ) => Promise<void>;
+  login: (credentials: { email: string; password: string }) => Promise<void>;
   setPlaymatTexture: (texture: string) => Promise<void>;
-  register: (data: { username: string; email: string; password: string; full_name?: string }) => Promise<{ data: any; error: any } | undefined>;
+  register: (data: { username: string; email: string; password: string; full_name?: string }) => Promise<{ data: User | null; error: string | Error | null } | undefined>;
   logout: (auto?: boolean) => void;
   clearError: () => void;
   checkAuth: () => Promise<void>;
@@ -43,6 +32,7 @@ interface AuthState {
   fetchWithAuth: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
   setHydrating: (hydrating: boolean) => void;
   setAutoLoggedOut: (val: boolean) => void;
+  fetchUserAndCollections: () => Promise<void>; // Add this line
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -77,7 +67,7 @@ export const useAuthStore = create<AuthState>()(
       changePassword: async (data) => {
         set({ isLoading: true, error: null });
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
           const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
           const resp = await fetch(`${baseUrl}/api/auth/change-password`, {
             method: 'POST',
@@ -101,48 +91,17 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: false });
         }
       },
-      login: async (credentials, rememberMe = true) => {
+      login: async (credentials) => {
         set({ isLoading: true, error: null });
         try {
-          const supabase = getSupabaseClient(rememberMe);
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: credentials.email,
-            password: credentials.password,
-          });
-          if (error || !data.session) {
-            set({ error: error?.message || 'Login failed.', isLoading: false });
-            throw new Error(error?.message || 'Login failed.');
+          const supabase = createClient();
+          const { error } = await supabase.auth.signInWithPassword(credentials);
+          if (error) {
+            set({ error: error.message, isLoading: false });
+            return;
           }
-          const jwt = data.session.access_token;
-          // Optionally fetch user profile from backend using this JWT
-          if (!data.user) {
-            set({ error: 'User data missing after login.', isLoading: false });
-            throw new Error('User data missing after login.');
-          }
-          set({
-            user: {
-              ...data.user,
-              id: data.user?.id ?? '',
-              email: data.user?.email ?? '',
-            },
-            isAuthenticated: true,
-            accessToken: jwt,
-            isLoading: false,
-            error: null,
-          });
-          try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
-            const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
-            const resp = await fetch(`${baseUrl}/api/auth/me`, {
-              headers: { Authorization: `Bearer ${jwt}` },
-            });
-            if (resp.ok) {
-              const user = await resp.json();
-              set({ user });
-            }
-          } catch {
-            // ignore, fallback to Supabase user
-          }
+          // Optionally fetch user profile here
+          set({ isAuthenticated: true, isLoading: false, error: null });
         } catch (err: unknown) {
           if (err instanceof Error) {
             set({ error: err.message || 'Login failed.', isLoading: false });
@@ -180,7 +139,7 @@ export const useAuthStore = create<AuthState>()(
       register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
-          const supabase = getSupabaseClient(true);
+          const supabase = getSupabaseClient();
           const { data, error } = await supabase.auth.signUp({
             email: userData.email,
             password: userData.password,
@@ -194,7 +153,7 @@ export const useAuthStore = create<AuthState>()(
           // If error, set error and return
           if (error) {
             set({ error: error?.message || 'Registration failed', isLoading: false });
-            return { data, error };
+            return { data: null, error: error.message || 'Registration failed' };
           }
           // If session exists, treat as logged in
           if (data && data.session && data.user) {
@@ -211,7 +170,7 @@ export const useAuthStore = create<AuthState>()(
               error: null,
             });
             try {
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
               const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
               const resp = await fetch(`${baseUrl}/api/auth/me`, {
                 headers: { Authorization: `Bearer ${jwt}` },
@@ -219,13 +178,15 @@ export const useAuthStore = create<AuthState>()(
               if (resp.ok) {
                 const user = await resp.json();
                 set({ user });
+                return { data: user, error: null };
               }
             } catch {
               // ignore, fallback to Supabase user
             }
+            return { data: { ...data.user, id: data.user.id ?? '', email: data.user.email ?? '' }, error: null };
           }
           set({ isLoading: false });
-          return { data, error };
+          return { data: null, error: null };
         } catch (err: unknown) {
           if (err instanceof Error) {
             set({ error: err.message || 'Registration failed', isLoading: false });
@@ -238,9 +199,11 @@ export const useAuthStore = create<AuthState>()(
       },
       logout: async (auto = false) => {
         try {
-          const supabase = getSupabaseClient(true); // or false, doesn't matter for signOut
+          const supabase = getSupabaseClient(); // or false, doesn't matter for signOut
           await supabase.auth.signOut();
-        } catch {}
+        } catch {
+          // Ignore errors during sign out
+        }
         set({
           user: null,
           isAuthenticated: false,
@@ -259,7 +222,7 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
           const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
           const resp = await fetch(`${baseUrl}/api/auth/me`, {
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -279,7 +242,7 @@ export const useAuthStore = create<AuthState>()(
       },
       fetchWithAuth: async (input, init = {}) => {
         const { accessToken } = get();
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as any).NEXT_PUBLIC_API_URL : undefined);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
         const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
         let url = typeof input === 'string' && input.startsWith('/') ? `${baseUrl}${input}` : input;
         const headers = {
@@ -290,6 +253,36 @@ export const useAuthStore = create<AuthState>()(
       },
       setHydrating: (hydrating) => set({ hydrating }),
       setAutoLoggedOut: (val) => set({ autoLoggedOut: val }),
+      fetchUserAndCollections: async () => {
+        const { accessToken } = get();
+        if (!accessToken) return;
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
+        const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+        const [userRes, collectionsRes, inventoryRes] = await Promise.all([
+          fetch(`${baseUrl}/api/auth/me`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+          fetch(`${baseUrl}/api/collections`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+          fetch(`${baseUrl}/api/inventory`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+        ]);
+        if (userRes.ok) {
+          const user = await userRes.json();
+          set({ user, isAuthenticated: true });
+        }
+        if (collectionsRes.ok) {
+          const data = await collectionsRes.json();
+          useCollectionStore.getState().setCollections(data.collections || []);
+        }
+        if (inventoryRes.ok) {
+          const data = await inventoryRes.json();
+          // Support both {cards: [...]} and {inventory: {cards: [...]}}
+          let cards = [];
+          if (Array.isArray(data.cards)) {
+            cards = data.cards;
+          } else if (data.inventory && Array.isArray(data.inventory.cards)) {
+            cards = data.inventory.cards;
+          }
+          useCollectionStore.getState().setUserInventory(cards);
+        }
+      },
     }),
     {
       name: 'auth-storage',

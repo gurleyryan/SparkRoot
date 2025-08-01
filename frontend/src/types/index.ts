@@ -41,8 +41,8 @@ export interface MTGCard {
   rulings_uri?: string;
   scryfall_uri?: string;
   uri?: string;
-  all_parts?: any; // JSONB, could be more specific
-  card_faces?: any; // JSONB, for double-faced cards
+  all_parts?: unknown; // JSONB, could be more specific
+  card_faces?: unknown; // JSONB, for double-faced cards
   color_indicator?: string[];
   defense?: string;
   edhrec_rank?: number;
@@ -95,7 +95,7 @@ export interface MTGCard {
   variation_of?: string;
   security_stamp?: string;
   watermark?: string;
-  preview?: any; // JSONB
+  preview?: unknown; // JSONB
 }
 
 // User & Authentication Types
@@ -159,13 +159,17 @@ export interface Deck {
   id: string;
   name: string;
   commander: MTGCard;
+  bracket?: number;
   cards: MTGCard[];
   description?: string;
   colors: string[];
+  color_identity?: string[];
+  theme?: string;
   total_cards: number;
   mana_curve: Record<number, number>;
   created_at: string;
   updated_at: string;
+  analysis?: Record<string, unknown>;
 }
 
 // API Response Types

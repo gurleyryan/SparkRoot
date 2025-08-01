@@ -1,9 +1,9 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import Recovery from "./Recovery";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from "./ToastProvider";
+import { createClient } from '@/utils/supabase/client'
 
 
 interface AuthModalProps {
@@ -12,9 +12,24 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ onClose, recoveryState: propRecoveryState }: AuthModalProps) {
-  const router = useRouter();
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const showToast = useToast();
+  // Show flash message if redirected from confirm/reset
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('confirmed') === '1') {
+        showToast('Email confirmed! You can now log in.', 'success');
+        params.delete('confirmed');
+        const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState({}, '', newUrl);
+      } else if (params.get('reset') === '1') {
+        showToast('Password reset successful. Please log in.', 'success');
+        params.delete('reset');
+        const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [showToast]);
   // Accessible form submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +46,21 @@ export default function AuthModal({ onClose, recoveryState: propRecoveryState }:
         await login({
           email: formData.email || formData.username,
           password: formData.password,
-        }, rememberMe);
+        });
+        // Hydrate user state after login
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const resp = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
+            { headers: { Authorization: `Bearer ${session.access_token}` } }
+          );
+          if (resp.ok) {
+            const userData = await resp.json();
+            useAuthStore.getState().setUser(userData);
+            useAuthStore.setState({ accessToken: session.access_token });
+          }
+        }
         const authError = useAuthStore.getState().error;
         if (!authError) {
           showToast('Login successful!', 'success');
@@ -64,15 +93,14 @@ export default function AuthModal({ onClose, recoveryState: propRecoveryState }:
           setIsLoading(false);
         }
       } else {
-        // Enhanced registration flow
-        const result = await register({
-          username: formData.username,
+        // Actually call register function for sign up
+        await register({
           email: formData.email,
           password: formData.password,
+          username: formData.username,
           full_name: formData.fullName,
         });
         const authError = useAuthStore.getState().error;
-        // If error, show error as before
         if (authError) {
           let msg = authError;
           if (msg && typeof msg === 'string') {
@@ -168,12 +196,10 @@ export default function AuthModal({ onClose, recoveryState: propRecoveryState }:
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const firstInputRef = useRef<HTMLInputElement>(null);
 
   // Focus trap and ESC to close
   useEffect(() => {
@@ -218,8 +244,6 @@ export default function AuthModal({ onClose, recoveryState: propRecoveryState }:
   const [resetRequestLoading, setResetRequestLoading] = useState(false);
   const [resetRequestError, setResetRequestError] = useState("");
   const [resetRequestSent, setResetRequestSent] = useState(false);
-  // Supabase client for password reset
-  const { createClient } = require("@supabase/supabase-js");
 
   async function handleResetRequest(e: React.FormEvent) {
     e.preventDefault();
@@ -227,10 +251,7 @@ export default function AuthModal({ onClose, recoveryState: propRecoveryState }:
     setResetRequestLoading(true);
     setResetRequestSent(false);
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const supabase = createClient();
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
       if (error) {
         setResetRequestError(error.message);
@@ -239,9 +260,13 @@ export default function AuthModal({ onClose, recoveryState: propRecoveryState }:
         setResetRequestSent(true);
         showToast("Password reset email sent! Please check your inbox.", "success");
       }
-    } catch (err: any) {
-      setResetRequestError(err.message || "Failed to send reset email.");
-      showToast(err.message || "Failed to send reset email.", "error");
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err && typeof (err as { message?: unknown }).message === "string"
+          ? (err as { message: string }).message
+          : "Failed to send reset email.";
+      setResetRequestError(message);
+      showToast(message, "error");
     } finally {
       setResetRequestLoading(false);
     }
@@ -409,16 +434,6 @@ export default function AuthModal({ onClose, recoveryState: propRecoveryState }:
                   </div>
                 </>
               )}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="rememberMe"
-                  checked={rememberMe}
-                  onChange={e => setRememberMe(e.target.checked)}
-                  className="form-checkbox"
-                />
-                <label htmlFor="rememberMe" className="text-sm text-slate-300">Remember Me</label>
-              </div>
               {error && (
                 <div className="bg-mtg-black border border-mtg-red text-mtg-red px-4 py-3 rounded-lg">
                   {error}

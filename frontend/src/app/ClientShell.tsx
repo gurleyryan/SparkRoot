@@ -1,9 +1,12 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
+// Track if we've already fetched user/collections/inventory for this session
+let hasFetchedUserData = false;
 import AuthModal from '@/components/AuthModal';
 import { useModalStore } from '@/store/modalStore';
 import { usePathname, useSearchParams } from 'next/navigation';
+import type { User } from '@/types/index';
 
 const AuthHydrator = require('../components/AuthHydrator').default;
 const PlaymatHydrator = require('../components/PlaymatHydrator').default;
@@ -19,9 +22,8 @@ const Analytics = require('@vercel/analytics/next').Analytics;
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s: { isAuthenticated: boolean }) => s.isAuthenticated);
-  const hydrating = useAuthStore((s: { hydrating: boolean }) => s.hydrating);
   const logout = useAuthStore((s: { logout: () => void }) => s.logout);
-  const user = useAuthStore((s: { user: any }) => s.user);
+  const user = useAuthStore((s: { user: User | null }) => s.user);
   const showAuthModal = useModalStore((s: { showAuthModal: boolean }) => s.showAuthModal);
   const setShowAuthModal = useModalStore((s: { setShowAuthModal: (show: boolean) => void }) => s.setShowAuthModal);
   const [showModal, setShowModal] = useState(false);
@@ -29,6 +31,18 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   const [recoveryState, setRecoveryState] = useState<'none' | 'reset'>('none');
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Fetch user, collections, and inventory after login (once per session)
+  const fetchUserAndCollections = useAuthStore((s: { fetchUserAndCollections: () => void }) => s.fetchUserAndCollections);
+  useEffect(() => {
+    if (isAuthenticated && !hasFetchedUserData) {
+      hasFetchedUserData = true;
+      fetchUserAndCollections?.();
+    }
+    if (!isAuthenticated) {
+      hasFetchedUserData = false;
+    }
+  }, [isAuthenticated, fetchUserAndCollections]);
 
 
   // Show AuthModal if recovery link is present in search or hash

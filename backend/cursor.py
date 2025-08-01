@@ -21,6 +21,48 @@ def normalize_name(name: str) -> str:
 
 
 class CardLookup:
+    def fetch_rows_by_field_values(
+        self,
+        table: str,
+        field: str,
+        values: set[Any],
+        select: str = "*",
+        page_size: int = 100,
+        order_field: str = "id",
+        diagnostics: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """
+        Generic cursor-based pagination for any table/field.
+        Args:
+            table: Table name (e.g., "cards", "user_cards")
+            field: Field to match (e.g., "name", "card_id", "user_id")
+            values: Set of values to match (batched with .in_())
+            select: Columns to select (default "*")
+            page_size: Batch size
+            order_field: Field to use for cursor pagination (must be unique and ordered)
+            diagnostics: Print debug info
+        Returns: List of matching rows
+        """
+        self.connect()
+        if self.supabase is None:
+            raise RuntimeError("Supabase client is not initialized.")
+        all_rows: List[Dict[str, Any]] = []
+        values_list = list(values)
+        total = len(values_list)
+        for i in range(0, total, page_size):
+            batch = values_list[i : i + page_size]
+            query = (
+                self.supabase.table(table)
+                .select(select)
+                .in_(field, batch)
+                .order(order_field)
+            )
+            resp = query.execute()
+            rows = resp.data or []
+            if diagnostics:
+                print(f"Fetched {len(rows)} rows from {table} for {field} in batch {i // page_size + 1}")
+            all_rows.extend(rows)
+        return all_rows
     """
     CardLookup provides robust, reusable card lookup and matching for large Scryfall tables.
     Usage:

@@ -1,93 +1,17 @@
 import React, { useState, useEffect } from "react";
 import CollectionUpload from "./CollectionUpload";
 import { useCollectionStore } from "../store/collectionStore";
+import { useAuthStore } from "@/store/authStore";
 import CollectionList from "./CollectionList";
 import CardGrid from "./CardGrid";
 import ConfirmModal from "./ConfirmModal";
 import { useToast } from "./ToastProvider";
-import { useAuthStore } from "../store/authStore";
+import type { MTGCard } from '@/types/index';
 type CollectionGridProps = Record<string, unknown>;
 
 const CollectionGrid: React.FC<CollectionGridProps> = () => {
   // Fetch collections and inventory on mount for logged-in users
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const setCollections = useCollectionStore((state) => state.setCollections);
-  const setUserInventory = useCollectionStore((state) => state.setUserInventory);
   const setActiveCollection = useCollectionStore((state) => state.setActiveCollection);
-  useEffect(() => {
-    async function fetchCollectionsAndInventory() {
-      try {
-        // Fetch collections
-        const collectionsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/collections`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!collectionsRes.ok) throw new Error('Failed to fetch collections');
-        const collectionsData = await collectionsRes.json();
-        const collections = collectionsData.collections || [];
-
-        // Fetch inventory (all cards)
-        let inventoryCards = [];
-        let invData: any = null;
-        try {
-          const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/inventory`;
-          const invRes = await fetch(apiUrl, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (invRes.ok) {
-            invData = await invRes.json();
-            // Defensive: support both { inventory: { cards: [...] } } and { cards: [...] }
-            inventoryCards = Array.isArray(invData?.inventory?.cards)
-              ? invData.inventory.cards
-              : Array.isArray(invData?.cards)
-                ? invData.cards
-                : [];
-            setUserInventory(inventoryCards);
-          }
-        } catch (e) {
-          // Optionally handle inventory fetch error
-        }
-
-        // Add synthetic inventory collection if inventory exists
-        let allCollections = collections;
-        let inventoryCollection = null;
-        if (inventoryCards && inventoryCards.length > 0) {
-          // If you have the backend inventory object (e.g., invData.inventory), use its fields:
-          if (invData?.inventory) {
-            inventoryCollection = {
-              ...invData.inventory,
-              name: 'All Cards (Inventory)',
-              description: 'All cards in your account inventory',
-            };
-          } else {
-            inventoryCollection = {
-              id: 'inventory',
-              name: 'All Cards (Inventory)',
-              cards: inventoryCards,
-              description: 'All cards in your account inventory',
-              created_at: null,
-              updated_at: null,
-              user_id: '',
-              total_cards: inventoryCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0),
-              unique_cards: new Set(inventoryCards.map((c: any) => c.id || c.name)).size,
-            };
-          }
-          allCollections = [inventoryCollection, ...collections];
-        }
-        setCollections(allCollections);
-        // Default to inventory collection as active
-        if (inventoryCollection) {
-          setActiveCollection(inventoryCollection);
-        } else if (allCollections.length > 0) {
-          setActiveCollection(allCollections[0]);
-        }
-      } catch (err) {
-        // Optionally handle error
-      }
-    }
-    if (accessToken) {
-      fetchCollectionsAndInventory();
-    }
-  }, [accessToken, setCollections, setUserInventory, setActiveCollection]);
   const {
     collections,
     activeCollection,
@@ -96,7 +20,10 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
     setViewMode,
     searchQuery,
     setSearchQuery,
+    userInventory,
   } = useCollectionStore();
+  // Use the correct User type from your project
+  const user = useAuthStore((s) => s.user);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sortField, setSortField] = useState<'name' | 'created_at'>('name');
@@ -106,8 +33,42 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
   const [openedCollectionId, setOpenedCollectionId] = useState<string | null>(null);
   const showToast = useToast();
 
-  // Find the opened collection object
-  const openedCollection = collections.find(c => c.id === openedCollectionId);
+  // --- Synthesize inventory as a pseudo-collection matching Collection type ---
+
+  const inventoryCollection = React.useMemo(() => {
+    if (!userInventory || userInventory.length === 0) return null;
+    // Compute stats for display if needed
+    const total_cards = userInventory.reduce((sum, c) => sum + (c.quantity || 1), 0);
+    const unique_cards = new Set(userInventory.map((c) => c.id || c.name)).size;
+    const obj = {
+      id: '__inventory__',
+      user_id: user?.id || '',
+      name: 'Inventory',
+      cards: userInventory,
+      created_at: '0000-00-00T00:00:00Z',
+      updated_at: '0000-00-00T00:00:00Z',
+      isInventory: true,
+      total_cards,
+      unique_cards,
+    };
+     
+    return obj;
+  }, [userInventory, user]);
+
+  // Combine inventory pseudo-collection with real collections for display
+  const displayCollections = React.useMemo(() => {
+    if (inventoryCollection) {
+      // Place inventory at the top
+      return [inventoryCollection, ...collections];
+    }
+    return collections;
+  }, [collections, inventoryCollection]);
+
+  // Find the opened collection object (including inventory)
+  const openedCollection = React.useMemo(() => {
+    if (openedCollectionId === '__inventory__') return inventoryCollection;
+    return collections.find(c => c.id === openedCollectionId);
+  }, [openedCollectionId, collections, inventoryCollection]);
 
   // Card-level search/filter/sort state for opened collection
   const [cardSearchQuery, setCardSearchQuery] = useState("");
@@ -143,11 +104,14 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
       cards = cards.filter(card => card.rarity === rarityFilter);
     }
     // Group by id and sum quantity
-    const map = new Map<string, any>();
+    const map = new Map<string, MTGCard>();
     for (const card of cards) {
       const key = card.id || card.name;
       if (map.has(key)) {
-        map.get(key).quantity = (map.get(key).quantity || 1) + (card.quantity || 1);
+        const existing = map.get(key);
+        if (existing) {
+          existing.quantity = (existing.quantity || 1) + (card.quantity || 1);
+        }
       } else {
         map.set(key, { ...card, quantity: card.quantity || 1 });
       }
@@ -181,17 +145,6 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
     setCurrentPage(1);
   }, [openedCollection, cardSearchQuery, colorFilter, rarityFilter, cardsPerPage]);
 
-  // Sort collections based on active sort field and direction
-  const sortedCollections = [...collections].sort((a, b) => {
-    let cmp = 0;
-    if (sortField === 'name') {
-      cmp = a.name.localeCompare(b.name);
-    } else if (sortField === 'created_at') {
-      cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-    }
-    return sortDir === 'asc' ? cmp : -cmp;
-  });
-
   function handleConfirmDelete(): void {
     if (collectionToDelete) {
       deleteCollection(collectionToDelete);
@@ -209,15 +162,14 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
 
-  // Handler for selecting a collection card
+  // Handler for selecting a collection card (including inventory)
   function handleSelectCollection(id: string) {
-    const selected = collections.find(c => c.id === id);
-    if (selected) {
-      setActiveCollection(selected);
-      // Defensive: ensure cards is always an array
-      if (Array.isArray(selected.cards)) {
-        // Optionally set cards in store if needed
-        // setCards(selected.cards); // Uncomment if you want to sync cards separately
+    if (id === '__inventory__' && inventoryCollection) {
+      setActiveCollection(inventoryCollection);
+    } else {
+      const selected = collections.find(c => c.id === id);
+      if (selected) {
+        setActiveCollection(selected);
       }
     }
   }
@@ -245,10 +197,10 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
       {/* Main grid UI */}
       <div className="mb-4 container sleeve-morphism mx-auto flex flex-col backdrop-blur-sm" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
         <div className="container mx-auto shadow-md px-4 flex flex-col">
-          <div className="flex flex-col md:flex-row gap-4 pb-4 items-start">
+          <div className="flex flex-col md:flex-row gap-4 pb-4 items-start md:items-center md:justify-center h-full">
             {/* Left column: buttons and collection dropdown */}
-            <div className="flex-1 flex flex-col">
-              <div className="flex flex-row items-end justify-between mb-4">
+            <div className="flex-1 flex flex-col self-center">
+              <div className="flex flex-col md:justify-between items-start gap-2">
                 <h2 className="text-3xl font-mtg pt-4 text-rarity-rare"><i className="ms ms-counter-lore ms-2x text-mtg-red group-hover:text-rarity-uncommon"></i> Collection</h2>
                 <div className="flex gap-2 flex-wrap">
                   <button className="btn-secondary" onClick={() => setShowImportModal(true)}>Import</button>
@@ -269,22 +221,10 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                   </button>
                 </div>
               </div>
-              <select
-                value={activeCollection?.id || ''}
-                onChange={e => {
-                  const selected = collections.find(c => c.id === e.target.value);
-                  if (selected) setActiveCollection(selected);
-                }}
-                className="form-input px-2 py-2 bg-mtg-black border border-mtg-blue rounded-lg text-white focus:border-rarity-mythic focus:outline-none cursor-pointer"
-              >
-                {collections.map(col => (
-                  <option key={col.id} value={col.id}>{col.name}</option>
-                ))}
-              </select>
             </div>
             {/* Right column: controls and main content */}
-            <div className="flex-[1]">
-              <div className="rounded-xl shadow-lg flex flex-col md:flex-row gap-4 py-3 items-start flex-shrink-0">
+            <div className="flex-[1] flex-col justify-center">
+              <div className="rounded-xl shadow-lg flex flex-col md:flex-row gap-4 py-3 items-center flex-shrink-0">
                 <div className="flex-1 min-w-[260px] flex flex-col gap-2">
                   <div className="flex gap-2 items-center">
                     <label className="text-rarity-uncommon text-sm">Sort by:</label>
@@ -369,16 +309,20 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
                 <h3 className="text-2xl font-bold text-rarity-rare">{openedCollection.name}</h3>
                 <span className="text-rarity-uncommon">
                   Cards: {
-                    Array.isArray(openedCollection?.cards)
-                      ? openedCollection.cards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0)
-                      : openedCollection?.total_cards ?? 0
+                    typeof openedCollection?.total_cards === 'number'
+                      ? openedCollection.total_cards
+                      : Array.isArray(openedCollection?.cards)
+                        ? openedCollection.cards.reduce((sum: number, c: MTGCard) => sum + (c.quantity || 1), 0)
+                        : 0
                   }
                 </span>
                 <span className="text-rarity-uncommon">
                   Unique: {
-                    Array.isArray(openedCollection?.cards)
-                      ? new Set(openedCollection.cards.map((c: any) => c.id || c.name)).size
-                      : openedCollection?.unique_cards ?? 0
+                    typeof openedCollection?.unique_cards === 'number'
+                      ? openedCollection.unique_cards
+                      : Array.isArray(openedCollection?.cards)
+                        ? new Set(openedCollection.cards.map((c: MTGCard) => c.id || c.name)).size
+                        : 0
                   }
                 </span>
               </div>
@@ -464,7 +408,20 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
         ) : (
           <div className="m-auto">
             <CollectionList
-              collections={sortedCollections.filter(col => col.name.toLowerCase().includes(searchQuery.toLowerCase()))}
+              collections={displayCollections
+                .filter(col => col.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                .sort((a, b) => {
+                  // Always keep inventory at the top
+                  if (a.id === '__inventory__') return -1;
+                  if (b.id === '__inventory__') return 1;
+                  let cmp = 0;
+                  if (sortField === 'name') {
+                    cmp = a.name.localeCompare(b.name);
+                  } else if (sortField === 'created_at') {
+                    cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                  }
+                  return sortDir === 'asc' ? cmp : -cmp;
+                })}
               viewMode={viewMode}
               selectedId={activeCollection?.id}
               onSelect={handleSelectCollection}
