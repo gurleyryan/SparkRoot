@@ -115,7 +115,14 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         className="bg-mtg-black/50 font-mtg-body w-full text-center text-xs text-mtg-white py-4 mt-8"
         style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb), 0.5)" }}
       >
-        Magic: The Gathering® and all related logos, fonts, and trademarks are property of Wizards of the Coast. SparkRoot is an unofficial, fan-made tool with no official affiliation. If Wizards of the Coast ever asks us to make changes to the branding, we’ll comply immediately.
+        Magic: The Gathering® and all related logos, fonts, and trademarks are property of Wizards of the Coast. SparkRoot is unofficial Fan Content permitted under the <a
+          href="https://company.wizards.com/en/legal/fancontentpolicy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-rarity-mythic hover:text-rarity-uncommon"
+        >
+          Fan Content Policy
+        </a>. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
       </footer>
     </ToastProvider>
   );
