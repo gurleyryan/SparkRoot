@@ -39,9 +39,9 @@ export const metadata: Metadata = {
     description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
     images: [
       {
-        url: "https://www.sparkroot.cards/logo.png",
-        width: 1024,
-        height: 1024,
+        url: "https://www.sparkroot.cards/SparkRootBanner.png",
+        width: 1280,
+        height: 640,
         alt: "SparkRoot Logo",
         type: "image/png",
       },
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SparkRoot",
     description: "Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.",
-    images: ["https://www.sparkroot.cards/logo.png"],
+    images: ["https://www.sparkroot.cards/SparkRootBanner.png"],
     site: "@SparkRoot",
   },
   metadataBase: new URL("https://www.sparkroot.cards/"),
@@ -92,11 +92,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${cinzel.variable} ${sourceSans.variable} ${jetbrainsMono.variable}`}>
       <head>
         <link rel="stylesheet" href="/fonts/mana-font/mana.min.css" />
-      <meta property="og:image" content="https://www.sparkroot.cards/logo.png" />
-      <meta property="og:image:width" content="1024" />
-      <meta property="og:image:height" content="1024" />
-      <meta name="twitter:image" content="https://www.sparkroot.cards/logo.png" />
-      <meta name="twitter:card" content="summary_large_image" />
+        <meta property="og:image" content="https://www.sparkroot.cards/SparkRootBanner.png" />
+        <meta property="og:image:width" content="1280" />
+        <meta property="og:image:height" content="640" />
+        <meta name="twitter:image" content="https://www.sparkroot.cards/SparkRootBanner.png" />
+        <meta name="twitter:card" content="summary_large_image" />
       </head>
       <body className="text-white antialiased font-mtg-body min-h-screen">
         <Suspense fallback={null}>
