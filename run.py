@@ -81,7 +81,7 @@ def main():
         try:
             print("🚧 Starting worker process: backend/worker.py")
             # Use sys.executable for correct Python interpreter
-            worker_proc = subprocess.Popen([sys.executable, "backend/worker.py"])
+            worker_proc = subprocess.Popen([sys.executable, "worker.py"], cwd="backend")
             return worker_proc
         except Exception as e:
             print(f"❌ Error starting worker: {e}")
