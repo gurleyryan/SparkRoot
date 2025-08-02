@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { useAuthStore } from '@/store/authStore';
 import CardGrid from "./CardGrid";
 import type { MTGCard } from '@/types/index';
 
@@ -12,8 +13,12 @@ const GameChangers: React.FC = () => {
   React.useEffect(() => {
     setLoadingCards(true);
     setErrorCards(null);
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cards?game_changer=true`)
-      .then(res => res.json())
+    const fetchWithAuth = useAuthStore.getState().fetchWithAuth;
+    fetchWithAuth('/api/cards?game_changer=true')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch game changer cards');
+        return res.json();
+      })
       .then(data => {
         setGameChangerCards(data.cards || []);
       })

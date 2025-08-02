@@ -4,6 +4,7 @@ import type { User, UserSettings } from '@/types';
 import { ApiClient } from '../lib/api';
 import { createClient } from '@/utils/supabase/client';
 import { useCollectionStore } from "@/store/collectionStore"; // Import your collection store
+import Cookies from 'js-cookie';
 
 export function getSupabaseClient() {
   return createClient();
@@ -32,7 +33,8 @@ interface AuthState {
   fetchWithAuth: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
   setHydrating: (hydrating: boolean) => void;
   setAutoLoggedOut: (val: boolean) => void;
-  fetchUserAndCollections: () => Promise<void>; // Add this line
+  fetchUserAndCollections: () => Promise<void>;
+  syncAccessTokenFromCookie: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -95,12 +97,26 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const supabase = createClient();
-          const { error } = await supabase.auth.signInWithPassword(credentials);
+          const { data, error } = await supabase.auth.signInWithPassword(credentials);
           if (error) {
             set({ error: error.message, isLoading: false });
             return;
           }
-          // Optionally fetch user profile here
+          // Always fetch full user profile from API after login
+          const jwt = data?.session?.access_token;
+          if (jwt) {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
+            const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+            const resp = await fetch(`${baseUrl}/api/auth/me`, {
+              headers: { Authorization: `Bearer ${jwt}` },
+            });
+            if (resp.ok) {
+              const user = await resp.json();
+              set({ user, isAuthenticated: true, accessToken: jwt, isLoading: false, error: null });
+              return;
+            }
+          }
+          // Fallback: set basic user info if API call fails
           set({ isAuthenticated: true, isLoading: false, error: null });
         } catch (err: unknown) {
           if (err instanceof Error) {
@@ -240,8 +256,22 @@ export const useAuthStore = create<AuthState>()(
       rehydrateUser: async () => {
         await get().checkAuth();
       },
+      syncAccessTokenFromCookie: () => {
+        // Replace <project_ref> with your actual Supabase project ref
+        const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split(".supabase.co")[0]?.split("https://")[1] || "";
+        const cookieName = `sb-${projectRef}-auth-token`;
+        if (cookieName) {
+          Cookies.remove(cookieName);
+        }
+      },
+
       fetchWithAuth: async (input, init = {}) => {
-        const { accessToken } = get();
+        const { accessToken, syncAccessTokenFromCookie } = get();
+        if (!accessToken) {
+          syncAccessTokenFromCookie();
+          set({ error: 'Session expired, please log in again.' });
+          throw new Error('No access token');
+        }
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
         const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
         let url = typeof input === 'string' && input.startsWith('/') ? `${baseUrl}${input}` : input;
@@ -249,7 +279,13 @@ export const useAuthStore = create<AuthState>()(
           ...(init.headers || {}),
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         };
-        return fetch(url, { ...init, headers });
+        const response = await fetch(url, { ...init, headers });
+        if (response.status === 401) {
+          syncAccessTokenFromCookie();
+          set({ error: 'Session expired, please log in again.' });
+          throw new Error('Session expired, please log in again.');
+        }
+        return response;
       },
       setHydrating: (hydrating) => set({ hydrating }),
       setAutoLoggedOut: (val) => set({ autoLoggedOut: val }),

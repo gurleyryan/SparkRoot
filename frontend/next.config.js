@@ -55,7 +55,6 @@ const nextConfig = {
     ],
   },
   experimental: {
-    modern: true, // Only serve modern JS to browsers that support it
   },
 };
 

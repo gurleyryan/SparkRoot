@@ -15,8 +15,17 @@ import { useAuthStore } from '@/store/authStore';
 import Image from 'next/image';
 
 export default function HomePage() {
+  // Hydration guard to prevent double flash/remount
+  const [hasHydrated, setHasHydrated] = React.useState(false);
+  React.useEffect(() => { setHasHydrated(true); }, []);
+
+  // Hooks for auth and collections
   const { collections } = useCollectionStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const authHydrating = useAuthStore((s) => s.hydrating);
+
+  // Unified loading state: wait for hydration and collections
+  const isLoading = !hasHydrated || authHydrating || (isAuthenticated && (!collections || typeof collections === 'undefined'));
 
   // DeckBuilder dashboard state
   const [cardGridType, setCardGridType] = useState<string | null>(null);
@@ -80,8 +89,15 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Main Content */}
-      {!isAuthenticated ? (
+      {/* Main Content - hydration guard, only swap inner content */}
+      {isLoading ? (
+        <div className="text-center py-12">
+          <div className="sleeve-morphism rounded-xl max-w-3xl p-8 mx-auto border" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
+            <h2 className="text-2xl font-mtg text-mtg-white mb-4">Loading...</h2>
+            <p className="text-rarity-uncommon font-mtg-body text-sm">Please wait while we load your authentication and collections.</p>
+          </div>
+        </div>
+      ) : !isAuthenticated ? (
         <div className="text-center py-12">
           <div className="sleeve-morphism rounded-xl max-w-3xl p-8 mx-auto border" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
             <h2 className="text-2xl font-mtg text-mtg-white mb-4">Welcome to SparkRoot</h2>
@@ -123,8 +139,6 @@ export default function HomePage() {
         <div>
           {/* Bracket Deck Builder */}
           <div className="mb-8">
-            <h2 className="text-2xl font-mtg-display font-bold text-mtg-white mb-2">Deck Builder</h2>
-            <p className="font-mtg-body text-rarity-uncommon mb-4">Manage your decks.</p>
             <DeckBuilder
               onDeckGenerated={handleDeckGenerated}
               onShowGameChangers={handleShowGameChangers}
@@ -134,7 +148,6 @@ export default function HomePage() {
             <div className="w-full flex flex-col items-center gap-4 mt-8 min-h-[200px]">
               {cardGridType === 'deck' && deckCards.length > 0 && (
                 <>
-                  {console.log("DeckBuilderPage: rendering deckCards", deckCards, "generatedDeck", generatedDeck)}
                   <div className="flex w-full justify-between items-center mx-auto mb-2 px-2 sm:px-0">
                     <div className="font-bold text-amber-400 text-lg">Generated Deck</div>
                     <button className="btn-secondary px-3 py-1 rounded border font-semibold" onClick={handleClearGrid}>Back to Deck Builder</button>

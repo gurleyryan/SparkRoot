@@ -32,6 +32,15 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Sync Zustand accessToken with Supabase cookie on mount, but only if missing
+  const syncAccessTokenFromCookie = useAuthStore((s: { syncAccessTokenFromCookie: () => void }) => s.syncAccessTokenFromCookie);
+  const accessToken = useAuthStore((s: { accessToken: string | null }) => s.accessToken);
+  useEffect(() => {
+    if (!accessToken) {
+      syncAccessTokenFromCookie();
+    }
+  }, [syncAccessTokenFromCookie, accessToken]);
+
   // Fetch user, collections, and inventory after login (once per session)
   const fetchUserAndCollections = useAuthStore((s: { fetchUserAndCollections: () => void }) => s.fetchUserAndCollections);
   useEffect(() => {

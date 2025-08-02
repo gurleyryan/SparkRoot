@@ -1,4 +1,5 @@
 import type { User } from '@/types';
+import { useAuthStore } from '../store/authStore';
 // API Configuration for MTG Deck Optimizer
 // This file configures the API endpoints for both development and production
 
@@ -149,53 +150,41 @@ export class ApiClient {
   }
 
   private async request<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
-    
     const config: RequestInit = {
       ...options,
       headers: {
         ...this.defaultHeaders,
         ...options.headers,
       },
-      // Do not include credentials for Bearer token auth (prevents legacy cookie fallback)
     };
-
     try {
-      const response = await fetch(url, config);
-      
+      // Use fetchWithAuth for all requests
+      const response = await useAuthStore.getState().fetchWithAuth(url, config);
       if (!response.ok) {
         const errorData = await response.text();
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        
         try {
           const errorJson = JSON.parse(errorData);
-          errorMessage = errorJson.detail || errorJson.message || errorMessage;
+          errorMessage = errorJson.error || errorMessage;
         } catch {
-          // If it's not JSON, use the raw text
-          errorMessage = errorData || errorMessage;
+          // ignore JSON parse error
         }
-        
         if (response.status === 401 || response.status === 403) {
-          if (typeof window !== "undefined") {
-            const zustand = require('../store/authStore');
-            zustand.useAuthStore.getState().logout(true); // auto-logout
-          }
-          throw new Error("Session expired. Please log in again.");
+          useAuthStore.getState().setAutoLoggedOut(true);
         }
-
         throw new Error(errorMessage);
       }
-
       const data = await response.json();
       return data;
     } catch (error) {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error(`Request failed: ${String(error)}`);
+      throw new Error('Unknown error occurred during API request');
     }
   }
 

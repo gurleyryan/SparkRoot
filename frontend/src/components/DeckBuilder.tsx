@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/store/authStore';
 import React, { useState, useMemo } from 'react';
 import BracketPicker from '@/components/BracketPicker';
 import type { MTGCard, Deck } from '@/types/index';
@@ -150,12 +151,12 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
     let jobId: string | null = null;
     debugMsgsRef.current = [];
     try {
-      // 1. POST to job-based endpoint
-      const res = await fetch("/api/proxy/generate-deck-stream", {
+      // 1. POST to job-based endpoint using fetchWithAuth
+      const fetchWithAuth = useAuthStore.getState().fetchWithAuth;
+      const res = await fetchWithAuth("/api/proxy/generate-deck-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        credentials: "include",
       });
       if (!res.ok) {
         const errText = await res.text();

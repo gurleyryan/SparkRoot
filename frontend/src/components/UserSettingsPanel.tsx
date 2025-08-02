@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/store/authStore';
 import React, { useEffect, useState } from 'react';
 
 interface UserSettings {
@@ -58,19 +59,11 @@ export default function UserSettingsPanel() {
     async function fetchAll() {
       setLoading(true);
       setError(null);
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      let accessToken = '';
       try {
-        accessToken = (await import('../store/authStore')).useAuthStore.getState().accessToken || '';
-      } catch {
-        // Ignore errors from dynamic import or missing accessToken
-      }
-      const headers: Record<string, string> = {};
-      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-      try {
+        const fetchWithAuth = useAuthStore.getState().fetchWithAuth;
         const [settingsRes, profileRes] = await Promise.all([
-          fetch(`${baseUrl}/api/settings`, { headers }),
-          fetch(`${baseUrl}/api/auth/me`, { headers }),
+          fetchWithAuth('/api/settings'),
+          fetchWithAuth('/api/auth/me'),
         ]);
         if (!settingsRes.ok) {
           const errText = await settingsRes.text();
@@ -87,7 +80,6 @@ export default function UserSettingsPanel() {
         const settingsData = await settingsRes.json();
         setSettings(settingsData.settings);
         setProfile(await profileRes.json());
-        // playmatOptions is static from /public
       } catch (e: unknown) {
         if (e instanceof Error) {
           setError(e.message || 'Failed to load user data');
@@ -140,19 +132,11 @@ export default function UserSettingsPanel() {
       return;
     }
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      let accessToken = '';
-      try {
-        accessToken = (await import('../store/authStore')).useAuthStore.getState().accessToken || '';
-      } catch {
-        // Ignore errors from dynamic import or missing accessToken
-      }
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      const fetchWithAuth = useAuthStore.getState().fetchWithAuth;
       const payload = { settings: changedSettings };
-      const resp = await fetch(`${baseUrl}/api/settings`, {
+      const resp = await fetchWithAuth('/api/settings', {
         method: 'PUT',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       if (!resp.ok) {
@@ -160,7 +144,6 @@ export default function UserSettingsPanel() {
         console.error('Settings PUT error:', errorText);
         throw new Error('Failed to save settings');
       } else {
-        // Update initialSettings after successful save
         setInitialSettings(settings);
       }
     } catch (e: unknown) {
