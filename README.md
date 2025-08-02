@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="frontend/public/logocropped.png" alt="SparkRoot Logo" width="256" />
+  <img src="frontend/public/logo.png" alt="SparkRoot Logo" width="256" />
 </p>
 
-# <img src="frontend/public/logocropped.png" alt="SparkRoot Logo" width="32"/> SparkRoot
+# <img src="frontend/public/logo.png" alt="SparkRoot Logo" width="32"/> SparkRoot
 [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://reactjs.org/)
 [![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://python.org)
