@@ -7,7 +7,7 @@ export default function ErrorPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-black">
       <div className="w-full max-w-md p-8 bg-gray-900 rounded-xl shadow-lg flex flex-col items-center">
-        <Image src="/logo.png" alt="SparkRoot Logo" className="mx-auto mb-4 h-64 w-64" width={640} height={450} />
+        <Image src="/logo.png" alt="SparkRoot Logo" className="mx-auto mb-4 h-64 w-64" width={450} height={640} />
         <h1 className="text-2xl font-bold text-white mb-2">Something went wrong</h1>
         <p className="text-gray-300 mb-6 text-center">Sorry, an unexpected error occurred.<br />Please try again or return to the homepage.</p>
         <button

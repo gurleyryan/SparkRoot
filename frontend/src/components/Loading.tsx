@@ -24,7 +24,7 @@ export function LoadingSpinner({
       role="status"
       aria-label="Loading"
     >
-      <Image src="/logo.png" alt="SparkRoot Logo" className="m-auto" width={32} height={23} />
+      <Image src="/logo.png" alt="SparkRoot Logo" className="m-auto" width={23} height={32} />
     </div>
   );
 }
