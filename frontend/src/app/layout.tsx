@@ -65,7 +65,7 @@ export const metadata: Metadata = {
       'description': 'Optimize and manage your Magic: The Gathering collection with advanced filtering, pricing, and deck building tools.',
       'applicationCategory': 'ProductivityApplication',
       'operatingSystem': 'All',
-      'image': 'https://www.sparkroot.cards/logo.png',
+      'image': '/logo.png',
       'author': {
         '@type': 'Organization',
         'name': 'SparkRoot'
@@ -93,10 +93,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preload" as="font" href="/fonts/mana-font/mana.woff?v=1.18.0" type="font/woff" crossOrigin="anonymous" />
         <link rel="stylesheet" href="/fonts/mana-font/mana.min.css" />
-        <meta property="og:image" content="https://www.sparkroot.cards/SparkRootBanner.png" />
+        <meta property="og:image" content="/SparkRootBanner.png" />
         <meta property="og:image:width" content="1280" />
         <meta property="og:image:height" content="640" />
-        <meta name="twitter:image" content="https://www.sparkroot.cards/SparkRootBanner.png" />
+        <meta name="twitter:image" content="/SparkRootBanner.png" />
         <meta name="twitter:card" content="summary_large_image" />
       </head>
       <body className="text-white antialiased font-mtg-body min-h-screen">

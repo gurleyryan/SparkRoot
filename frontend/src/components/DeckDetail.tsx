@@ -297,7 +297,7 @@ export default function DeckDetail({
       <div className="w-full mx-auto">
         <LiquidSleeve manaTheme={manaTheme} className="p-0 md:p-1">
           <div className="relative rounded-2xl bg-blur p-6 md:p-8 shadow-lg overflow-hidden" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
-            <Image src="/logo.png" alt="SparkRoot Logo" className="m-auto" width={23} height={32} />
+            <Image src="/logo.png" alt="SparkRoot Logo" className="m-auto" width={28} height={40} />
             <h1 className="text-3xl md:text-4xl font-bold text-rarity-rare text-center tracking-wide mb-2 drop-shadow-lg font-mtg">Deck Details</h1>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
               {/* Name field: hidden until editing or if deck has a name */}
