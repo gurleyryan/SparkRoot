@@ -278,15 +278,15 @@ def analyze_synergies(
     deck: List[Dict[str, Any]], commander: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Analyze tribal synergies, themes, and commander compatibility
+    Analyze kindred synergies, themes, and commander compatibility
 
     Returns:
         dict: Synergy analysis with theme detection
     """
-    # Extract creature types for tribal analysis
+    # Extract creature types for kindred analysis
     creature_types: list[str] = []
     themes: dict[str, int] = {
-        "tribal": 0,
+        "kindred": 0,
         "tokens": 0,
         "graveyard": 0,
         "artifacts": 0,
@@ -303,7 +303,7 @@ def analyze_synergies(
 
         # Extract creature types
         if "creature" in type_line:
-            # Simple tribal detection (Angel, Elf, etc.)
+            # Simple kindred detection (Angel, Elf, etc.)
             creature_subtypes = type_line.split("—")
             if len(creature_subtypes) > 1:
                 subtypes = creature_subtypes[1].strip().split()
@@ -329,7 +329,7 @@ def analyze_synergies(
 
     # Find most common creature type
     creature_type_counts: Counter[str] = Counter(creature_types)
-    primary_tribe = (
+    primary_kind = (
         creature_type_counts.most_common(1)[0] if creature_type_counts else (None, 0)
     )
 
@@ -346,8 +346,8 @@ def analyze_synergies(
 
     return {
         "score": round(synergy_score, 1),
-        "primary_tribe": primary_tribe[0] if primary_tribe[1] >= 3 else None,
-        "tribal_count": primary_tribe[1] if primary_tribe else 0,
+        "primary_kind": primary_kind[0] if primary_kind[1] >= 3 else None,
+        "kindred_count": primary_kind[1] if primary_kind else 0,
         "themes": theme_scores,
         "strongest_theme": max(theme_scores.keys(), key=lambda k: theme_scores[k]),
         "commander_synergy": analyze_commander_synergy(commander, themes),

@@ -206,7 +206,7 @@ CATEGORY_TARGETS = {
     "wincon": (1, 3),  # Win conditions
     "tutor": (0, 2),  # Tutors/search
     "creature": (20, 40),  # Creature count
-    "main_theme": (0, 99),  # Main deck theme (tribal, etc.)
+    "main_theme": (0, 99),  # Main deck theme (kindred, etc.)
 }
 
 # CARD_TYPE_TARGETS defines the ideal number of each card type in a 100-card deck (percentages rounded to nearest card)
@@ -238,7 +238,7 @@ def detect_theme(commander: Dict[str, Any], card_pool: List[Dict[str, Any]]) -> 
     )
     """
     Detects the main deck theme based on the commander's type line and keywords.
-    - If the commander is tribal or a creature, tries to infer the most common creature type in the pool.
+    - If the commander is kindred or a creature, tries to infer the most common creature type in the pool.
     - Otherwise, uses the first keyword or ability word as the theme.
     - Returns 'generic' if no theme is detected.
     """
