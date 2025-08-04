@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+// Prevent multiple redirects after logout
+let hasRedirectedAfterLogout = false;
+let hasLoggedOutThisSession = false;
 import { persist } from 'zustand/middleware';
 import type { User, UserSettings } from '@/types';
 import { ApiClient } from '../lib/api';
@@ -214,19 +217,85 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       logout: async (auto = false) => {
-        try {
-          const supabase = getSupabaseClient(); // or false, doesn't matter for signOut
-          await supabase.auth.signOut();
-        } catch {
-          // Ignore errors during sign out
+        // Prevent infinite repeated logout calls
+        if (hasLoggedOutThisSession) {
+          if (typeof window !== 'undefined') {
+            console.debug('[authStore] logout already called this session, skipping.');
+          }
+          return;
         }
+        hasLoggedOutThisSession = true;
+        // Supabase signOut (async, non-blocking)
+        (async () => {
+          try {
+            const supabase = getSupabaseClient();
+            await supabase.auth.signOut();
+            if (typeof window !== 'undefined') {
+              console.debug('[authStore] Supabase signOut called');
+            }
+          } catch (err) {
+            if (typeof window !== 'undefined') {
+              console.debug('[authStore] Supabase signOut error:', err);
+            }
+            // Ignore errors during sign out
+          }
+        })();
+
+        // Remove Supabase auth cookie only if it exists (non-blocking)
+        setTimeout(() => {
+          try {
+            const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split(".supabase.co")[0]?.split("https://")[1] || "";
+            const cookieName = `sb-${projectRef}-auth-token`;
+            const cookies = document.cookie.split('; ');
+            if (cookieName && cookies.some(c => c.startsWith(cookieName + '='))) {
+              Cookies.remove(cookieName);
+            }
+          } catch (err) {
+            console.debug('[authStore] Cookie removal error:', err);
+            // Ignore cookie errors
+          }
+        }, 0);
+
+        // Defer heavy state reset to avoid blocking main thread
+        if (typeof window !== 'undefined') {
+          setTimeout(() => {
+            try {
+              console.debug('[authStore] Calling useCollectionStore.resetAll() after logout');
+              const { useCollectionStore } = require('@/store/collectionStore');
+              useCollectionStore.getState().resetAll();
+            } catch (err) {
+              console.debug('[authStore] Error in useCollectionStore.resetAll():', err);
+              // Ignore errors
+            }
+          }, 0);
+        }
+
         set({
           user: null,
           isAuthenticated: false,
           accessToken: null,
+          playmat_texture: null,
+          userSettings: null,
           error: null,
           autoLoggedOut: auto,
         });
+        // Only redirect if not already on homepage and not already navigating, and only once
+        try {
+          if (
+            typeof window !== 'undefined' &&
+            window.location.pathname !== '/' &&
+            !window.location.hash &&
+            !window.location.search &&
+            !hasRedirectedAfterLogout
+          ) {
+            hasRedirectedAfterLogout = true;
+            window.location.replace('/');
+            // Reset flag after short debounce (in case of SPA navigation)
+            setTimeout(() => { hasRedirectedAfterLogout = false; }, 2000);
+          }
+        } catch {
+          // Ignore navigation errors
+        }
       },
       clearError: () => {
         set({ error: null });
@@ -266,22 +335,32 @@ export const useAuthStore = create<AuthState>()(
       },
 
       fetchWithAuth: async (input, init = {}) => {
-        const { accessToken, syncAccessTokenFromCookie } = get();
-        if (!accessToken) {
+        const { accessToken, syncAccessTokenFromCookie, logout } = get();
+        let token = accessToken;
+        // If no token, try to sync from cookie
+        if (!token) {
           syncAccessTokenFromCookie();
-          set({ error: 'Session expired, please log in again.' });
-          throw new Error('No access token');
+          token = get().accessToken;
         }
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
         const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
         let url = typeof input === 'string' && input.startsWith('/') ? `${baseUrl}${input}` : input;
         const headers = {
           ...(init.headers || {}),
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         };
-        const response = await fetch(url, { ...init, headers });
+        let response = await fetch(url, { ...init, headers });
+        // If 401, try to refresh token from cookie once, then logout if still unauthorized
         if (response.status === 401) {
           syncAccessTokenFromCookie();
+          const refreshedToken = get().accessToken;
+          if (refreshedToken && refreshedToken !== token) {
+            // Try again with refreshed token
+            response = await fetch(url, { ...init, headers: { ...headers, Authorization: `Bearer ${refreshedToken}` } });
+            if (response.status !== 401) return response;
+          }
+          // If still unauthorized, log out user and clear session
+          logout(true);
           set({ error: 'Session expired, please log in again.' });
           throw new Error('Session expired, please log in again.');
         }
@@ -291,32 +370,39 @@ export const useAuthStore = create<AuthState>()(
       setAutoLoggedOut: (val) => set({ autoLoggedOut: val }),
       fetchUserAndCollections: async () => {
         const { accessToken } = get();
-        if (!accessToken) return;
+        set({ hydrating: true });
+        if (!accessToken) {
+          set({ hydrating: false });
+          return;
+        }
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
         const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
-        const [userRes, collectionsRes, inventoryRes] = await Promise.all([
-          fetch(`${baseUrl}/api/auth/me`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-          fetch(`${baseUrl}/api/collections`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-          fetch(`${baseUrl}/api/inventory`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-        ]);
-        if (userRes.ok) {
-          const user = await userRes.json();
-          set({ user, isAuthenticated: true });
-        }
-        if (collectionsRes.ok) {
-          const data = await collectionsRes.json();
-          useCollectionStore.getState().setCollections(data.collections || []);
-        }
-        if (inventoryRes.ok) {
-          const data = await inventoryRes.json();
-          // Support both {cards: [...]} and {inventory: {cards: [...]}}
-          let cards = [];
-          if (Array.isArray(data.cards)) {
-            cards = data.cards;
-          } else if (data.inventory && Array.isArray(data.inventory.cards)) {
-            cards = data.inventory.cards;
+        try {
+          const [userRes, collectionsRes, inventoryRes] = await Promise.all([
+            fetch(`${baseUrl}/api/auth/me`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+            fetch(`${baseUrl}/api/collections`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+            fetch(`${baseUrl}/api/inventory`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+          ]);
+          if (userRes.ok) {
+            const user = await userRes.json();
+            set({ user, isAuthenticated: true });
           }
-          useCollectionStore.getState().setUserInventory(cards);
+          if (collectionsRes.ok) {
+            const data = await collectionsRes.json();
+            useCollectionStore.getState().setCollections(data.collections || []);
+          }
+          if (inventoryRes.ok) {
+            const data = await inventoryRes.json();
+            let cards = [];
+            if (Array.isArray(data.cards)) {
+              cards = data.cards;
+            } else if (data.inventory && Array.isArray(data.inventory.cards)) {
+              cards = data.inventory.cards;
+            }
+            useCollectionStore.getState().setUserInventory(cards);
+          }
+        } finally {
+          set({ hydrating: false });
         }
       },
     }),

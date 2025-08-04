@@ -10,6 +10,24 @@ import type { MTGCard } from '@/types/index';
 type CollectionGridProps = Record<string, unknown>;
 
 const CollectionGrid: React.FC<CollectionGridProps> = () => {
+  // AbortController for fetches
+  const abortControllerRef = React.useRef<AbortController | null>(null);
+
+  // Listen for global logout event to abort fetches/SSE
+  React.useEffect(() => {
+    function handleLogoutEvent() {
+      // Abort any ongoing fetches
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      // If you use SSE/EventSource, close it here (add ref if needed)
+    }
+    window.addEventListener('app-logout', handleLogoutEvent);
+    return () => {
+      window.removeEventListener('app-logout', handleLogoutEvent);
+    };
+  }, []);
   // Fetch collections and inventory on mount for logged-in users
   const setActiveCollection = useCollectionStore((state) => state.setActiveCollection);
   const {

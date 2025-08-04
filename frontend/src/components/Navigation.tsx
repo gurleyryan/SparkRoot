@@ -45,7 +45,7 @@ export default function Navigation({ isAuthenticated, user, onLogin, onLogout }:
             {/* Title */}
             <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
               <Link href="/" className="flex items-center group min-w-0" aria-label="Go to home page">
-                <Image src="/logo.png" alt="SparkRoot Logo" className="group-hover:scale-105 transition-transform flex-shrink-0" width={28} height={40} />
+                <Image src="/logo.png" alt="SparkRoot Logo" className="group-hover:scale-105 transition-transform flex-shrink-0" width={28} height={40} style={{ width: 'auto', height: 'auto' }}/>
                 <span
                   className="font-mtg text-mtg-white drop-shadow-lg tracking-wide group-hover:text-amber-400 transition-colors font-bold break-words text-balance max-w-full w-full text-left whitespace-nowrap"
                   style={{

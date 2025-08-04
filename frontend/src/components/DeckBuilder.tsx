@@ -14,6 +14,33 @@ export interface DeckBuilderProps {
 }
 
 export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHideGameChangers, loading: loadingProp }: DeckBuilderProps) {
+  // AbortController for fetches
+  const abortControllerRef = React.useRef<AbortController | null>(null);
+
+  // Listen for global logout event to abort fetches/SSE
+  React.useEffect(() => {
+    function handleLogoutEvent() {
+      // Abort any ongoing fetches
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      // Close any active SSE/EventSource
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      // Clear any reconnect timeouts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+    }
+    window.addEventListener('app-logout', handleLogoutEvent);
+    return () => {
+      window.removeEventListener('app-logout', handleLogoutEvent);
+    };
+  }, []);
   // --- Robust SSE connection state ---
   const eventSourceRef = React.useRef<EventSource | null>(null);
   const reconnectTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -125,6 +152,8 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
 
   // Robust SSE deck generation handler
   const handleGenerateDeck = async () => {
+    // Create new AbortController for this fetch
+    abortControllerRef.current = new AbortController();
     setDeckgenLoading(true);
     setCurrentStep(0);
     setDebugMessages([]);

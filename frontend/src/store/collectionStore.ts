@@ -269,6 +269,20 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   
   setError: (error) => set({ error }),
   setLoading: (isLoading) => set({ isLoading }),
+  resetAll: () => set({
+    collections: [],
+    activeCollection: null,
+    cards: [],
+    filteredCards: [],
+    stats: null,
+    userInventory: [],
+    isLoading: false,
+    error: null,
+    filters: initialFilters,
+    sort: initialSort,
+    searchQuery: '',
+    viewMode: 'grid',
+  }),
 }));
 
 // Helper function to calculate collection statistics

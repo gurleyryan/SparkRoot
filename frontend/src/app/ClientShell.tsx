@@ -32,25 +32,34 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Sync Zustand accessToken with Supabase cookie on mount, but only if missing
+  // Sync Zustand accessToken with Supabase cookie only on initial mount and only if user is authenticated but token is missing
   const syncAccessTokenFromCookie = useAuthStore((s: { syncAccessTokenFromCookie: () => void }) => s.syncAccessTokenFromCookie);
   const accessToken = useAuthStore((s: { accessToken: string | null }) => s.accessToken);
   useEffect(() => {
-    if (!accessToken) {
+    // Only run on initial mount
+    if (isAuthenticated && !accessToken) {
+      console.log("Syncing access token from cookie...");
       syncAccessTokenFromCookie();
     }
-  }, [syncAccessTokenFromCookie, accessToken]);
+    // Never run if not authenticated
+    // Never run after logout
+    // Never run repeatedly
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Fetch user, collections, and inventory after login (once per session)
+  // Fetch user, collections, and inventory after login (once per session), but abort/skip if user logs out
   const fetchUserAndCollections = useAuthStore((s: { fetchUserAndCollections: () => void }) => s.fetchUserAndCollections);
   useEffect(() => {
     if (isAuthenticated && !hasFetchedUserData) {
+      console.log("Fetching user and collections after login...");
       hasFetchedUserData = true;
       fetchUserAndCollections?.();
     }
+    // If user logs out, reset flag
     if (!isAuthenticated) {
       hasFetchedUserData = false;
     }
+    return () => {};
   }, [isAuthenticated, fetchUserAndCollections]);
 
 
@@ -105,6 +114,10 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         onLogout={() => {
           logout();
           setShowAuthModal(false);
+          // Broadcast global logout event for all components to listen and abort fetches/SSE
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('app-logout'));
+          }
         }}
       />
       {children}

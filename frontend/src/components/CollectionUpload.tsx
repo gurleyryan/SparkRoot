@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import type { MTGCard } from '@/types';
 import { useAuthStore } from '../store/authStore';
@@ -18,6 +18,24 @@ interface CollectionUploadProps {
 }
 
 export default function CollectionUpload({ onCollectionUploaded }: CollectionUploadProps) {
+  // AbortController for fetches/SSE
+  const abortControllerRef = React.useRef<AbortController | null>(null);
+
+  // Listen for global logout event to abort fetches/SSE
+  React.useEffect(() => {
+    function handleLogoutEvent() {
+      // Abort any ongoing fetches/SSE
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      // If you use EventSource, close it here (add ref if needed)
+    }
+    window.addEventListener('app-logout', handleLogoutEvent);
+    return () => {
+      window.removeEventListener('app-logout', handleLogoutEvent);
+    };
+  }, []);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0); // 0-100
@@ -63,6 +81,8 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   }, [fetchWithAuth, setCollections]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    // Create new AbortController for this upload
+    abortControllerRef.current = new AbortController();
     setIsUploading(true);
     setError(null);
     setProgress(0);
