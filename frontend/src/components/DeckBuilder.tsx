@@ -185,7 +185,7 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
     try {
       // 1. POST to job-based endpoint using fetchWithAuth
       const fetchWithAuth = useAuthStore.getState().fetchWithAuth;
-      const res = await fetchWithAuth("/api/proxy/generate-deck-stream", {
+      const res = await fetchWithAuth("/api/generate-deck-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
