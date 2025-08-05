@@ -134,12 +134,16 @@ export const useAuthStore = create<AuthState>()(
             });
             if (resp.ok) {
               const user = await resp.json();
-              set({ user, isAuthenticated: true, accessToken: jwt, isLoading: false, error: null });
+              set({ user, isAuthenticated: true, accessToken: jwt, error: null });
               await get().fetchUserAndCollections();
+              set({ isLoading: false });
+              return;
+            } else {
+              set({ error: 'Failed to fetch user profile.', isLoading: false });
+              return;
             }
           }
-          // Fallback: set basic user info if API call fails
-          set({ isAuthenticated: true, isLoading: false, error: null });
+          set({ error: 'No access token returned from Supabase.', isLoading: false });
         } catch (err: unknown) {
           if (err instanceof Error) {
             set({ error: err.message || 'Login failed.', isLoading: false });
@@ -238,12 +242,23 @@ export const useAuthStore = create<AuthState>()(
       logout: async (auto = false) => {
         // Prevent infinite repeated logout calls
         if (hasLoggedOutThisSession) {
-          if (typeof window !== 'undefined') {
-            console.debug('[authStore] logout already called this session, skipping.');
-          }
+          // Already logged out this session
           return;
         }
         hasLoggedOutThisSession = true;
+        // Clear fetch guard so collections/inventory will reload after next login
+        if (typeof window !== 'undefined') {
+          window.__hasFetchedUserCollections = false;
+        }
+        // Supabase signOut (async, non-blocking)
+        (async () => {
+          // ...your Supabase signOut logic here...
+        })();
+
+        // Remove Supabase auth cookie only if it exists (non-blocking)
+        setTimeout(() => {
+          // ...your cookie removal logic here...
+        }, 0);
         // Supabase signOut (async, non-blocking)
         (async () => {
           try {
@@ -481,8 +496,6 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
-        playmat_texture: state.playmat_texture,
-        userSettings: state.userSettings,
         accessToken: state.accessToken,
       }),
       // Persist full user object for username/full_name

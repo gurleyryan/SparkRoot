@@ -141,6 +141,7 @@ export interface Collection {
   updated_at: string;
   total_cards?: number;   // total number of cards (sum of quantities)
   unique_cards?: number;  // number of unique cards
+  is_public?: boolean;
 }
 
 export interface CollectionStats {
@@ -168,6 +169,7 @@ export interface Deck {
   created_at: string;
   updated_at: string;
   analysis?: Record<string, unknown>;
+  is_public?: boolean;
 }
 
 // API Response Types

@@ -290,8 +290,27 @@ export const useCollectionStore = create<CollectionState>()(
     {
       name: 'collection-storage',
       partialize: (state) => ({
-        collections: state.collections,
-        userInventory: state.userInventory,
+        // Only persist minimal metadata for collections
+        collections: Array.isArray(state.collections)
+          ? state.collections.map(col => ({
+              id: col.id,
+              name: col.name,
+              description: col.description,
+              created_at: col.created_at,
+              updated_at: col.updated_at,
+              is_public: col.is_public,
+            }))
+          : [],
+        // Only persist minimal user inventory
+        userInventory: Array.isArray(state.userInventory)
+          ? state.userInventory.map(card => ({
+              id: card.id,
+              name: card.name,
+              quantity: card.quantity,
+              set: card.set,
+              collector_number: card.collector_number,
+            }))
+          : [],
       }),
     }
   )
