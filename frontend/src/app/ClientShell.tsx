@@ -1,8 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-// Track if we've already fetched user/collections/inventory for this session
-let hasFetchedUserData = false;
 import AuthModal from '@/components/AuthModal';
 import { useModalStore } from '@/store/modalStore';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -47,20 +45,23 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch user, collections, and inventory after login (once per session), but abort/skip if user logs out
+  // Debounced fetch: only run once per login session, never on hydration or after Supabase events
   const fetchUserAndCollections = useAuthStore((s: { fetchUserAndCollections: () => void }) => s.fetchUserAndCollections);
+  const [hasFetchedUserDataState, setHasFetchedUserDataState] = useState(false);
   useEffect(() => {
-    if (isAuthenticated && !hasFetchedUserData) {
-      console.log("Fetching user and collections after login...");
-      hasFetchedUserData = true;
+    if (isAuthenticated && !hasFetchedUserDataState) {
+      setHasFetchedUserDataState(true);
       fetchUserAndCollections?.();
     }
-    // If user logs out, reset flag
     if (!isAuthenticated) {
-      hasFetchedUserData = false;
+      setHasFetchedUserDataState(false);
     }
+    // Only run once per login session
+    // Never run on hydration or after Supabase events
+    // Never run repeatedly
+    // Never run if not authenticated
     return () => {};
-  }, [isAuthenticated, fetchUserAndCollections]);
+  }, [isAuthenticated, fetchUserAndCollections, hasFetchedUserDataState]);
 
 
   // Show AuthModal if recovery link is present in search or hash

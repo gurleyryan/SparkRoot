@@ -70,7 +70,10 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
   const [stepDetails] = useState<Record<string, string>>({});
   // Salt threshold slider: 0 (no salty cards) to 15 (allow all salty cards)
   const [saltThreshold, setSaltThreshold] = useState(15);
-  const { collections, userInventory } = useCollectionStore();
+  // Defensive: always default to empty array if undefined/null
+  const { collections: rawCollections, userInventory: rawUserInventory } = useCollectionStore();
+  const collections = React.useMemo(() => Array.isArray(rawCollections) ? rawCollections : [], [rawCollections]);
+  const userInventory = React.useMemo(() => Array.isArray(rawUserInventory) ? rawUserInventory : [], [rawUserInventory]);
 
   React.useEffect(() => {
     function handleClick(e: MouseEvent | TouchEvent) {
@@ -103,7 +106,7 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
   // Find the selected collection (if any)
   const selectedCollection = useMemo(() => {
     if (cardSourceType === 'inventory') return null;
-    return collections.find(col => col.id === cardSourceType) || null;
+    return collections.find(col => col && col.id === cardSourceType) || null;
   }, [cardSourceType, collections]);
 
   // Use selected collection or full inventory as card source
@@ -111,7 +114,7 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
     if (selectedCollection && Array.isArray(selectedCollection.cards) && selectedCollection.cards.length > 0) {
       return selectedCollection.cards;
     }
-    if (userInventory && Array.isArray(userInventory)) {
+    if (Array.isArray(userInventory) && userInventory.length > 0) {
       return userInventory;
     }
     return [];

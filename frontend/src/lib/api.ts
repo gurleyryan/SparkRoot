@@ -214,7 +214,9 @@ export class ApiClient {
 
   // Collection methods
   async getCollections() {
-    return this.request(API_CONFIG.endpoints.collections);
+    const result = await this.request(API_CONFIG.endpoints.collections);
+    console.debug('[ApiClient] getCollections result:', result);
+    return result;
   }
 
   async deleteCollectionById(collectionId: string) {
@@ -350,9 +352,38 @@ export class ApiClient {
   }
 
   async getInventory() {
-    const data: { inventory?: { cards?: unknown[] } } = await this.request('/api/inventory');
-    // Defensive: ensure cards is an array
-    return Array.isArray(data?.inventory?.cards) ? data.inventory.cards : [];
+    const data = await this.request('/api/inventory');
+    console.debug('[ApiClient] getInventory raw response:', data);
+
+    interface InventoryResponse {
+      inventory?: {
+        cards?: unknown[];
+        [key: string]: unknown;
+      };
+      cards?: unknown[];
+      [key: string]: unknown;
+    }
+
+    const typedData = data as InventoryResponse;
+
+    // Defensive: try to extract cards array, fallback to raw data
+    if (typedData && typeof typedData === 'object') {
+      if (
+        'inventory' in typedData &&
+        typeof typedData.inventory === 'object' &&
+        Array.isArray(typedData.inventory?.cards)
+      ) {
+        return typedData.inventory.cards;
+      }
+      if ('cards' in typedData && Array.isArray(typedData.cards)) {
+        return typedData.cards;
+      }
+      if (Array.isArray(typedData)) {
+        return typedData;
+      }
+    }
+    // Fallback: return raw data
+    return typedData;
   }
 }
 

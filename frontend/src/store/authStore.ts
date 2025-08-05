@@ -1,12 +1,17 @@
+// Add to global window type for fetch guard
+declare global {
+  interface Window {
+    __hasFetchedUserCollections?: boolean;
+  }
+}
 import { create } from 'zustand';
 // Prevent multiple redirects after logout
 let hasRedirectedAfterLogout = false;
 let hasLoggedOutThisSession = false;
 import { persist } from 'zustand/middleware';
-import type { User, UserSettings } from '@/types';
+import type { User, UserSettings, Collection } from '@/types';
 import { ApiClient } from '../lib/api';
 import { createClient } from '@/utils/supabase/client';
-import { useCollectionStore } from "@/store/collectionStore"; // Import your collection store
 import Cookies from 'js-cookie';
 
 export function getSupabaseClient() {
@@ -53,6 +58,20 @@ export const useAuthStore = create<AuthState>()(
       hydrating: true,
       autoLoggedOut: false,
       setUser: (user) => {
+        if (user) {
+          user.username = user.username
+            || user.user_metadata?.username
+            || user.app_metadata?.username
+            || user.user_metadata?.name
+            || user.app_metadata?.name
+            || '';
+          user.full_name = user.full_name
+            || user.user_metadata?.full_name
+            || user.app_metadata?.full_name
+            || user.user_metadata?.name
+            || user.app_metadata?.name
+            || '';
+        }
         set({ user, isAuthenticated: !!user });
       },
       updateProfile: async (data) => {
@@ -116,7 +135,7 @@ export const useAuthStore = create<AuthState>()(
             if (resp.ok) {
               const user = await resp.json();
               set({ user, isAuthenticated: true, accessToken: jwt, isLoading: false, error: null });
-              return;
+              await get().fetchUserAndCollections();
             }
           }
           // Fallback: set basic user info if API call fails
@@ -369,40 +388,91 @@ export const useAuthStore = create<AuthState>()(
       setHydrating: (hydrating) => set({ hydrating }),
       setAutoLoggedOut: (val) => set({ autoLoggedOut: val }),
       fetchUserAndCollections: async () => {
-        const { accessToken } = get();
-        set({ hydrating: true });
-        if (!accessToken) {
-          set({ hydrating: false });
+        // Prevent infinite fetch loop: only run once per hydration
+        if (typeof window !== 'undefined') {
+          if (window.__hasFetchedUserCollections) {
+            console.debug('[authStore] fetchUserAndCollections: already fetched for this hydration, skipping');
+            return;
+          }
+          window.__hasFetchedUserCollections = true;
+        }
+        const { user, accessToken } = get();
+        if (!user || !accessToken) {
+          if (typeof window !== 'undefined') {
+            console.debug('[authStore] fetchUserAndCollections: missing user or accessToken, skipping');
+          }
           return;
         }
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? (window as Window & { NEXT_PUBLIC_API_URL?: string }).NEXT_PUBLIC_API_URL : undefined);
-        const baseUrl = apiUrl ? apiUrl.replace(/\/$/, '') : '';
+        set({ isLoading: true, hydrating: true });
         try {
-          const [userRes, collectionsRes, inventoryRes] = await Promise.all([
-            fetch(`${baseUrl}/api/auth/me`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-            fetch(`${baseUrl}/api/collections`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-            fetch(`${baseUrl}/api/inventory`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+          const apiClient = new ApiClient(accessToken);
+          console.debug('[authStore] fetchUserAndCollections: calling getProfile');
+          const profilePromise = apiClient.getProfile();
+          console.debug('[authStore] fetchUserAndCollections: calling getCollections');
+          const collectionsPromise = apiClient.getCollections();
+          console.debug('[authStore] fetchUserAndCollections: calling getInventory');
+          const inventoryPromise = apiClient.getInventory();
+          const [profile, collectionsResult, inventoryResult] = await Promise.all([
+            profilePromise,
+            collectionsPromise,
+            inventoryPromise,
           ]);
-          if (userRes.ok) {
-            const user = await userRes.json();
-            set({ user, isAuthenticated: true });
-          }
-          if (collectionsRes.ok) {
-            const data = await collectionsRes.json();
-            useCollectionStore.getState().setCollections(data.collections || []);
-          }
-          if (inventoryRes.ok) {
-            const data = await inventoryRes.json();
-            let cards = [];
-            if (Array.isArray(data.cards)) {
-              cards = data.cards;
-            } else if (data.inventory && Array.isArray(data.inventory.cards)) {
-              cards = data.inventory.cards;
+          console.debug('[authStore] fetchUserAndCollections: got profile', profile);
+          console.debug('[authStore] fetchUserAndCollections: got collections', collectionsResult);
+          console.debug('[authStore] fetchUserAndCollections: got inventory', inventoryResult);
+          // Defensive: ensure username is present in user object
+          let userProfile = profile as User;
+          if (userProfile) {
+            if (!userProfile.username) {
+              if (userProfile.full_name) {
+                userProfile.username = userProfile.full_name;
+              } else if (userProfile.email) {
+                userProfile.username = userProfile.email;
+              }
             }
-            useCollectionStore.getState().setUserInventory(cards);
           }
+          // Extract arrays from API responses
+          // Robustly extract collections array
+          let collectionsArray: Collection[] = [];
+          if (Array.isArray(collectionsResult)) {
+            collectionsArray = collectionsResult;
+          } else if (
+            collectionsResult &&
+            typeof collectionsResult === 'object' &&
+            'collections' in collectionsResult &&
+            Array.isArray((collectionsResult as { collections?: Collection[] }).collections)
+          ) {
+            collectionsArray = (collectionsResult as { collections: Collection[] }).collections;
+          }
+          // Robustly extract inventory array
+          let inventoryArray: Collection[] = [];
+          if (Array.isArray(inventoryResult)) {
+            inventoryArray = inventoryResult as Collection[];
+          } else if (inventoryResult && Array.isArray(inventoryResult.inventory)) {
+            inventoryArray = inventoryResult.inventory as Collection[];
+          }
+          // Update Zustand collectionStore with fetched collections and inventory
+          const { setCollections, setUserInventory } = require('../store/collectionStore').useCollectionStore.getState();
+          setCollections(collectionsArray);
+          setUserInventory(inventoryArray);
+          // Update user profile/settings in authStore
+          set({ user: userProfile, isAuthenticated: !!userProfile });
+          // Defensive: also update collections/inventory in Zustand collectionStore (for SSR/hydration edge cases)
+          if (typeof window !== 'undefined') {
+            try {
+              const { useCollectionStore } = require('@/store/collectionStore');
+              useCollectionStore.getState().setCollections(collectionsArray);
+              useCollectionStore.getState().setUserInventory(inventoryArray);
+              // Mark as fetched to prevent duplicate fetches
+              window.__hasFetchedUserCollections = true;
+            } catch (err) {
+              console.debug('[authStore] Error updating collectionStore:', err);
+            }
+          }
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Failed to fetch user/collections/inventory' });
         } finally {
-          set({ hydrating: false });
+          set({ isLoading: false, hydrating: false });
         }
       },
     }),
@@ -415,6 +485,8 @@ export const useAuthStore = create<AuthState>()(
         userSettings: state.userSettings,
         accessToken: state.accessToken,
       }),
+      // Persist full user object for username/full_name
+      // (Zustand persist will store all keys in partialize)
     }
   )
 );

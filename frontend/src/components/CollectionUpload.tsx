@@ -55,20 +55,14 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
   const [liveCards, setLiveCards] = useState<MTGCard[]>([]);
   const [livePreview, setLivePreview] = useState<Partial<MTGCard> | null>(null);
 
-  const setCollections = useCollectionStore((state) => state.setCollections);
-  const fetchWithAuth = useAuthStore((s) => s.fetchWithAuth);
-
   const refetchCollections = useCallback(async () => {
     try {
       setIsUploading(true);
       setError(null);
-      const res = await fetchWithAuth('/api/collections');
-      if (!res.ok) {
-        // If 401, fetchWithAuth will sync token and set error in Zustand
-        throw new Error('Session expired, please log in again.');
-      }
-      const data = await res.json();
-      setCollections(data.collections || []);
+      // Instead of direct fetch, rely on Zustand state update from fetchUserAndCollections
+      const fetchUserAndCollections = useAuthStore.getState().fetchUserAndCollections;
+      await fetchUserAndCollections();
+      // Collections will be updated in Zustand store
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -78,7 +72,7 @@ export default function CollectionUpload({ onCollectionUploaded }: CollectionUpl
     } finally {
       setIsUploading(false);
     }
-  }, [fetchWithAuth, setCollections]);
+  }, []);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     // Create new AbortController for this upload

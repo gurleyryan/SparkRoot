@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/authStore';
 import Image from 'next/image';
 
 export default function HomePage() {
+
   // Hydration guard to prevent double flash/remount
   const [hasHydrated, setHasHydrated] = React.useState(false);
   React.useEffect(() => { setHasHydrated(true); }, []);
@@ -23,6 +24,14 @@ export default function HomePage() {
   const { collections } = useCollectionStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const authHydrating = useAuthStore((s) => s.hydrating);
+  const fetchUserAndCollections = useAuthStore((s) => s.fetchUserAndCollections);
+
+  // Force fetch collections if authenticated and collections are empty after hydration
+  React.useEffect(() => {
+    if (hasHydrated && isAuthenticated && Array.isArray(collections) && collections.length === 0) {
+      fetchUserAndCollections?.();
+    }
+  }, [hasHydrated, isAuthenticated, collections, fetchUserAndCollections]);
 
   // Unified loading state: wait for hydration and collections
   const isLoading = !hasHydrated || authHydrating || (isAuthenticated && (!collections || typeof collections === 'undefined'));

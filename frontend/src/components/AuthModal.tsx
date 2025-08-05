@@ -47,27 +47,14 @@ export default function AuthModal({ onClose, recoveryState: propRecoveryState }:
           email: formData.email || formData.username,
           password: formData.password,
         });
-        // Hydrate user state after login
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          const resp = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
-            { headers: { Authorization: `Bearer ${session.access_token}` } }
-          );
-          if (resp.ok) {
-            const userData = await resp.json();
-            useAuthStore.getState().setUser(userData);
-            useAuthStore.setState({ accessToken: session.access_token });
-          }
-        }
+        // Do NOT fetch /api/auth/me here. Zustand store will be hydrated by login.
+        // If needed, you can call useAuthStore.getState().rehydrateUser() here, but usually not necessary.
         const authError = useAuthStore.getState().error;
         if (!authError) {
           showToast('Login successful!', 'success');
           setIsLoading(false);
           onClose();
         } else {
-          // ...existing code...
           let msg = authError;
           if (msg && typeof msg === 'string') {
             if (msg.match(/unique.*email/i)) {

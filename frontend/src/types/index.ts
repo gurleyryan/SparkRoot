@@ -107,10 +107,8 @@ export interface User {
   avatar_url?: string;
   created_at?: string;
   updated_at?: string;
-  app_metadata?: {
-    role?: string;
-    [key: string]: unknown;
-  };
+  app_metadata?: { role?: string; [key: string]: unknown; username?: string; full_name?: string; name?: string };
+  user_metadata?: { username?: string; full_name?: string; name?: string; [key: string]: unknown };
   role?: string;
 }
 

@@ -16,14 +16,34 @@ export default function AuthHydrator() {
       if (event === "SIGNED_OUT") {
         logout(true);
       } else if (session?.user) {
-        // Optionally, you could trigger a global fetch here if needed
-        const { id, email, ...rest } = session.user;
+        const { id, email, app_metadata, user_metadata, ...rest } = session.user;
         if (!email) {
-          // If email is missing, do not set user (or handle as needed)
           logout(true);
           return;
         }
-        setUser({ id, email, ...rest } as User); // Cast to the specific User type
+        // Robustly extract username and full_name from metadata
+        let username = user_metadata?.username
+          || app_metadata?.username
+          || user_metadata?.name
+          || app_metadata?.name
+          || '';
+        let full_name = user_metadata?.full_name
+          || app_metadata?.full_name
+          || user_metadata?.name
+          || app_metadata?.name
+          || '';
+        // Only set Zustand user if username or full_name are present and non-empty
+        if (username || full_name) {
+          setUser({
+            id,
+            email,
+            username,
+            full_name,
+            app_metadata,
+            user_metadata,
+            ...rest
+          } as User);
+        }
         useAuthStore.setState({ accessToken: session.access_token });
         setAutoLoggedOut(false);
       }

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { MTGCard, Collection, CollectionStats, CardFilters, SortOptions } from '@/types';
 
 interface CollectionState {
@@ -63,7 +64,9 @@ const initialSort: SortOptions = {
   direction: 'asc',
 };
 
-export const useCollectionStore = create<CollectionState>((set, get) => ({
+export const useCollectionStore = create<CollectionState>()(
+  persist(
+    (set, get) => ({
   // Initial state
   collections: [],
   activeCollection: null,
@@ -283,7 +286,16 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
     searchQuery: '',
     viewMode: 'grid',
   }),
-}));
+    }),
+    {
+      name: 'collection-storage',
+      partialize: (state) => ({
+        collections: state.collections,
+        userInventory: state.userInventory,
+      }),
+    }
+  )
+);
 
 // Helper function to calculate collection statistics
 function calculateStats(cards: MTGCard[]): CollectionStats {

@@ -15,6 +15,8 @@ interface NavigationProps {
 
 export default function Navigation({ isAuthenticated, user, onLogin, onLogout }: NavigationProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Debug: log user object to verify username presence
+  console.log("[Navigation] user object:", user);
   const isAdmin =
     user?.app_metadata?.role === 'admin' ||
     user?.role === 'admin';

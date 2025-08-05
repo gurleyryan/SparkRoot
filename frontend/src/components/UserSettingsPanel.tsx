@@ -1,3 +1,4 @@
+import { ApiClient } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import React, { useEffect, useState } from 'react';
 
@@ -132,19 +133,15 @@ export default function UserSettingsPanel() {
       return;
     }
     try {
-      const fetchWithAuth = useAuthStore.getState().fetchWithAuth;
+      // Use Zustand's ApiClient for settings update, do not fetch /api/auth/me
+      const apiClient = new ApiClient(useAuthStore.getState().accessToken ?? undefined);
       const payload = { settings: changedSettings };
-      const resp = await fetchWithAuth('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!resp.ok) {
-        const errorText = await resp.text();
-        console.error('Settings PUT error:', errorText);
-        throw new Error('Failed to save settings');
-      } else {
+      try {
+        await apiClient.updateSettings(payload.settings);
         setInitialSettings(settings);
+      } catch (err) {
+        console.error('Settings PUT error:', err);
+        throw new Error('Failed to save settings');
       }
     } catch (e: unknown) {
       if (e instanceof Error) {

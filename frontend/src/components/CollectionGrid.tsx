@@ -31,15 +31,23 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
   // Fetch collections and inventory on mount for logged-in users
   const setActiveCollection = useCollectionStore((state) => state.setActiveCollection);
   const {
-    collections,
+    collections: rawCollections,
     activeCollection,
     deleteCollection,
     viewMode,
     setViewMode,
     searchQuery,
     setSearchQuery,
-    userInventory,
+    userInventory: rawUserInventory,
   } = useCollectionStore();
+  const collections = React.useMemo(
+    () => Array.isArray(rawCollections) ? rawCollections : [],
+    [rawCollections]
+  );
+  const userInventory = React.useMemo(
+    () => Array.isArray(rawUserInventory) ? rawUserInventory : [],
+    [rawUserInventory]
+  );
   // Use the correct User type from your project
   const user = useAuthStore((s) => s.user);
 
@@ -54,11 +62,10 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
   // --- Synthesize inventory as a pseudo-collection matching Collection type ---
 
   const inventoryCollection = React.useMemo(() => {
-    if (!userInventory || userInventory.length === 0) return null;
-    // Compute stats for display if needed
+    if (!Array.isArray(userInventory) || userInventory.length === 0) return null;
     const total_cards = userInventory.reduce((sum, c) => sum + (c.quantity || 1), 0);
     const unique_cards = new Set(userInventory.map((c) => c.id || c.name)).size;
-    const obj = {
+    return {
       id: '__inventory__',
       user_id: user?.id || '',
       name: 'Inventory',
@@ -69,14 +76,12 @@ const CollectionGrid: React.FC<CollectionGridProps> = () => {
       total_cards,
       unique_cards,
     };
-     
-    return obj;
   }, [userInventory, user]);
 
   // Combine inventory pseudo-collection with real collections for display
   const displayCollections = React.useMemo(() => {
+    // Defensive: always return an array
     if (inventoryCollection) {
-      // Place inventory at the top
       return [inventoryCollection, ...collections];
     }
     return collections;
