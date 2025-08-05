@@ -503,7 +503,7 @@ export default function DeckDetail({
                       {/* Synergies & Themes */}
                       <div className="rounded-xl p-4 border border-mtg-red" style={{ backgroundColor: "rgba(var(--color-mtg-black-rgb, 21,11,0),0.72)" }}>
                         <div className="text-mtg-red text-lg font-bold font-mtg mb-1">Synergies</div>
-                        <div className="text-mtg-white text-s mb-1">Tribe: {displayDeck.analysis.synergies?.primary_kind} ({displayDeck.analysis.synergies?.kindred_count})</div>
+                        <div className="text-mtg-white text-s mb-1">Kindred: {displayDeck.analysis.synergies?.primary_kind} ({displayDeck.analysis.synergies?.kindred_count})</div>
                         <div className="text-mtg-white text-s">Themes:</div>
                         <ul className="text-s ml-2">
                           {displayDeck.analysis.synergies?.themes &&
