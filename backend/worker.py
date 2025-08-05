@@ -46,8 +46,8 @@ async def process_job(job_id: str, job_data: dict[str, Any]):
         commander = next((c for c in card_pool if c.get("id") == commander_id), None)
         if not commander:
             logger.error(f"Commander with id {commander_id} not found in card pool for job {job_id}")
-            await redis_client.set(f"deckjob:{job_id}:result", json.dumps({"success": False, "error": f"Commander with id {commander_id} not found in card pool."}), ex=600)
-            await redis_client.set(f"deckjob:{job_id}:status", "failed", ex=600)
+            await redis_client.set(f"deckjob:{job_id}:result", json.dumps({"success": False, "error": f"Commander with id {commander_id} not found in card pool."}), ex=120)
+            await redis_client.set(f"deckjob:{job_id}:status", "failed", ex=120)
             return
 
         # Run deckgen
@@ -95,8 +95,8 @@ async def process_job(job_id: str, job_data: dict[str, Any]):
         # Robustly check for 'cards' key before analysis
         if not deck_data or "cards" not in deck_data:
             logger.error(f"Deck generation failed for job {job_id}: No 'cards' key in result.")
-            await redis_client.set(f"deckjob:{job_id}:result", json.dumps({"success": False, "error": "Deck generation failed: No 'cards' key in result."}), ex=600)
-            await redis_client.set(f"deckjob:{job_id}:status", "failed", ex=600)
+            await redis_client.set(f"deckjob:{job_id}:result", json.dumps({"success": False, "error": "Deck generation failed: No 'cards' key in result."}), ex=120)
+            await redis_client.set(f"deckjob:{job_id}:status", "failed", ex=120)
             return
 
         deck_analysis = analyze_deck_quality(deck_data)
@@ -107,13 +107,17 @@ async def process_job(job_id: str, job_data: dict[str, Any]):
             "bracket": bracket,
             "status": "complete"
         }
-        await redis_client.set(f"deckjob:{job_id}:result", json.dumps(result), ex=600)
-        await redis_client.set(f"deckjob:{job_id}:status", "complete", ex=600)
+        await redis_client.set(f"deckjob:{job_id}:result", json.dumps(result), ex=120)
+        await redis_client.set(f"deckjob:{job_id}:status", "complete", ex=120)
         logger.info(f"Job {job_id} complete")
+        # Cleanup only the main job key immediately; leave result/status for frontend polling
+        await redis_client.delete(f"deckjob:{job_id}")
     except Exception as e:
         logger.error(f"Job {job_id} failed: {e}")
-        await redis_client.set(f"deckjob:{job_id}:result", json.dumps({"success": False, "error": str(e)}), ex=600)
-        await redis_client.set(f"deckjob:{job_id}:status", "failed", ex=600)
+        await redis_client.set(f"deckjob:{job_id}:result", json.dumps({"success": False, "error": str(e)}), ex=120)
+        await redis_client.set(f"deckjob:{job_id}:status", "failed", ex=120)
+        # Cleanup only the main job key immediately; leave result/status for frontend polling
+        await redis_client.delete(f"deckjob:{job_id}")
 
 async def worker_loop():
     logger.info("Worker started, polling for jobs...")
@@ -121,22 +125,31 @@ async def worker_loop():
         # Scan for pending jobs
         keys: list[str] = await redis_client.keys("deckjob:*")  # type: ignore
         for key in keys:
-            if key.endswith(":result") or key.endswith(":status") or key.endswith(":progress"):
+            # Only process job keys matching deckjob:<job_id> (not progress/result/status)
+            if not key.startswith("deckjob:") or any(s in key for s in [":progress", ":result", ":status"]):
                 continue
-            job_id = key.split(":", 1)[1]
+            job_id = key.split(":")[1] if ":" in key else key[8:]
+            # Check job status before processing
             status_key = f"deckjob:{job_id}:status"
             status = await redis_client.get(status_key)
-            if status in ("processing", "complete", "failed"):
+            if status in ("complete", "failed"):
+                logger.info(f"Cleaning up job {job_id}: status is {status}")
+                await redis_client.delete(f"deckjob:{job_id}")
+                await redis_client.delete(f"deckjob:{job_id}:result")
+                await redis_client.delete(f"deckjob:{job_id}:status")
                 continue
-            # Mark as processing
-            await redis_client.set(status_key, "processing", ex=600)
+            # Load job data
             job_data_raw = await redis_client.get(key)
             if not job_data_raw:
+                logger.warning(f"No job data found for job {job_id}")
                 continue
             try:
                 job_data = json.loads(job_data_raw)
-            except Exception:
+            except Exception as e:
+                logger.error(f"Failed to parse job data for job {job_id}: {e}")
                 continue
+            # Mark job as processing
+            await redis_client.set(status_key, "processing", ex=120)
             await process_job(job_id, job_data)
         await asyncio.sleep(2)  # Poll interval
 
