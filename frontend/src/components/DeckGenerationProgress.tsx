@@ -111,7 +111,7 @@ const DeckGenerationProgress: React.FC<DeckGenerationProgressProps> = ({
             transition={{ duration: 0.6 }}
             className="rounded-full bg-gradient-to-br from-rarity-rare/40 to-mtg-blue/20 p-2 shadow-lg"
           >
-            <Image src="/logo.png" alt="SparkRoot Logo" className="m-auto" width={28} height={40} />
+            <Image src="/logo.png" alt="SparkRoot Logo" className="m-auto" width={28} height={40} style={{ width: 'auto', height: 'auto' }} />
           </motion.div>
           <h2 className="text-2xl md:text-3xl font-bold text-rarity-rare font-mtg drop-shadow">Deck Generation</h2>
         </div>

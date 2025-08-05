@@ -35,6 +35,20 @@ export default function DeckBuilder({ onDeckGenerated, onShowGameChangers, onHid
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+      // Reset all local DeckBuilder state to initial values
+      setDeckgenLoading(false);
+      setLoading(false);
+      setError("");
+      setCurrentStep(0);
+      setDebugMessages([]);
+      setGameChangersOpen(false);
+      setCommanderId("");
+      setBracket(1);
+      setHouseRules(false);
+      setSaltThreshold(15);
+      setCardSourceType('inventory');
+      // Optionally log for debugging
+      console.debug('[DeckBuilder] Cleanup complete after logout');
     }
     window.addEventListener('app-logout', handleLogoutEvent);
     return () => {

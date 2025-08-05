@@ -246,6 +246,10 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
         hasLoggedOutThisSession = true;
+        // Dispatch global logout event for all listeners (DeckBuilder, CollectionGrid, etc)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('app-logout'));
+        }
         // Clear fetch guard so collections/inventory will reload after next login
         if (typeof window !== 'undefined') {
           window.__hasFetchedUserCollections = false;
