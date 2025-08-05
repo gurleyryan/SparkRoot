@@ -2,13 +2,16 @@
 import React from "react";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { MTGCard, Deck } from '@/types/index';
 import { useModalStore } from '../store/modalStore';
 const CollectionUpload = dynamic(() => import('@/components/CollectionUpload'));
 const CollectionGrid = dynamic(() => import('@/components/CollectionGrid'));
 const DeckBuilder = dynamic(() => import('@/components/DeckBuilder'));
-const CardGrid = dynamic(() => import('@/components/CardGrid'));
+const CardGrid = dynamic(() => import('@/components/CardGrid'), {
+  ssr: false,
+  loading: () => <div>Loading deck...</div>,
+});
 const GameChangers = dynamic(() => import('@/components/GameChangers'));
 import { useCollectionStore } from '@/store/collectionStore';
 import { useAuthStore } from '@/store/authStore';
@@ -75,6 +78,11 @@ export default function HomePage() {
   function setShowAuthModal(show: boolean) {
     useModalStore.getState().setShowAuthModal(show);
   }
+
+  // Preload CardGrid chunk on mount
+  useEffect(() => {
+    import('@/components/CardGrid');
+  }, []);
 
   return (
     <div className="container mx-auto min-h-screen">

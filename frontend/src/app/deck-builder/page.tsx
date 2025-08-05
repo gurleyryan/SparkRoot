@@ -1,9 +1,14 @@
 "use client";
 import type { MTGCard, Deck } from "@/types/index";
 import DeckBuilder from "@/components/DeckBuilder";
-import CardGrid from "@/components/CardGrid";
+import dynamic from "next/dynamic";
 import GameChangers from "@/components/GameChangers";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+
+const CardGrid = dynamic(() => import('@/components/CardGrid'), {
+  ssr: false,
+  loading: () => <div>Loading deck...</div>,
+});
 
 export default function DeckBuilderPage() {
   // CardGrid state
@@ -38,6 +43,11 @@ export default function DeckBuilderPage() {
     setDeckDetailId(null);
     setGeneratedDeck(null);
   };
+
+  useEffect(() => {
+    // Preload CardGrid chunk on mount
+    import('@/components/CardGrid');
+  }, []);
 
   return (
     <div className="min-h-screen">
