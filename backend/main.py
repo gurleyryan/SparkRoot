@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, PlainTextResponse
 from pydantic import BaseModel
 from utils import normalize_csv_format, expand_collection_by_quantity, enrich_single_row_with_scryfall, upsert_user_card, create_collection, update_collection, link_collection_card
+from cursor import normalize_name
 from auth_supabase_rest import UserManager, get_user_from_token, get_current_user
 from deck_export import export_deck_to_txt, export_deck_to_json, export_deck_to_moxfield
 from deckgen import generate_commander_deck, find_valid_commanders
@@ -1004,6 +1005,7 @@ async def upload_collection_progress(
                 yield {"event": "error", "data": {"error": "Supabase credentials missing."}}
                 return
             card_lookup = CardLookup(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+            card_lookup.fetch_all_cards(diagnostics=True)
 
             # --- Efficient batch fetch using CardLookup.fetch_rows_by_field_values ---
             # 1. Gather all unique Scryfall IDs, (name, set, collector), and names
@@ -1014,19 +1016,25 @@ async def upload_collection_progress(
                 if row.get("Scryfall ID"):
                     scryfall_ids.add(row["Scryfall ID"])
                 elif row.get("Name") and row.get("Set code") and row.get("Collector number"):
-                    name_set_collector.add((row["Name"].strip().lower(), row["Set code"].strip().lower(), str(row["Collector number"]).strip().lower()))
+                    # Collector number: only strip whitespace, do not normalize
+                    collector_number_val = str(row["Collector number"]).strip()
+                    set_code_val = str(row["Set code"]).strip().lower()
+                    name_val = str(row["Name"]).strip()
+                    name_set_collector.add((normalize_name(name_val), normalize_name(set_code_val), collector_number_val))
                 elif row.get("Name"):
-                    names.add(row["Name"].strip().lower())
+                    names.add(normalize_name(str(row["Name"]).strip()))
 
             # 2. Batch fetch cards by Scryfall ID
-            card_id_map = {}
+            card_id_map: dict[str | tuple[str, str, str], dict[str, Any]] = {}
             if scryfall_ids:
                 fetched = card_lookup.fetch_rows_by_field_values(
                     table="cards", field="id", values=scryfall_ids,
                     select="id,name,set,collector_number"
                 )
                 for c in fetched:
-                    card_id_map[(c.get("id"))] = c
+                    card_id = c.get("id")
+                    if card_id is not None:
+                        card_id_map[card_id] = c
 
             # 3. Batch fetch by (name, set, collector_number)
             if name_set_collector:
@@ -1038,9 +1046,16 @@ async def upload_collection_progress(
                 )
                 # Filter in Python for exact (name, set, collector_number)
                 for c in fetched:
-                    key = (c.get("name", "").strip().lower(), c.get("set", "").strip().lower(), str(c.get("collector_number", "")).strip().lower())
+                    # Collector number: only strip whitespace, do not normalize
+                    collector_number_val = str(c.get("collector_number", "")).strip()
+                    set_code_val = str(c.get("set", "")).strip().lower()
+                    name_val = str(c.get("name", "")).strip()
+                    key = (normalize_name(name_val), normalize_name(set_code_val), collector_number_val)
                     if key in name_set_collector:
                         card_id_map[key] = c
+                    else:
+                        # Debug: print keys that didn't match
+                        print(f"[progress-upload] No match for key: {key} in name_set_collector", file=sys.stderr)
 
             # 4. Batch fetch by name (if needed)
             if names:
@@ -1049,8 +1064,7 @@ async def upload_collection_progress(
                     select="id,name,set,collector_number"
                 )
                 for c in fetched:
-                    card_id_map[(c.get("name", "").strip().lower())] = c
-
+                    card_id_map[normalize_name(c.get("name", ""))] = c
             user_id = current_user["id"]
             print(f"[progress-upload] User ID: {user_id}", file=sys.stderr)
             if collectionAction == "new":
@@ -1069,37 +1083,40 @@ async def upload_collection_progress(
 
             user_card_ids: list[str] = []
             enriched_cards: List[Dict[str, Any]] = []
+
             for idx, row in enumerate(rows):
                 print(f"[progress-upload] Processing row {idx+1}/{total}", file=sys.stderr)
-                card_id: str | None = None
                 scryfall_id = row.get("Scryfall ID")
                 set_code = row.get("Set code")
                 name_val = row.get("Name")
                 collector_number = row.get("Collector number")
 
-                # Prefer direct Scryfall ID, else (name+set+collector), else name
-                card_id: str | None = None
-                card_id_map: Dict[Any, Dict[str, Any]] = {}
+                # Use robust_lookup for all matching
+                match_result: Dict[str, Any] = {}
                 if scryfall_id and scryfall_id in card_id_map:
-                    card_id = scryfall_id
-                elif name_val and set_code and collector_number and (name_val.strip().lower(), set_code.strip().lower(), str(collector_number).strip().lower()) in card_id_map:
-                    card_id = card_id_map[(name_val.strip().lower(), set_code.strip().lower(), str(collector_number).strip().lower())].get("id")
-                elif name_val and name_val.strip().lower() in card_id_map:
-                    card_id = card_id_map[name_val.strip().lower()].get("id")
+                    match_result: Dict[str, Any] = {"status": "success", "card_id": scryfall_id, "error": None, "diagnostics": {"method": "scryfall_id"}}
                 else:
-                    # Fallback: fuzzy match (optional, could use CardLookup.fuzzy_lookup)
-                    fuzzy = []
-                    if name_val:
-                        fuzzy = card_lookup.fuzzy_lookup(name_val)
-                        print(f"[progress-upload] Fuzzy matches for '{name_val}': {fuzzy}", file=sys.stderr)
-                    print(f"[progress-upload] Card not found for row {idx+1}", file=sys.stderr)
-                    preview: Dict[str, Any] = {"name": name_val, "set_code": set_code, "idx": idx, "total": total, "error": "Card not found"}
+                    match_result = card_lookup.robust_lookup(name=name_val or "", set_code=set_code or "", collector_number=collector_number or "")
+
+                card_id = match_result.get("card_id")
+                diagnostics = match_result.get("diagnostics", {})
+                error = match_result.get("error")
+                status = match_result.get("status")
+
+                if not card_id:
+                    print(f"[progress-upload] Card not found for row {idx+1}: {name_val}, set={set_code}, collector={collector_number}", file=sys.stderr)
+                    preview: Dict[str, Any] = {
+                        "name": name_val,
+                        "set_code": set_code,
+                        "collector_number": collector_number,
+                        "idx": idx,
+                        "total": total,
+                        "error": error or "Card not found",
+                        "diagnostics": diagnostics,
+                        "status": status
+                    }
                     yield {"event": "progress", "data": {"current": idx+1, "total": total, "percent": int(100*(idx+1)/total), "preview": preview}}
                     continue
-                if not isinstance(card_id, (str, int)):
-                    # handle error, skip, or raise
-                    continue
-
                 quantity = int(row.get("Quantity", 1))
                 condition = row.get("Condition", "Near Mint")
                 print(f"[progress-upload] Upserting user_card: card_id={card_id}, quantity={quantity}", file=sys.stderr)
@@ -1110,9 +1127,18 @@ async def upload_collection_progress(
                 print(f"[progress-upload] Linking user_card_id {user_card_id} to collection_id {collection_id}", file=sys.stderr)
                 await link_collection_card(collection_id, user_card_id)
 
-                preview = {"name": name_val, "set_code": set_code, "idx": idx, "total": total}
+                preview = {
+                    "name": name_val,
+                    "set_code": set_code,
+                    "collector_number": collector_number,
+                    "idx": idx,
+                    "total": total,
+                    "card_id": card_id,
+                    "status": status,
+                    "diagnostics": diagnostics
+                }
                 yield {"event": "progress", "data": {"current": idx+1, "total": total, "percent": int(100*(idx+1)/total), "preview": preview}}
-                enriched_cards.append({"user_card_id": user_card_id, "card_id": card_id, "name": name_val, "set_code": set_code, "quantity": quantity})
+                enriched_cards.append({"user_card_id": user_card_id, "card_id": card_id, "name": name_val, "set_code": set_code, "collector_number": collector_number, "quantity": quantity})
 
             print("[progress-upload] Done processing all rows. Sending final event.", file=sys.stderr)
             yield {"event": "done", "data": {"collection": enriched_cards, "total": total, "collection_id": collection_id}}

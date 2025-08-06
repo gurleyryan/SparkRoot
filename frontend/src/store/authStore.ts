@@ -367,8 +367,21 @@ export const useAuthStore = create<AuthState>()(
         // Replace <project_ref> with your actual Supabase project ref
         const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split(".supabase.co")[0]?.split("https://")[1] || "";
         const cookieName = `sb-${projectRef}-auth-token`;
+        const cookies = document.cookie.split('; ');
         if (cookieName) {
-          Cookies.remove(cookieName);
+          const cookie = cookies.find(c => c.startsWith(cookieName + '='));
+          if (cookie) {
+            try {
+              const value = decodeURIComponent(cookie.split('=')[1]);
+              // Supabase stores a JSON string with access_token inside
+              const parsed = JSON.parse(value);
+              if (parsed && parsed.access_token) {
+                set({ accessToken: parsed.access_token });
+              }
+            } catch {
+              // Ignore parse errors
+            }
+          }
         }
       },
 
